@@ -1,0 +1,20 @@
+{
+  "name": "ash-order-clean",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@tonconnect/ui": "^2.1.0",
+    "@twa-dev/sdk": "^8.0.2",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^7.5.0"
+  },
+  "devDependencies": {
+    "vite": "^6.2.0"
+  }
+}
