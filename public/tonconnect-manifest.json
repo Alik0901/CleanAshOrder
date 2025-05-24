@@ -1,0 +1,10 @@
+{
+  "manifest_version": 1,
+  "name": "Order of Ash",
+  "url": "https://ash-order.vercel.app",
+  "icon_url": "https://ash-order.vercel.app/icon.webp",
+  "bridge": {
+    "type": "external",
+    "url": "https://bridge.tonapi.io/bridge"
+  }
+}
