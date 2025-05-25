@@ -20,7 +20,7 @@ export default function Welcome() {
 
         {!showScroll ? (
           <>
-            <button style={styles.button} onClick={() => navigate('/path')}>
+            <button style={styles.button} onClick={() => navigate('/init')}>
               🜂 Enter the Order
             </button>
             <button style={styles.secondary} onClick={handleShowScroll}>
