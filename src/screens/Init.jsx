@@ -48,6 +48,9 @@ export default function Init() {
       <div style={styles.overlay} />
       <div style={styles.card}>
         <h1 style={styles.title}>Enter the Ash</h1>
+        <p style={{ fontSize: 12, color: '#888' }}>
+  Telegram ID: {tgId || 'not found'}
+</p>
         <input
           type="text"
           placeholder="Your Name"
