@@ -13,18 +13,20 @@ export default function Profile() {
 
   return (
     <div style={styles.container}>
-      <div style={styles.header}>
+      <div style={styles.card}>
         <img src="/avatar.webp" alt="Avatar" style={styles.avatar} />
-        <h1 style={styles.name}>Ash Seeker</h1>
-        <p style={styles.title}>Fragments</p>
-      </div>
+        <h2 style={styles.name}>Ash Seeker</h2>
+        <p style={styles.progress}>Fragments: 3 / 7</p>
 
-      <div style={styles.grid}>
-        {fragments.map((src, index) => (
-          <div key={index} style={styles.fragmentWrapper}>
-            <img src={src} alt={`Fragment ${index + 1}`} style={styles.fragment} />
-          </div>
-        ))}
+        <div style={styles.grid}>
+          {fragments.map((src, index) => (
+            <div key={index} style={styles.fragmentWrapper}>
+              <img src={src} alt={`Fragment ${index + 1}`} style={styles.fragment} />
+            </div>
+          ))}
+        </div>
+
+        <button style={styles.button}>🔥 Burn Again</button>
       </div>
     </div>
   );
@@ -33,53 +35,67 @@ export default function Profile() {
 const styles = {
   container: {
     minHeight: '100vh',
-    backgroundImage: 'url("/profile-bg.webp")',
+    backgroundImage: 'url("/public/profile-bg.webp")',
     backgroundSize: 'cover',
     backgroundPosition: 'center',
-    padding: '40px 20px',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
     fontFamily: 'serif',
     color: '#d4af37',
-    textAlign: 'center',
   },
-  header: {
-    marginBottom: '40px',
+  card: {
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    padding: 20,
+    borderRadius: 16,
+    maxWidth: 360,
+    width: '100%',
+    textAlign: 'center',
+    boxShadow: '0 0 20px rgba(0, 0, 0, 0.7)',
   },
   avatar: {
-    width: 100,
-    height: 100,
+    width: 80,
+    height: 80,
     borderRadius: '50%',
+    border: '3px solid #d4af37',
+    marginBottom: 10,
     objectFit: 'cover',
-    border: '4px solid #d4af37',
-    marginBottom: 16,
   },
   name: {
-    fontSize: '28px',
     margin: 0,
+    fontSize: 24,
   },
-  title: {
-    fontSize: '20px',
-    marginTop: 4,
-    marginBottom: 16,
+  progress: {
+    margin: '8px 0 16px',
+    fontSize: 14,
     opacity: 0.8,
   },
   grid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(3, 1fr)',
-    gap: '16px',
-    justifyItems: 'center',
-    maxWidth: 360,
-    margin: '0 auto',
+    gap: 8,
+    marginBottom: 20,
   },
   fragmentWrapper: {
-    width: 100,
-    height: 140,
+    width: '100%',
+    aspectRatio: '3/4',
     border: '1px solid #d4af37',
-    padding: 4,
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    padding: 2,
   },
   fragment: {
     width: '100%',
     height: '100%',
     objectFit: 'cover',
+  },
+  button: {
+    padding: '10px 20px',
+    backgroundColor: '#d4af37',
+    color: '#000',
+    border: 'none',
+    fontSize: 16,
+    cursor: 'pointer',
+    borderRadius: 4,
   },
 };
