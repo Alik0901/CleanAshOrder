@@ -1,0 +1,18 @@
+# Node dependencies
+node_modules/
+
+# Vite output
+dist/
+
+# Logs
+*.log
+
+# System
+.DS_Store
+
+# Environment variables
+.env
+.env.local
+
+# Lock file (если ты не используешь yarn)
+yarn.lock
