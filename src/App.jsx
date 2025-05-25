@@ -3,6 +3,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Welcome from './screens/Welcome';
 import Init from './screens/Init';
+import Path from './screens/Path';
 
 export default function App() {
   return (
@@ -10,6 +11,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Welcome />} />
         <Route path="/init" element={<Init />} />
+        <Route path="/path" element={<Path />} />
       </Routes>
     </BrowserRouter>
   );

@@ -1,79 +1,43 @@
-import { useEffect, useState } from 'react';
-import { TonConnectUIProvider, TonConnectButton, useTonConnectUI } from '@tonconnect/ui-react';
+import { useState } from 'react';
 
 export default function Path() {
   const [log, setLog] = useState([]);
   const [address, setAddress] = useState('');
-  const [tonConnectUi] = useTonConnectUI();
 
   const addLog = (msg, type = 'debug') => {
     const icon = type === 'error' ? '🟥' : '🟩';
     setLog((prev) => [...prev, `${icon} ${msg}`]);
   };
 
-  const sendBurnTx = async () => {
-    try {
-      addLog('Preparing transaction...');
-      const tx = {
-        validUntil: Math.floor(Date.now() / 1000) + 60,
-        messages: [
-          {
-            address: 'EQDxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', // TODO: заменить на адрес твоего смарт-контракта
-            amount: (1 * 10 ** 9).toString(), // 1 TON в нанотонах
-          },
-        ],
-      };
-
-      await tonConnectUi.sendTransaction(tx);
-      addLog('🔥 Transaction sent!');
-    } catch (err) {
-      addLog(`Transaction error: ${err.message}`, 'error');
-    }
+  const handleBurn = () => {
+    addLog('🔥 You chose to burn (not implemented yet)');
   };
 
-  useEffect(() => {
-    if (window.Telegram?.WebApp) {
-      Telegram.WebApp.expand();
-      addLog('✅ Telegram WebApp detected');
-    } else {
-      addLog('❌ Not inside Telegram WebApp', 'error');
-    }
-
-    tonConnectUi.setConnectRequestParameters({ state: 'path' });
-
-    tonConnectUi.onStatusChange((walletInfo) => {
-      if (walletInfo?.account?.address) {
-        setAddress(walletInfo.account.address);
-        addLog(`🔗 Connected: ${walletInfo.account.address}`);
-      }
-    });
-  }, []);
-
   return (
-    <TonConnectUIProvider manifestUrl="/tonconnect-manifest.json">
-      <div style={styles.container}>
-        <div style={styles.overlay} />
-        <div style={styles.content}>
-          <h2 style={styles.title}>The Path Begins</h2>
-          <p style={styles.subtitle}>You have taken the first step.</p>
+    <div style={styles.container}>
+      <div style={styles.overlay} />
+      <div style={styles.content}>
+        <h2 style={styles.title}>The Path Begins</h2>
+        <p style={styles.subtitle}>You have taken the first step.</p>
 
-          {address && <p style={styles.addr}>🜂 {address}</p>}
+        {address ? (
+          <p style={styles.addr}>🜂 {address}</p>
+        ) : (
+          <p style={styles.subconnecting}>Wallet not connected</p>
+        )}
 
-          <TonConnectButton />
+        <button style={styles.button} onClick={handleBurn}>
+          🔥 Burn Yourself
+        </button>
 
-          <button style={styles.button} onClick={sendBurnTx}>
-            🔥 Burn Yourself for 1 TON
-          </button>
-
-          <div style={styles.logBox}>
-            <p style={{ fontWeight: 'bold' }}>Logs:</p>
-            {log.map((line, idx) => (
-              <p key={idx} style={{ fontSize: 12, margin: 0 }}>{line}</p>
-            ))}
-          </div>
+        <div style={styles.logBox}>
+          <p style={{ fontWeight: 'bold' }}>Logs:</p>
+          {log.map((line, idx) => (
+            <p key={idx} style={{ fontSize: 12, margin: 0 }}>{line}</p>
+          ))}
         </div>
       </div>
-    </TonConnectUIProvider>
+    </div>
   );
 }
 
@@ -105,7 +69,7 @@ const styles = {
     justifyContent: 'center',
     alignItems: 'center',
     textAlign: 'center',
-    padding: '0 20px',
+    padding: '20px',
     boxSizing: 'border-box',
   },
   title: {
@@ -120,6 +84,11 @@ const styles = {
   addr: {
     fontSize: '15px',
     marginBottom: 12,
+  },
+  subconnecting: {
+    fontSize: '15px',
+    marginBottom: 12,
+    opacity: 0.7,
   },
   button: {
     padding: '10px 24px',
