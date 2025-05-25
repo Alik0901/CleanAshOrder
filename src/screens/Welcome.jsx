@@ -38,6 +38,9 @@ export default function Welcome() {
               When the time comes, one will rise — <br />
               and from ashes, something eternal shall form.
             </p>
+            <button style={styles.secondary} onClick={() => setShowScroll(false)}>
+              ⬅ Back
+            </button>
           </div>
         )}
       </div>
@@ -73,7 +76,7 @@ const styles = {
     justifyContent: 'center',
     alignItems: 'center',
     textAlign: 'center',
-    padding: '0 20px',
+    padding: '20px',
     boxSizing: 'border-box',
   },
   title: {
@@ -101,6 +104,7 @@ const styles = {
     color: '#d4af37',
     fontSize: '14px',
     cursor: 'pointer',
+    marginBottom: 10,
   },
   scrollBox: {
     maxWidth: 400,
@@ -112,5 +116,6 @@ const styles = {
     fontSize: '14px',
     lineHeight: 1.6,
     color: '#f5f5dc',
+    marginBottom: 16,
   },
 };
