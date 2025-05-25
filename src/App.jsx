@@ -1,15 +1,13 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Welcome from './screens/Welcome';
-import Path from './screens/Path';
 
 function App() {
   return (
-    <Router>
+    <BrowserRouter>
       <Routes>
         <Route path="/" element={<Welcome />} />
-        <Route path="/path" element={<Path />} />
       </Routes>
-    </Router>
+    </BrowserRouter>
   );
 }
 
