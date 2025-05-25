@@ -1,21 +1,71 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 export default function Init() {
+  const [tgId, setTgId] = useState('');
+  const [name, setName] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
+  // Получение Telegram ID
+  useEffect(() => {
+    const tg = window.Telegram?.WebApp;
+    const user = tg?.initDataUnsafe?.user;
+    if (user?.id) {
+      setTgId(user.id.toString());
+    } else {
+      console.warn('Telegram ID not found');
+    }
+  }, []);
+
+  const handleSubmit = async () => {
+    if (!tgId || !name.trim()) return;
+
+    setLoading(true);
+    try {
+      const res = await fetch('/api/init', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tg_id: tgId, name: name.trim() }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        // Перейти на следующий экран (например, /path)
+        navigate('/path');
+      } else {
+        alert(data.error || 'Something went wrong');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Network error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div style={styles.container}>
+    <div style={styles.page}>
       <div style={styles.overlay} />
-      <div style={styles.content}>
-        <h1 style={styles.title}>The First Flame</h1>
-        <p style={styles.subtitle}>Only ash remains after you step forward.</p>
-
-        <button style={styles.button} onClick={() => navigate('/path')}>
-          Begin the Path
-        </button>
-
-        <button style={styles.backButton} onClick={() => navigate('/')}>
-          ← Back
+      <div style={styles.card}>
+        <h1 style={styles.title}>Enter the Ash</h1>
+        <input
+          type="text"
+          placeholder="Your Name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          style={styles.input}
+        />
+        <button
+          onClick={handleSubmit}
+          disabled={!name.trim() || loading}
+          style={{
+            ...styles.button,
+            opacity: name.trim() ? 1 : 0.5,
+            cursor: name.trim() ? 'pointer' : 'default',
+          }}
+        >
+          {loading ? 'Entering...' : 'Enter the Ash'}
         </button>
       </div>
     </div>
@@ -23,58 +73,52 @@ export default function Init() {
 }
 
 const styles = {
-  container: {
+  page: {
     position: 'relative',
-    height: '100vh',
-    width: '100%',
+    height: '100dvh',
     backgroundImage: 'url("/bg-init.webp")',
     backgroundSize: 'cover',
     backgroundPosition: 'center',
-    overflow: 'hidden',
     fontFamily: 'serif',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   overlay: {
     position: 'absolute',
     inset: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     zIndex: 1,
   },
-  content: {
+  card: {
     position: 'relative',
     zIndex: 2,
-    color: '#ffcc66',
-    height: '100%',
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'center',
-    alignItems: 'center',
+    padding: 24,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    borderRadius: 12,
     textAlign: 'center',
-    padding: '0 20px',
+    width: 300,
   },
   title: {
-    fontSize: '28px',
-    marginBottom: 10,
+    color: '#d4af37',
+    fontSize: 24,
+    marginBottom: 16,
   },
-  subtitle: {
-    fontSize: '16px',
-    opacity: 0.85,
-    marginBottom: 20,
+  input: {
+    width: '100%',
+    padding: '10px 12px',
+    marginBottom: 16,
+    fontSize: 16,
+    borderRadius: 4,
+    border: '1px solid #ccc',
   },
   button: {
-    padding: '10px 20px',
-    backgroundColor: '#ffcc66',
-    color: '#000',
+    width: '100%',
+    padding: '10px',
+    fontSize: 16,
+    borderRadius: 4,
     border: 'none',
-    fontSize: '16px',
-    cursor: 'pointer',
-    marginBottom: '20px',
-  },
-  backButton: {
-    background: 'transparent',
-    border: '1px solid #ffcc66',
-    color: '#ffcc66',
-    padding: '8px 16px',
-    fontSize: '14px',
-    cursor: 'pointer',
+    backgroundColor: '#d4af37',
+    color: '#000',
   },
 };
