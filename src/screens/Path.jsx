@@ -1,4 +1,8 @@
+import { useNavigate } from 'react-router-dom';
+
 export default function Path() {
+  const navigate = useNavigate();
+
   const handlePayment = () => {
     const tonLink = `https://app.tonkeeper.com/transfer/UQAXEa2djA28bnSbhgid_2j7rtzdPcAcCZ8kDPFF9Lf1noZV?amount=1000000000&text=Burn%20yourself%20in%20Ash`;
 
@@ -18,6 +22,10 @@ export default function Path() {
 
         <button style={styles.button} onClick={handlePayment}>
           🔥 Burn Yourself for 1 TON
+        </button>
+
+        <button style={styles.secondary} onClick={() => navigate('/me')}>
+          📜 View Your Ashes
         </button>
       </div>
     </div>
@@ -71,6 +79,14 @@ const styles = {
     border: 'none',
     fontSize: '16px',
     cursor: 'pointer',
-    marginTop: '10px',
+    marginBottom: 16,
+  },
+  secondary: {
+    padding: '8px 20px',
+    background: 'transparent',
+    color: '#d4af37',
+    border: '1px solid #d4af37',
+    fontSize: '14px',
+    cursor: 'pointer',
   },
 };
