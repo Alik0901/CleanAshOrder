@@ -1,43 +1,56 @@
-import React from 'react';
+import { useState } from 'react';
 
 export default function Profile() {
-  const avatarUrl = '/avatar.webp'; // временное изображение аватара
-  const fragmentImages = [
-    '/frag1.webp',
-    '/frag2.webp',
-    '/frag3.webp',
-    '/frag4.webp',
-    '/frag5.webp',
-    '/frag6.webp',
-    '/frag7.webp',
-  ];
+  const name = 'Ash Seeker';
+  const totalUsers = 134587;
+
+  // Пример: 3 полученных фрагмента
+  const collectedFragments = [1, 2, 3]; // можно менять для теста
+
+  const fragmentImages = {
+    1: '/frag1.webp',
+    2: '/frag2.webp',
+    3: '/frag3.webp',
+    4: '/frag4.webp',
+    5: '/frag5.webp',
+    6: '/frag6.webp',
+    7: '/frag7.webp',
+  };
 
   return (
     <div style={styles.container}>
       <div style={styles.overlay} />
-
       <div style={styles.card}>
-        <img src={avatarUrl} alt="Avatar" style={styles.avatar} />
-        <h2 style={styles.title}>Ash Seeker</h2>
-        <p style={styles.subtitle}>Fragments: 3 / 7</p>
+        <img src="/avatar.webp" alt="Avatar" style={styles.avatar} />
+        <h2 style={styles.title}>{name}</h2>
+        <p style={styles.subtitle}>Fragments: {collectedFragments.length} / 7</p>
 
         <div style={styles.gridTop}>
-          {fragmentImages.slice(0, 4).map((src, i) => (
-            <div key={i} style={styles.fragment}>
-              <img src={src} alt={`Fragment ${i + 1}`} style={styles.fragmentImage} />
+          {[1, 2, 3, 4].map((id) => (
+            <div key={id} style={styles.fragment}>
+              {collectedFragments.includes(id) ? (
+                <img src={fragmentImages[id]} alt={`Fragment ${id}`} style={styles.fragmentImage} />
+              ) : (
+                <div style={styles.placeholder} />
+              )}
             </div>
           ))}
         </div>
 
         <div style={styles.gridBottom}>
-          {fragmentImages.slice(4, 7).map((src, i) => (
-            <div key={i + 4} style={styles.fragment}>
-              <img src={src} alt={`Fragment ${i + 5}`} style={styles.fragmentImage} />
+          {[5, 6, 7].map((id) => (
+            <div key={id} style={styles.fragment}>
+              {collectedFragments.includes(id) ? (
+                <img src={fragmentImages[id]} alt={`Fragment ${id}`} style={styles.fragmentImage} />
+              ) : (
+                <div style={styles.placeholder} />
+              )}
             </div>
           ))}
         </div>
 
-        <p style={styles.counter}>Ash Seekers: 134587</p>
+        <p style={styles.counter}><em>Ash Seekers: {totalUsers}</em></p>
+
         <button style={styles.burnButton}>🔥 Burn Again</button>
       </div>
     </div>
@@ -95,8 +108,7 @@ const styles = {
     marginBottom: 8,
   },
   gridBottom: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(3, 1fr)',
+    display: 'flex',
     justifyContent: 'center',
     gap: 6,
     marginBottom: 16,
@@ -115,6 +127,11 @@ const styles = {
     width: '100%',
     height: '100%',
     objectFit: 'cover',
+  },
+  placeholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'rgba(255,255,255,0.05)',
   },
   counter: {
     fontSize: 14,
