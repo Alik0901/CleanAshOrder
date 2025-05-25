@@ -1,33 +1,43 @@
 import React from 'react';
 
 export default function Profile() {
-  const fragments = [1, 2, 3, 4, 5, 6, 7]; // Заглушка
+  const avatarUrl = '/avatar.webp'; // временное изображение аватара
+  const fragmentImages = [
+    '/frag1.webp',
+    '/frag2.webp',
+    '/frag3.webp',
+    '/frag4.webp',
+    '/frag5.webp',
+    '/frag6.webp',
+    '/frag7.webp',
+  ];
 
   return (
     <div style={styles.container}>
       <div style={styles.overlay} />
-      <div style={styles.content}>
-        <img src="/avatar.webp" alt="Avatar" style={styles.avatar} />
-        <h2 style={styles.title}>Ash Seeker</h2>
-        <p style={styles.subtitle}>Fragments: {fragments.length} / 7</p>
 
-        <div style={styles.fragmentsGrid}>
-          <div style={styles.row}>
-            {fragments.slice(0, 4).map((id) => (
-              <div key={id} style={styles.fragmentBox}>
-                <img src={`/fragments/fragment${id}.webp`} alt={`Fragment ${id}`} style={styles.image} />
-              </div>
-            ))}
-          </div>
-          <div style={styles.rowCenter}>
-            {fragments.slice(4, 7).map((id) => (
-              <div key={id} style={styles.fragmentBox}>
-                <img src={`/fragments/fragment${id}.webp`} alt={`Fragment ${id}`} style={styles.image} />
-              </div>
-            ))}
-          </div>
+      <div style={styles.card}>
+        <img src={avatarUrl} alt="Avatar" style={styles.avatar} />
+        <h2 style={styles.title}>Ash Seeker</h2>
+        <p style={styles.subtitle}>Fragments: 3 / 7</p>
+
+        <div style={styles.gridTop}>
+          {fragmentImages.slice(0, 4).map((src, i) => (
+            <div key={i} style={styles.fragment}>
+              <img src={src} alt={`Fragment ${i + 1}`} style={styles.fragmentImage} />
+            </div>
+          ))}
         </div>
 
+        <div style={styles.gridBottom}>
+          {fragmentImages.slice(4, 7).map((src, i) => (
+            <div key={i + 4} style={styles.fragment}>
+              <img src={src} alt={`Fragment ${i + 5}`} style={styles.fragmentImage} />
+            </div>
+          ))}
+        </div>
+
+        <p style={styles.counter}>Ash Seekers: 134587</p>
         <button style={styles.burnButton}>🔥 Burn Again</button>
       </div>
     </div>
@@ -37,84 +47,88 @@ export default function Profile() {
 const styles = {
   container: {
     position: 'relative',
-    width: '100%',
     height: '100vh',
-    backgroundImage: 'url("/ledger_bg.webp")',
+    backgroundImage: 'url("/bg-profile.webp")',
     backgroundSize: 'cover',
     backgroundPosition: 'center',
-    overflow: 'hidden',
     fontFamily: 'serif',
+    color: '#d4af37',
   },
   overlay: {
     position: 'absolute',
     inset: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     zIndex: 1,
   },
-  content: {
+  card: {
     position: 'relative',
     zIndex: 2,
-    height: '100%',
-    color: '#d4af37',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
+    maxWidth: 360,
+    margin: '0 auto',
     padding: 20,
-    boxSizing: 'border-box',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    borderRadius: 12,
+    top: '50%',
+    transform: 'translateY(-50%)',
+    textAlign: 'center',
   },
   avatar: {
-    width: 80,
-    height: 80,
+    width: 72,
+    height: 72,
     borderRadius: '50%',
-    objectFit: 'cover',
     marginBottom: 10,
     border: '2px solid #d4af37',
   },
   title: {
     fontSize: 24,
-    marginBottom: 4,
+    margin: '10px 0 4px',
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 14,
     marginBottom: 20,
+    opacity: 0.85,
   },
-  fragmentsGrid: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 12,
-    marginBottom: 20,
+  gridTop: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(4, 1fr)',
+    gap: 6,
+    marginBottom: 8,
   },
-  row: {
-    display: 'flex',
+  gridBottom: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, 1fr)',
     justifyContent: 'center',
-    gap: 12,
+    gap: 6,
+    marginBottom: 16,
   },
-  rowCenter: {
-    display: 'flex',
-    justifyContent: 'center',
-    gap: 12,
-  },
-  fragmentBox: {
-    width: 70,
-    height: 100,
+  fragment: {
+    width: 60,
+    height: 60,
+    backgroundColor: '#111',
     border: '1px solid #d4af37',
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    borderRadius: 4,
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  image: {
+  fragmentImage: {
     width: '100%',
     height: '100%',
     objectFit: 'cover',
   },
+  counter: {
+    fontSize: 14,
+    color: '#ccc',
+    marginBottom: 16,
+    fontStyle: 'italic',
+  },
   burnButton: {
-    marginTop: 'auto',
-    padding: '10px 20px',
     backgroundColor: '#d4af37',
-    border: 'none',
-    fontSize: 16,
-    cursor: 'pointer',
     color: '#000',
+    border: 'none',
+    padding: '10px 20px',
+    fontSize: 14,
+    cursor: 'pointer',
+    borderRadius: 4,
   },
 };
