@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { API_URL } from '../config';
 
 export default function Init() {
   const [tgId, setTgId] = useState('');
@@ -7,7 +8,6 @@ export default function Init() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  // Получение Telegram ID
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
     const user = tg?.initDataUnsafe?.user;
@@ -23,7 +23,7 @@ export default function Init() {
 
     setLoading(true);
     try {
-      const res = await fetch('/api/init', {
+      const res = await fetch(`${API_URL}/api/init`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tg_id: tgId, name: name.trim() }),
@@ -31,7 +31,6 @@ export default function Init() {
 
       const data = await res.json();
       if (res.ok) {
-        // Перейти на следующий экран (например, /path)
         navigate('/path');
       } else {
         alert(data.error || 'Something went wrong');
