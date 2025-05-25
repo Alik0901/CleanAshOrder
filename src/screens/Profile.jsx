@@ -18,39 +18,42 @@ export default function Profile() {
   };
 
   return (
-    <div style={styles.container}>
+    <div style={styles.page}>
       <div style={styles.overlay} />
       <div style={styles.card}>
         <img src="/avatar.webp" alt="Avatar" style={styles.avatar} />
         <h2 style={styles.title}>{name}</h2>
         <p style={styles.subtitle}>Fragments: {collectedFragments.length} / 7</p>
 
-        <div style={styles.gridTop}>
-          {[1, 2, 3, 4].map((id) => (
-            <div key={id} style={styles.fragment}>
-              {collectedFragments.includes(id) ? (
-                <img src={fragmentImages[id]} alt={`Fragment ${id}`} style={styles.fragmentImage} />
-              ) : (
-                <div style={styles.placeholder} />
-              )}
+        <div style={styles.fragmentsWrapper}>
+          <div style={styles.gridTop}>
+            {[1, 2, 3, 4].map((id) => (
+              <div key={id} style={styles.fragment}>
+                {collectedFragments.includes(id) ? (
+                  <img src={fragmentImages[id]} alt={`Fragment ${id}`} style={styles.fragmentImage} />
+                ) : (
+                  <div style={styles.placeholder} />
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div style={styles.gridBottomWrapper}>
+            <div style={styles.gridBottom}>
+              {[5, 6, 7].map((id) => (
+                <div key={id} style={styles.fragment}>
+                  {collectedFragments.includes(id) ? (
+                    <img src={fragmentImages[id]} alt={`Fragment ${id}`} style={styles.fragmentImage} />
+                  ) : (
+                    <div style={styles.placeholder} />
+                  )}
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
         </div>
 
-        <div style={styles.gridBottom}>
-          {[5, 6, 7].map((id) => (
-            <div key={id} style={styles.fragment}>
-              {collectedFragments.includes(id) ? (
-                <img src={fragmentImages[id]} alt={`Fragment ${id}`} style={styles.fragmentImage} />
-              ) : (
-                <div style={styles.placeholder} />
-              )}
-            </div>
-          ))}
-        </div>
-
-        <p style={styles.counter}><em>Ash Seekers: {totalUsers}</em></p>
-
+        <p style={styles.counter}><em>Ash Seekers: {totalUsers.toLocaleString()}</em></p>
         <button style={styles.burnButton}>🔥 Burn Again</button>
       </div>
     </div>
@@ -58,14 +61,17 @@ export default function Profile() {
 }
 
 const styles = {
-  container: {
+  page: {
     position: 'relative',
-    height: '100vh',
+    minHeight: '100dvh',
     backgroundImage: 'url("/bg-profile.webp")',
     backgroundSize: 'cover',
     backgroundPosition: 'center',
     fontFamily: 'serif',
     color: '#d4af37',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   overlay: {
     position: 'absolute',
@@ -77,12 +83,10 @@ const styles = {
     position: 'relative',
     zIndex: 2,
     maxWidth: 360,
-    margin: '0 auto',
+    width: '100%',
     padding: 20,
     backgroundColor: 'rgba(0,0,0,0.4)',
     borderRadius: 12,
-    top: '50%',
-    transform: 'translateY(-50%)',
     textAlign: 'center',
   },
   avatar: {
@@ -101,17 +105,27 @@ const styles = {
     marginBottom: 20,
     opacity: 0.85,
   },
+  fragmentsWrapper: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 10,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
   gridTop: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(4, 1fr)',
+    gridTemplateColumns: 'repeat(4, 60px)',
     gap: 6,
-    marginBottom: 8,
   },
-  gridBottom: {
+  gridBottomWrapper: {
     display: 'flex',
     justifyContent: 'center',
+    width: '100%',
+  },
+  gridBottom: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, 60px)',
     gap: 6,
-    marginBottom: 16,
   },
   fragment: {
     width: 60,
