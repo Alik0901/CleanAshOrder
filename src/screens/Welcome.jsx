@@ -50,7 +50,7 @@ const styles = {
     position: 'relative',
     height: '100vh',
     width: '100%',
-    backgroundImage: 'url("/bg-path.webp")',
+    backgroundImage: 'url("/bg-welcome.webp")',
     backgroundSize: 'cover',
     backgroundPosition: 'center',
     overflow: 'hidden',
