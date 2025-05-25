@@ -24,7 +24,7 @@ export default function Path() {
           🔥 Burn Yourself for 1 TON
         </button>
 
-        <button style={styles.secondary} onClick={() => navigate('/me')}>
+        <button style={styles.secondary} onClick={() => navigate('/profile')}>
           📜 View Your Ashes
         </button>
       </div>
