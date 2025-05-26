@@ -18,6 +18,11 @@ export default function Init() {
     const tg = window.Telegram?.WebApp;
     const user = tg?.initDataUnsafe?.user;
 
+    console.log('Telegram:', window.Telegram);
+    console.log('WebApp:', tg);
+    console.log('initData:', tg?.initData);
+    console.log('initDataUnsafe:', tg?.initDataUnsafe);
+
     setDebugInfo({
       webAppFound: Boolean(tg),
       initData: tg?.initData || 'n/a',
