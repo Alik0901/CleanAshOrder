@@ -1,33 +1,38 @@
+// src/screens/Init.jsx
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { API_URL } from '../config';
 
 export default function Init() {
   const [tgId, setTgId] = useState('');
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
-  const [webAppStatus, setWebAppStatus] = useState('UNKNOWN');
-  const [initData, setInitData] = useState('n/a');
-  const [initDataUnsafe, setInitDataUnsafe] = useState('n/a');
+  const [debug, setDebug] = useState({});
 
   const navigate = useNavigate();
 
   useEffect(() => {
-    const tg = window.Telegram?.WebApp;
+    const tg = window.Telegram;
+    const wa = tg?.WebApp;
+    const unsafe = wa?.initDataUnsafe;
 
-    if (tg) {
-      setWebAppStatus('FOUND');
-      setInitData(tg.initData || 'empty');
-      setInitDataUnsafe(JSON.stringify(tg.initDataUnsafe || 'empty'));
-
-      if (tg.initDataUnsafe?.user?.id) {
-        setTgId(tg.initDataUnsafe.user.id.toString());
-      } else {
-        setTgId('NOT FOUND');
-      }
-    } else {
-      setWebAppStatus('NOT FOUND');
-      setTgId('NOT FOUND');
+    const extractedId = unsafe?.user?.id?.toString();
+    if (extractedId) {
+      setTgId(extractedId);
     }
+
+    setDebug({
+      tg: !!tg,
+      wa: !!wa,
+      userId: extractedId || 'NOT FOUND',
+      initData: wa?.initData || 'n/a',
+      initDataUnsafe: unsafe || 'n/a'
+    });
+
+    console.log('Telegram:', tg);
+    console.log('WebApp:', wa);
+    console.log('initData:', wa?.initData);
+    console.log('initDataUnsafe:', unsafe);
   }, []);
 
   const handleSubmit = async () => {
@@ -35,7 +40,7 @@ export default function Init() {
 
     setLoading(true);
     try {
-      const res = await fetch('/api/init', {
+      const res = await fetch(`${API_URL}/api/init`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tg_id: tgId, name: name.trim() }),
@@ -60,10 +65,10 @@ export default function Init() {
       <div style={styles.overlay} />
       <div style={styles.card}>
         <h1 style={styles.title}>Enter the Ash</h1>
-        <p style={styles.debug}>Telegram ID: {tgId}</p>
-        <p style={styles.debug}>WebApp: {webAppStatus}</p>
-        <p style={styles.debug}>InitData: {initData}</p>
-        <p style={styles.debug}>InitDataUnsafe: {initDataUnsafe}</p>
+        <p style={styles.debugText}>Telegram ID: {debug.userId}</p>
+        <p style={styles.debugText}>WebApp: {debug.wa ? 'FOUND' : 'NOT FOUND'}</p>
+        <p style={styles.debugText}>InitData: {debug.initData}</p>
+        <p style={styles.debugText}>InitDataUnsafe: {typeof debug.initDataUnsafe === 'object' ? JSON.stringify(debug.initDataUnsafe) : debug.initDataUnsafe}</p>
 
         <input
           type="text"
@@ -72,6 +77,7 @@ export default function Init() {
           onChange={(e) => setName(e.target.value)}
           style={styles.input}
         />
+
         <button
           onClick={handleSubmit}
           disabled={!name.trim() || loading}
@@ -118,18 +124,17 @@ const styles = {
   },
   title: {
     fontSize: 24,
-    marginBottom: 12,
+    marginBottom: 8,
   },
-  debug: {
+  debugText: {
     fontSize: 12,
-    color: '#aaa',
-    margin: '2px 0',
-    wordBreak: 'break-word',
+    color: '#ccc',
+    marginBottom: 2,
   },
   input: {
     width: '100%',
     padding: '10px 12px',
-    margin: '12px 0',
+    margin: '16px 0',
     fontSize: 16,
     borderRadius: 4,
     border: '1px solid #ccc',
