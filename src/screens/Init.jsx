@@ -12,26 +12,26 @@ export default function Init() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const tg = window.Telegram;
-    const wa = tg?.WebApp;
-    const unsafe = wa?.initDataUnsafe;
+    const tg = window.Telegram?.WebApp;
+    const unsafe = tg?.initDataUnsafe;
+    const user = unsafe?.user;
 
-    const extractedId = unsafe?.user?.id?.toString();
+    const extractedId = user?.id?.toString();
     if (extractedId) {
       setTgId(extractedId);
     }
 
     setDebug({
-      tg: !!tg,
-      wa: !!wa,
+      Telegram: !!window.Telegram,
+      WebApp: !!tg,
       userId: extractedId || 'NOT FOUND',
-      initData: wa?.initData || 'n/a',
-      initDataUnsafe: unsafe || 'n/a'
+      initData: tg?.initData || 'n/a',
+      initDataUnsafe: unsafe || 'n/a',
     });
 
-    console.log('Telegram:', tg);
-    console.log('WebApp:', wa);
-    console.log('initData:', wa?.initData);
+    console.log('Telegram:', window.Telegram);
+    console.log('WebApp:', tg);
+    console.log('initData:', tg?.initData);
     console.log('initDataUnsafe:', unsafe);
   }, []);
 
@@ -66,9 +66,14 @@ export default function Init() {
       <div style={styles.card}>
         <h1 style={styles.title}>Enter the Ash</h1>
         <p style={styles.debugText}>Telegram ID: {debug.userId}</p>
-        <p style={styles.debugText}>WebApp: {debug.wa ? 'FOUND' : 'NOT FOUND'}</p>
+        <p style={styles.debugText}>WebApp: {debug.WebApp ? 'FOUND' : 'NOT FOUND'}</p>
         <p style={styles.debugText}>InitData: {debug.initData}</p>
-        <p style={styles.debugText}>InitDataUnsafe: {typeof debug.initDataUnsafe === 'object' ? JSON.stringify(debug.initDataUnsafe) : debug.initDataUnsafe}</p>
+        <p style={styles.debugText}>
+          InitDataUnsafe:{' '}
+          {typeof debug.initDataUnsafe === 'object'
+            ? JSON.stringify(debug.initDataUnsafe)
+            : debug.initDataUnsafe}
+        </p>
 
         <input
           type="text"
@@ -77,7 +82,6 @@ export default function Init() {
           onChange={(e) => setName(e.target.value)}
           style={styles.input}
         />
-
         <button
           onClick={handleSubmit}
           disabled={!name.trim() || loading}
