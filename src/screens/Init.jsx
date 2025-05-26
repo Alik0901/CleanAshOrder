@@ -8,13 +8,26 @@ export default function Init() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
+  // 🔍 Проверка Telegram initData
+  const [debugInfo, setDebugInfo] = useState({
+    webAppFound: false,
+    initData: 'n/a',
+  });
+
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
     const user = tg?.initDataUnsafe?.user;
+
+    setDebugInfo({
+      webAppFound: Boolean(tg),
+      initData: tg?.initData || 'n/a',
+    });
+
     if (user?.id) {
       setTgId(user.id.toString());
     } else {
-      console.warn('Telegram ID not found');
+      console.warn('Telegram ID not found — fallback in use');
+      setTgId('debug-user-123'); // fallback
     }
   }, []);
 
@@ -48,9 +61,18 @@ export default function Init() {
       <div style={styles.overlay} />
       <div style={styles.card}>
         <h1 style={styles.title}>Enter the Ash</h1>
-        <p style={{ fontSize: 12, color: '#888' }}>
-  Telegram ID: {tgId || 'not found'}
-</p>
+
+        {/* 👁 Отладочная информация */}
+        <p style={{ fontSize: 12, color: '#ccc', marginBottom: 4 }}>
+          Telegram ID: {tgId || 'not found'}
+        </p>
+        <p style={{ fontSize: 12, color: '#888', marginBottom: 4 }}>
+          WebApp: {debugInfo.webAppFound ? 'OK' : 'NOT FOUND'}
+        </p>
+        <p style={{ fontSize: 10, color: '#666', marginBottom: 8 }}>
+          InitData: {debugInfo.initData}
+        </p>
+
         <input
           type="text"
           placeholder="Your Name"
@@ -104,7 +126,7 @@ const styles = {
   title: {
     color: '#d4af37',
     fontSize: 24,
-    marginBottom: 16,
+    marginBottom: 8,
   },
   input: {
     width: '100%',
