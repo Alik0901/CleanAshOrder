@@ -1,4 +1,3 @@
-// src/screens/Init.jsx
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_URL } from '../config';
@@ -8,31 +7,38 @@ export default function Init() {
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [debug, setDebug] = useState({});
-
   const navigate = useNavigate();
 
   useEffect(() => {
-    const tg = window.Telegram?.WebApp;
-    const unsafe = tg?.initDataUnsafe;
-    const user = unsafe?.user;
+    const delayMs = 500; // Задержка, чтобы Telegram успел инициализировать WebApp
 
-    const extractedId = user?.id?.toString();
-    if (extractedId) {
-      setTgId(extractedId);
-    }
+    const initTelegram = () => {
+      const tg = window.Telegram?.WebApp;
+      const unsafe = tg?.initDataUnsafe;
+      const user = unsafe?.user;
 
-    setDebug({
-      Telegram: !!window.Telegram,
-      WebApp: !!tg,
-      userId: extractedId || 'NOT FOUND',
-      initData: tg?.initData || 'n/a',
-      initDataUnsafe: unsafe || 'n/a',
-    });
+      const extractedId = user?.id?.toString();
+      if (extractedId) {
+        setTgId(extractedId);
+      }
 
-    console.log('Telegram:', window.Telegram);
-    console.log('WebApp:', tg);
-    console.log('initData:', tg?.initData);
-    console.log('initDataUnsafe:', unsafe);
+      setDebug({
+        Telegram: !!window.Telegram,
+        WebApp: !!tg,
+        userId: extractedId || 'NOT FOUND',
+        initData: tg?.initData || 'n/a',
+        initDataUnsafe: unsafe || 'n/a',
+      });
+
+      console.log('Telegram:', window.Telegram);
+      console.log('WebApp:', tg);
+      console.log('initData:', tg?.initData);
+      console.log('initDataUnsafe:', unsafe);
+    };
+
+    const timeout = setTimeout(initTelegram, delayMs);
+
+    return () => clearTimeout(timeout);
   }, []);
 
   const handleSubmit = async () => {
@@ -82,6 +88,7 @@ export default function Init() {
           onChange={(e) => setName(e.target.value)}
           style={styles.input}
         />
+
         <button
           onClick={handleSubmit}
           disabled={!name.trim() || loading}
