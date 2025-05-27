@@ -8,10 +8,11 @@ import Profile from './screens/Profile';
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<Welcome />} />
-      <Route path="/init" element={<Init />} />
-      <Route path="/path" element={<Path />} />
-      <Route path="/profile" element={<Profile />} />
+      <Route path="/test" element={<Init />} />
+      {/* <Route path="/" element={<Welcome />} />
+      {/* <Route path="/init" element={<Init />} /> */}
+      {/* <Route path="/path" element={<Path />} />
+      <Route path="/profile" element={<Profile />} /> */} 
     </Routes>
   );
 }

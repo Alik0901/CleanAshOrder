@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+/* import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_URL } from '../config';
 
@@ -180,5 +180,71 @@ const styles = {
     border: 'none',
     backgroundColor: '#d4af37',
     color: '#000',
+  },
+};
+ */
+import { useEffect, useState } from 'react';
+
+export default function Init() {
+  const [telegramAvailable, setTelegramAvailable] = useState(false);
+  const [webAppAvailable, setWebAppAvailable] = useState(false);
+  const [initData, setInitData] = useState('');
+  const [initDataUnsafe, setInitDataUnsafe] = useState({});
+  const [tgId, setTgId] = useState('');
+
+  useEffect(() => {
+    const tg = window.Telegram;
+    const wa = tg?.WebApp;
+    const unsafe = wa?.initDataUnsafe;
+    const raw = wa?.initData;
+
+    setTelegramAvailable(!!tg);
+    setWebAppAvailable(!!wa);
+    setInitData(raw || '');
+    setInitDataUnsafe(unsafe || {});
+    setTgId(unsafe?.user?.id?.toString() || '');
+  }, []);
+
+  return (
+    <div style={styles.container}>
+      <h1 style={styles.title}>Telegram Test</h1>
+
+      <pre style={styles.debug}>
+{`
+✅ Telegram: ${telegramAvailable}
+✅ WebApp: ${webAppAvailable}
+🆔 TG ID: ${tgId || 'not found'}
+
+initData:
+${initData || 'n/a'}
+
+initDataUnsafe:
+${JSON.stringify(initDataUnsafe, null, 2)}
+`}
+      </pre>
+    </div>
+  );
+}
+
+const styles = {
+  container: {
+    fontFamily: 'monospace',
+    padding: 20,
+    backgroundColor: '#111',
+    color: '#0f0',
+    minHeight: '100vh',
+  },
+  title: {
+    fontSize: 24,
+    marginBottom: 16,
+  },
+  debug: {
+    backgroundColor: '#000',
+    color: '#0f0',
+    padding: 10,
+    fontSize: 12,
+    whiteSpace: 'pre-wrap',
+    border: '1px solid #0f0',
+    borderRadius: 6,
   },
 };
