@@ -13,9 +13,10 @@ export default function Init() {
     const tg = window.Telegram;
     const wa = tg?.WebApp;
 
-    console.log('window.Telegram:', tg);
-    console.log('WebApp:', wa);
-    console.log('initData:', wa?.initData);
+    console.log('🧩 window.Telegram:', tg);
+    console.log('🧩 window.Telegram.WebApp:', wa);
+    console.log('🧩 initData:', wa?.initData);
+    console.log('🧩 initDataUnsafe:', wa?.initDataUnsafe);
 
     if (!wa) {
       setDebug('Telegram WebApp not found');
@@ -23,11 +24,14 @@ export default function Init() {
     }
 
     const initData = wa.initData || '';
+    const initDataUnsafe = wa.initDataUnsafe || {};
+
     if (!initData) {
       setDebug('No initData found');
       return;
     }
 
+    console.log('📤 Sending validation request to backend...');
     fetch(`${API_URL}/api/validate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -35,6 +39,7 @@ export default function Init() {
     })
       .then(res => res.json())
       .then(data => {
+        console.log('📥 Response from /api/validate:', data);
         if (data.ok && data.user) {
           setTgId(data.user.id.toString());
           setDebug(`Validated ✅: ${data.user.username || 'no username'}`);
@@ -43,7 +48,7 @@ export default function Init() {
         }
       })
       .catch(err => {
-        console.error('Validation error:', err);
+        console.error('❌ Validation error:', err);
         setDebug('❌ Network error');
       });
   }, []);
