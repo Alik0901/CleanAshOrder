@@ -5,30 +5,28 @@ import { API_URL } from '../config';
 export default function Init() {
   const [name, setName] = useState('');
   const [tgId, setTgId] = useState('');
-  const [debugLines, setDebugLines] = useState([]);
+  const [debug, setDebug] = useState([]);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const log = (label, value) => {
-    setDebugLines(prev => [...prev, `${label}: ${JSON.stringify(value)}`]);
-    console.log(label, value);
-  };
-
   useEffect(() => {
+    const log = (label, value) => {
+      console.log(label, value);
+      setDebug((prev) => [...prev, `${label}: ${JSON.stringify(value)}`]);
+    };
+
     const tg = window.Telegram;
-    log('window.Telegram', tg);
-
     const wa = tg?.WebApp;
-    log('WebApp', wa);
-
     const initData = wa?.initData || '';
-    log('initData', initData);
+    const unsafe = wa?.initDataUnsafe || {};
 
-    const initDataUnsafe = wa?.initDataUnsafe || {};
-    log('initDataUnsafe', initDataUnsafe);
+    log('window.Telegram', tg);
+    log('WebApp', wa);
+    log('initData', initData);
+    log('initDataUnsafe', unsafe);
 
     if (!initData) {
-      log('⚠️', 'No initData found — stopping');
+      setDebug((prev) => [...prev, '⚠️ "No initData found — stopping"']);
       return;
     }
 
@@ -37,18 +35,18 @@ export default function Init() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ initData }),
     })
-      .then(res => res.json())
-      .then(data => {
+      .then((res) => res.json())
+      .then((data) => {
         log('validate response', data);
         if (data.ok && data.user) {
           setTgId(data.user.id.toString());
-          log('✅ Validated user', data.user.username || data.user.id);
         } else {
-          log('❌ Validate error', data.error);
+          setDebug((prev) => [...prev, `❌ ${data.error || 'validation failed'}`]);
         }
       })
-      .catch(err => {
-        log('❌ Network/validate error', err.message);
+      .catch((err) => {
+        console.error('validate error', err);
+        setDebug((prev) => [...prev, `❌ Network error: ${err.message}`]);
       });
   }, []);
 
@@ -67,10 +65,11 @@ export default function Init() {
       if (res.ok) {
         navigate('/path');
       } else {
-        log('❌ Init error', data.error);
+        alert(data.error || 'Something went wrong');
       }
     } catch (err) {
-      log('❌ Network/init error', err.message);
+      console.error(err);
+      alert('Network error');
     } finally {
       setLoading(false);
     }
@@ -81,14 +80,12 @@ export default function Init() {
       <div style={styles.overlay} />
       <div style={styles.card}>
         <h1 style={styles.title}>Enter the Ash</h1>
-
         <p style={styles.debugText}>TG ID: {tgId || '—'}</p>
         <div style={styles.debugBox}>
-          {debugLines.map((line, i) => (
-            <div key={i} style={styles.debugLine}>{line}</div>
+          {debug.map((line, idx) => (
+            <div key={idx} style={styles.debugLine}>{line}</div>
           ))}
         </div>
-
         <input
           type="text"
           placeholder="Your Name"
@@ -150,19 +147,19 @@ const styles = {
     marginBottom: 4,
   },
   debugBox: {
+    backgroundColor: '#111',
+    color: '#ccc',
+    padding: '10px',
+    borderRadius: 8,
+    marginBottom: 8,
     fontSize: 10,
-    color: '#aaa',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    padding: 8,
-    margin: '10px 0',
-    borderRadius: 6,
-    maxHeight: 150,
+    maxHeight: 100,
     overflowY: 'auto',
     textAlign: 'left',
   },
   debugLine: {
-    marginBottom: 4,
-    wordBreak: 'break-all',
+    whiteSpace: 'pre-wrap',
+    wordBreak: 'break-word',
   },
   input: {
     width: '100%',
@@ -182,4 +179,3 @@ const styles = {
     color: '#000',
   },
 };
-
