@@ -1,4 +1,4 @@
-/* import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_URL } from '../config';
 
@@ -180,70 +180,6 @@ const styles = {
     border: 'none',
     backgroundColor: '#d4af37',
     color: '#000',
-  },
-};
- */
-import { useEffect, useState } from 'react';
-
-export default function Init() {
-  const [log, setLog] = useState('');
-
-  useEffect(() => {
-    const tg = window.Telegram;
-    const wa = tg?.WebApp;
-    const initData = wa?.initData || 'n/a';
-    const initDataUnsafe = wa?.initDataUnsafe || {};
-
-    const debug = [
-      `✅ Telegram: ${!!tg}`,
-      `✅ WebApp: ${!!wa}`,
-      `🆔 TG ID: ${initDataUnsafe?.user?.id || 'not found'}`,
-      '',
-      'initData:',
-      initData,
-      '',
-      'initDataUnsafe:',
-      JSON.stringify(initDataUnsafe, null, 2),
-    ].join('\n');
-
-    setLog(debug);
-  }, []);
-
-  return (
-    <div style={styles.page}>
-      <div style={styles.card}>
-        <h1 style={styles.title}>Telegram Test</h1>
-        <pre style={styles.code}>{log}</pre>
-      </div>
-    </div>
-  );
-}
-
-const styles = {
-  page: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: '100dvh',
-    background: '#000',
-    color: '#0f0',
-    fontFamily: 'monospace',
-  },
-  card: {
-    background: '#111',
-    border: '1px solid #0f0',
-    borderRadius: 8,
-    padding: 20,
-    maxWidth: 360,
-  },
-  title: {
-    marginBottom: 12,
-    fontSize: 24,
-  },
-  code: {
-    fontSize: 12,
-    whiteSpace: 'pre-wrap',
-    wordBreak: 'break-word',
   },
 };
 
