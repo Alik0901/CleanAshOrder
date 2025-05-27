@@ -10,36 +10,44 @@ export default function Init() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const initData = window.Telegram?.WebApp?.initData || '';
-    if (!initData) {
-      console.warn('No initData found');
-      return;
-    }
+  const tg = window.Telegram?.WebApp;
+  if (!tg) {
+    console.warn('Telegram WebApp not found');
+    return;
+  }
 
-    fetch(`${API_URL}/api/validate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ initData }),
+  tg.ready(); // 💡 Даем Telegram время инициализироваться
+
+  const initData = tg.initData || '';
+  if (!initData) {
+    console.warn('No initData found');
+    return;
+  }
+
+  fetch(`${API_URL}/api/validate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ initData }),
+  })
+    .then(res => res.json())
+    .then(data => {
+      if (data.ok && data.user) {
+        setTgId(data.user.id.toString());
+        setDebug({
+          valid: true,
+          user: data.user,
+          raw: initData,
+        });
+      } else {
+        console.warn('Validation failed:', data.error);
+        setDebug({ valid: false, error: data.error });
+      }
     })
-      .then(res => res.json())
-      .then(data => {
-        if (data.ok && data.user) {
-          setTgId(data.user.id.toString());
-          setDebug({
-            valid: true,
-            user: data.user,
-            raw: initData,
-          });
-        } else {
-          console.warn('Validation failed:', data.error);
-          setDebug({ valid: false, error: data.error });
-        }
-      })
-      .catch(err => {
-        console.error('Network error:', err);
-        setDebug({ valid: false, error: 'network' });
-      });
-  }, []);
+    .catch(err => {
+      console.error('Network error:', err);
+      setDebug({ valid: false, error: 'network' });
+    });
+}, []);
 
   const handleSubmit = async () => {
     if (!tgId || !name.trim()) return;
