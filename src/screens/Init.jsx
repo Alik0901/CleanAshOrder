@@ -3,42 +3,42 @@ import { useNavigate } from 'react-router-dom';
 import { API_URL } from '../config';
 
 export default function Init() {
-  const [tgId, setTgId] = useState('');
   const [name, setName] = useState('');
+  const [tgId, setTgId] = useState('');
   const [loading, setLoading] = useState(false);
   const [debug, setDebug] = useState({});
   const navigate = useNavigate();
 
   useEffect(() => {
-    const delayMs = 500; // Задержка, чтобы Telegram успел инициализировать WebApp
+    const initData = window.Telegram?.WebApp?.initData || '';
+    if (!initData) {
+      console.warn('No initData found');
+      return;
+    }
 
-    const initTelegram = () => {
-      const tg = window.Telegram?.WebApp;
-      const unsafe = tg?.initDataUnsafe;
-      const user = unsafe?.user;
-
-      const extractedId = user?.id?.toString();
-      if (extractedId) {
-        setTgId(extractedId);
-      }
-
-      setDebug({
-        Telegram: !!window.Telegram,
-        WebApp: !!tg,
-        userId: extractedId || 'NOT FOUND',
-        initData: tg?.initData || 'n/a',
-        initDataUnsafe: unsafe || 'n/a',
+    fetch(`${API_URL}/api/validate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ initData }),
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.ok && data.user) {
+          setTgId(data.user.id.toString());
+          setDebug({
+            valid: true,
+            user: data.user,
+            raw: initData,
+          });
+        } else {
+          console.warn('Validation failed:', data.error);
+          setDebug({ valid: false, error: data.error });
+        }
+      })
+      .catch(err => {
+        console.error('Network error:', err);
+        setDebug({ valid: false, error: 'network' });
       });
-
-      console.log('Telegram:', window.Telegram);
-      console.log('WebApp:', tg);
-      console.log('initData:', tg?.initData);
-      console.log('initDataUnsafe:', unsafe);
-    };
-
-    const timeout = setTimeout(initTelegram, delayMs);
-
-    return () => clearTimeout(timeout);
   }, []);
 
   const handleSubmit = async () => {
@@ -71,14 +71,10 @@ export default function Init() {
       <div style={styles.overlay} />
       <div style={styles.card}>
         <h1 style={styles.title}>Enter the Ash</h1>
-        <p style={styles.debugText}>Telegram ID: {debug.userId}</p>
-        <p style={styles.debugText}>WebApp: {debug.WebApp ? 'FOUND' : 'NOT FOUND'}</p>
-        <p style={styles.debugText}>InitData: {debug.initData}</p>
+
+        <p style={styles.debugText}>TG ID: {tgId || '—'}</p>
         <p style={styles.debugText}>
-          InitDataUnsafe:{' '}
-          {typeof debug.initDataUnsafe === 'object'
-            ? JSON.stringify(debug.initDataUnsafe)
-            : debug.initDataUnsafe}
+          Debug: {debug.valid ? 'VALID ✅' : debug.error || 'waiting...'}
         </p>
 
         <input
@@ -88,14 +84,13 @@ export default function Init() {
           onChange={(e) => setName(e.target.value)}
           style={styles.input}
         />
-
         <button
           onClick={handleSubmit}
-          disabled={!name.trim() || loading}
+          disabled={!name.trim() || loading || !tgId}
           style={{
             ...styles.button,
-            opacity: name.trim() ? 1 : 0.5,
-            cursor: name.trim() ? 'pointer' : 'default',
+            opacity: name.trim() && tgId ? 1 : 0.5,
+            cursor: name.trim() && tgId ? 'pointer' : 'default',
           }}
         >
           {loading ? 'Entering...' : 'Enter the Ash'}
@@ -140,7 +135,7 @@ const styles = {
   debugText: {
     fontSize: 12,
     color: '#ccc',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   input: {
     width: '100%',
