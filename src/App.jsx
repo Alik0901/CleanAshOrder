@@ -17,17 +17,15 @@ export default function App() {
   );
 }
  */
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import Init from './screens/Init';
 
 export default function App() {
   return (
-    <Router>
-      <Routes>
-        <Route path="/test" element={<Init />} />
-        <Route path="/" element={<Navigate to="/test" />} />
-      </Routes>
-    </Router>
+    <Routes>
+      <Route path="/test" element={<Init />} />
+      <Route path="*" element={<Navigate to="/test" />} />
+    </Routes>
   );
 }
 
