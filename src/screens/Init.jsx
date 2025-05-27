@@ -13,14 +13,16 @@ export default function Init() {
     const tg = window.Telegram;
     const wa = tg?.WebApp;
 
+    console.log('window.Telegram:', tg);
+    console.log('WebApp:', wa);
+    console.log('initData:', wa?.initData);
+
     if (!wa) {
       setDebug('Telegram WebApp not found');
       return;
     }
 
     const initData = wa.initData || '';
-    const initDataUnsafe = wa.initDataUnsafe || {};
-
     if (!initData) {
       setDebug('No initData found');
       return;
