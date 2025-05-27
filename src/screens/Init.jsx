@@ -13,7 +13,7 @@ export default function Init() {
   useEffect(() => {
     const tg = window.Telegram;
     const wa = tg?.WebApp;
-    const initData = wa?.initData || '';
+    const initData = window.Telegram?.WebApp?.initData || '';
     const unsafe = wa?.initDataUnsafe || {};
 
     setRaw(initData);
