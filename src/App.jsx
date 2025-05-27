@@ -1,4 +1,4 @@
-/* import React from 'react';
+import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import Welcome from './screens/Welcome';
 import Init from './screens/Init';
@@ -8,7 +8,6 @@ import Profile from './screens/Profile';
 export default function App() {
   return (
     <Routes>
-      <Route path="/test" element={<Init />} />
       <Route path="/" element={<Welcome />} />
       <Route path="/init" element={<Init />} /> 
       <Route path="/path" element={<Path />} />
@@ -16,16 +15,5 @@ export default function App() {
     </Routes>
   );
 }
- */
-import { Routes, Route, Navigate } from 'react-router-dom';
-import Init from './screens/Init';
 
-export default function App() {
-  return (
-    <Routes>
-      <Route path="/test" element={<Init />} />
-      <Route path="*" element={<Navigate to="/test" />} />
-    </Routes>
-  );
-}
 
