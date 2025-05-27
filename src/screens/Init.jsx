@@ -5,36 +5,46 @@ import { API_URL } from '../config';
 export default function Init() {
   const [name, setName] = useState('');
   const [tgId, setTgId] = useState('');
-  const [loading, setLoading] = useState(false);
   const [debug, setDebug] = useState('waiting...');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-  const initData = window.Telegram?.WebApp?.initData || '';
-  if (!initData) {
-    console.warn('No initData found');
-    setDebug({ error: 'Telegram WebApp not found' });
-    return;
-  }
+    const tg = window.Telegram;
+    const wa = tg?.WebApp;
 
-  fetch(`${API_URL}/api/validate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ initData }),
-  })
-    .then(res => res.json())
-    .then(data => {
-      if (data.ok && data.user) {
-        setTgId(data.user.id.toString());
-        setDebug({ valid: true, user: data.user });
-      } else {
-        setDebug({ valid: false, error: data.error });
-      }
+    if (!wa) {
+      setDebug('Telegram WebApp not found');
+      return;
+    }
+
+    const initData = wa.initData || '';
+    const initDataUnsafe = wa.initDataUnsafe || {};
+
+    if (!initData) {
+      setDebug('No initData found');
+      return;
+    }
+
+    fetch(`${API_URL}/api/validate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ initData }),
     })
-    .catch(err => {
-      setDebug({ valid: false, error: 'Network error' });
-    });
-}, []);
+      .then(res => res.json())
+      .then(data => {
+        if (data.ok && data.user) {
+          setTgId(data.user.id.toString());
+          setDebug(`Validated ✅: ${data.user.username || 'no username'}`);
+        } else {
+          setDebug(`❌ ${data.error || 'validation failed'}`);
+        }
+      })
+      .catch(err => {
+        console.error('Validation error:', err);
+        setDebug('❌ Network error');
+      });
+  }, []);
 
   const handleSubmit = async () => {
     if (!tgId || !name.trim()) return;
@@ -44,7 +54,7 @@ export default function Init() {
       const res = await fetch(`${API_URL}/api/init`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tg_id: tgId, name }),
+        body: JSON.stringify({ tg_id: tgId, name: name.trim() }),
       });
 
       const data = await res.json();
@@ -54,6 +64,7 @@ export default function Init() {
         alert(data.error || 'Something went wrong');
       }
     } catch (err) {
+      console.error(err);
       alert('Network error');
     } finally {
       setLoading(false);
@@ -67,6 +78,7 @@ export default function Init() {
         <h1 style={styles.title}>Enter the Ash</h1>
         <p style={styles.debugText}>TG ID: {tgId || '—'}</p>
         <p style={styles.debugText}>Debug: {debug}</p>
+
         <input
           type="text"
           placeholder="Your Name"
@@ -77,7 +89,11 @@ export default function Init() {
         <button
           onClick={handleSubmit}
           disabled={!name.trim() || loading || !tgId}
-          style={styles.button}
+          style={{
+            ...styles.button,
+            opacity: name.trim() && tgId ? 1 : 0.5,
+            cursor: name.trim() && tgId ? 'pointer' : 'default',
+          }}
         >
           {loading ? 'Entering...' : 'Enter the Ash'}
         </button>
