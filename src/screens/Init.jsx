@@ -5,28 +5,21 @@ import { API_URL } from '../config';
 export default function Init() {
   const [name, setName] = useState('');
   const [tgId, setTgId] = useState('');
-  const [debug, setDebug] = useState([]);
+  const [debug, setDebug] = useState('waiting...');
+  const [raw, setRaw] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const log = (label, value) => {
-      console.log(label, value);
-      setDebug((prev) => [...prev, `${label}: ${JSON.stringify(value)}`]);
-    };
-
     const tg = window.Telegram;
     const wa = tg?.WebApp;
     const initData = wa?.initData || '';
     const unsafe = wa?.initDataUnsafe || {};
 
-    log('window.Telegram', tg);
-    log('WebApp', wa);
-    log('initData', initData);
-    log('initDataUnsafe', unsafe);
+    setRaw(initData);
 
     if (!initData) {
-      setDebug((prev) => [...prev, '⚠️ "No initData found — stopping"']);
+      setDebug('❌ No initData found');
       return;
     }
 
@@ -35,18 +28,18 @@ export default function Init() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ initData }),
     })
-      .then((res) => res.json())
-      .then((data) => {
-        log('validate response', data);
+      .then(res => res.json())
+      .then(data => {
         if (data.ok && data.user) {
           setTgId(data.user.id.toString());
+          setDebug('✅ Validated');
         } else {
-          setDebug((prev) => [...prev, `❌ ${data.error || 'validation failed'}`]);
+          setDebug(`❌ ${data.error || 'validation failed'}`);
         }
       })
-      .catch((err) => {
-        console.error('validate error', err);
-        setDebug((prev) => [...prev, `❌ Network error: ${err.message}`]);
+      .catch(err => {
+        console.error('Validation error:', err);
+        setDebug('❌ Network error');
       });
   }, []);
 
@@ -81,11 +74,8 @@ export default function Init() {
       <div style={styles.card}>
         <h1 style={styles.title}>Enter the Ash</h1>
         <p style={styles.debugText}>TG ID: {tgId || '—'}</p>
-        <div style={styles.debugBox}>
-          {debug.map((line, idx) => (
-            <div key={idx} style={styles.debugLine}>{line}</div>
-          ))}
-        </div>
+        <p style={styles.debugText}>Debug: {debug}</p>
+
         <input
           type="text"
           placeholder="Your Name"
@@ -104,6 +94,10 @@ export default function Init() {
         >
           {loading ? 'Entering...' : 'Enter the Ash'}
         </button>
+
+        <pre style={styles.rawBox}>
+          {raw}
+        </pre>
       </div>
     </div>
   );
@@ -146,21 +140,6 @@ const styles = {
     color: '#ccc',
     marginBottom: 4,
   },
-  debugBox: {
-    backgroundColor: '#111',
-    color: '#ccc',
-    padding: '10px',
-    borderRadius: 8,
-    marginBottom: 8,
-    fontSize: 10,
-    maxHeight: 100,
-    overflowY: 'auto',
-    textAlign: 'left',
-  },
-  debugLine: {
-    whiteSpace: 'pre-wrap',
-    wordBreak: 'break-word',
-  },
   input: {
     width: '100%',
     padding: '10px 12px',
@@ -177,5 +156,16 @@ const styles = {
     border: 'none',
     backgroundColor: '#d4af37',
     color: '#000',
+  },
+  rawBox: {
+    marginTop: 12,
+    fontSize: 10,
+    color: '#aaa',
+    textAlign: 'left',
+    maxHeight: 140,
+    overflow: 'auto',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    padding: 8,
+    borderRadius: 6,
   },
 };
