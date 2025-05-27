@@ -186,65 +186,64 @@ const styles = {
 import { useEffect, useState } from 'react';
 
 export default function Init() {
-  const [telegramAvailable, setTelegramAvailable] = useState(false);
-  const [webAppAvailable, setWebAppAvailable] = useState(false);
-  const [initData, setInitData] = useState('');
-  const [initDataUnsafe, setInitDataUnsafe] = useState({});
-  const [tgId, setTgId] = useState('');
+  const [log, setLog] = useState('');
 
   useEffect(() => {
     const tg = window.Telegram;
     const wa = tg?.WebApp;
-    const unsafe = wa?.initDataUnsafe;
-    const raw = wa?.initData;
+    const initData = wa?.initData || 'n/a';
+    const initDataUnsafe = wa?.initDataUnsafe || {};
 
-    setTelegramAvailable(!!tg);
-    setWebAppAvailable(!!wa);
-    setInitData(raw || '');
-    setInitDataUnsafe(unsafe || {});
-    setTgId(unsafe?.user?.id?.toString() || '');
+    const debug = [
+      `✅ Telegram: ${!!tg}`,
+      `✅ WebApp: ${!!wa}`,
+      `🆔 TG ID: ${initDataUnsafe?.user?.id || 'not found'}`,
+      '',
+      'initData:',
+      initData,
+      '',
+      'initDataUnsafe:',
+      JSON.stringify(initDataUnsafe, null, 2),
+    ].join('\n');
+
+    setLog(debug);
   }, []);
 
   return (
-    <div style={styles.container}>
-      <h1 style={styles.title}>Telegram Test</h1>
-
-      <pre style={styles.debug}>
-{`
-✅ Telegram: ${telegramAvailable}
-✅ WebApp: ${webAppAvailable}
-🆔 TG ID: ${tgId || 'not found'}
-
-initData:
-${initData || 'n/a'}
-
-initDataUnsafe:
-${JSON.stringify(initDataUnsafe, null, 2)}
-`}
-      </pre>
+    <div style={styles.page}>
+      <div style={styles.card}>
+        <h1 style={styles.title}>Telegram Test</h1>
+        <pre style={styles.code}>{log}</pre>
+      </div>
     </div>
   );
 }
 
 const styles = {
-  container: {
-    fontFamily: 'monospace',
-    padding: 20,
-    backgroundColor: '#111',
+  page: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: '100dvh',
+    background: '#000',
     color: '#0f0',
-    minHeight: '100vh',
+    fontFamily: 'monospace',
+  },
+  card: {
+    background: '#111',
+    border: '1px solid #0f0',
+    borderRadius: 8,
+    padding: 20,
+    maxWidth: 360,
   },
   title: {
+    marginBottom: 12,
     fontSize: 24,
-    marginBottom: 16,
   },
-  debug: {
-    backgroundColor: '#000',
-    color: '#0f0',
-    padding: 10,
+  code: {
     fontSize: 12,
     whiteSpace: 'pre-wrap',
-    border: '1px solid #0f0',
-    borderRadius: 6,
+    wordBreak: 'break-word',
   },
 };
+
