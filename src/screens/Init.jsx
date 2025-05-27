@@ -5,33 +5,33 @@ import { API_URL } from '../config';
 export default function Init() {
   const [name, setName] = useState('');
   const [tgId, setTgId] = useState('');
-  const [debug, setDebug] = useState('waiting...');
+  const [debugLines, setDebugLines] = useState([]);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
+  const log = (label, value) => {
+    setDebugLines(prev => [...prev, `${label}: ${JSON.stringify(value)}`]);
+    console.log(label, value);
+  };
+
   useEffect(() => {
     const tg = window.Telegram;
+    log('window.Telegram', tg);
+
     const wa = tg?.WebApp;
+    log('WebApp', wa);
 
-    console.log('🧩 window.Telegram:', tg);
-    console.log('🧩 window.Telegram.WebApp:', wa);
-    console.log('🧩 initData:', wa?.initData);
-    console.log('🧩 initDataUnsafe:', wa?.initDataUnsafe);
+    const initData = wa?.initData || '';
+    log('initData', initData);
 
-    if (!wa) {
-      setDebug('Telegram WebApp not found');
-      return;
-    }
-
-    const initData = wa.initData || '';
-    const initDataUnsafe = wa.initDataUnsafe || {};
+    const initDataUnsafe = wa?.initDataUnsafe || {};
+    log('initDataUnsafe', initDataUnsafe);
 
     if (!initData) {
-      setDebug('No initData found');
+      log('⚠️', 'No initData found — stopping');
       return;
     }
 
-    console.log('📤 Sending validation request to backend...');
     fetch(`${API_URL}/api/validate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -39,17 +39,16 @@ export default function Init() {
     })
       .then(res => res.json())
       .then(data => {
-        console.log('📥 Response from /api/validate:', data);
+        log('validate response', data);
         if (data.ok && data.user) {
           setTgId(data.user.id.toString());
-          setDebug(`Validated ✅: ${data.user.username || 'no username'}`);
+          log('✅ Validated user', data.user.username || data.user.id);
         } else {
-          setDebug(`❌ ${data.error || 'validation failed'}`);
+          log('❌ Validate error', data.error);
         }
       })
       .catch(err => {
-        console.error('❌ Validation error:', err);
-        setDebug('❌ Network error');
+        log('❌ Network/validate error', err.message);
       });
   }, []);
 
@@ -68,11 +67,10 @@ export default function Init() {
       if (res.ok) {
         navigate('/path');
       } else {
-        alert(data.error || 'Something went wrong');
+        log('❌ Init error', data.error);
       }
     } catch (err) {
-      console.error(err);
-      alert('Network error');
+      log('❌ Network/init error', err.message);
     } finally {
       setLoading(false);
     }
@@ -83,8 +81,13 @@ export default function Init() {
       <div style={styles.overlay} />
       <div style={styles.card}>
         <h1 style={styles.title}>Enter the Ash</h1>
+
         <p style={styles.debugText}>TG ID: {tgId || '—'}</p>
-        <p style={styles.debugText}>Debug: {debug}</p>
+        <div style={styles.debugBox}>
+          {debugLines.map((line, i) => (
+            <div key={i} style={styles.debugLine}>{line}</div>
+          ))}
+        </div>
 
         <input
           type="text"
@@ -145,6 +148,21 @@ const styles = {
     fontSize: 12,
     color: '#ccc',
     marginBottom: 4,
+  },
+  debugBox: {
+    fontSize: 10,
+    color: '#aaa',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    padding: 8,
+    margin: '10px 0',
+    borderRadius: 6,
+    maxHeight: 150,
+    overflowY: 'auto',
+    textAlign: 'left',
+  },
+  debugLine: {
+    marginBottom: 4,
+    wordBreak: 'break-all',
   },
   input: {
     width: '100%',
