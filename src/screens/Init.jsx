@@ -59,20 +59,23 @@ export default function Init() {
 }
  */
 
-import { useEffect, useState } from 'react';
+// src/Init.jsx
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL; // например https://ash-backend-production.up.railway.app
 
 export default function Init() {
   const navigate = useNavigate();
 
-  // Telegram-данные
+  // Telegram WebApp state
   const [tgExists, setTgExists] = useState(false);
   const [waExists, setWaExists] = useState(false);
   const [initDataRaw, setInitDataRaw] = useState('');
   const [initDataUnsafe, setInitDataUnsafe] = useState({});
   const [tgId, setTgId] = useState('');
-  const [statusMsg, setStatusMsg] = useState('');
   const [name, setName] = useState('');
+  const [statusMsg, setStatusMsg] = useState('');
 
   useEffect(() => {
     const tg = window.Telegram;
@@ -87,18 +90,15 @@ export default function Init() {
 
     if (unsafe.user?.id) {
       setTgId(unsafe.user.id.toString());
-    }
-
-    if (!tg) {
+      setStatusMsg('✅ Всё готово к регистрации');
+    } else if (!tg) {
       setStatusMsg('❌ Telegram не найден');
     } else if (!wa) {
       setStatusMsg('❌ Telegram.WebApp не найден');
     } else if (!raw) {
       setStatusMsg('❌ initData отсутствует');
-    } else if (!unsafe.user?.id) {
-      setStatusMsg('❌ User ID не найден');
     } else {
-      setStatusMsg('✅ Всё готово к регистрации');
+      setStatusMsg('❌ User ID не найден');
     }
   }, []);
 
@@ -117,7 +117,7 @@ export default function Init() {
     };
 
     try {
-      const res = await fetch('/api/init', {
+      const res = await fetch(`${BACKEND_URL}/api/init`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -134,6 +134,7 @@ export default function Init() {
     }
   };
 
+  // Пока WebApp не готов — показываем статус
   if (!tgExists || !waExists || !initDataRaw || !tgId) {
     return (
       <div style={{
@@ -168,6 +169,7 @@ export default function Init() {
     );
   }
 
+  // Экран ввода имени
   return (
     <div style={{
       padding: 20,
