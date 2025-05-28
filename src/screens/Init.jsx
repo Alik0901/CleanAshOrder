@@ -61,10 +61,10 @@ export default function Init() {
 
 // src/Init.jsx
 // src/Init.jsx
+// src/Init.jsx
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-// Если окружение не поставлено, используется ваш Railway URL
 const BACKEND_URL =
   process.env.REACT_APP_BACKEND_URL ||
   'https://ash-backend-production.up.railway.app';
@@ -72,7 +72,7 @@ const BACKEND_URL =
 export default function Init() {
   const navigate = useNavigate();
 
-  // Telegram WebApp state
+  // WebApp state
   const [tgExists, setTgExists] = useState(false);
   const [waExists, setWaExists] = useState(false);
   const [initDataRaw, setInitDataRaw] = useState('');
@@ -81,6 +81,7 @@ export default function Init() {
   const [name, setName] = useState('');
   const [statusMsg, setStatusMsg] = useState('');
 
+  // 1) Инициализация Telegram WebApp
   useEffect(() => {
     const tg = window.Telegram;
     const wa = tg?.WebApp;
@@ -92,20 +93,36 @@ export default function Init() {
     setInitDataRaw(raw);
     setInitDataUnsafe(unsafe);
 
-    if (unsafe.user?.id) {
-      setTgId(String(unsafe.user.id));
-      setStatusMsg('✅ Всё готово к регистрации');
-    } else if (!tg) {
+    if (!tg) {
       setStatusMsg('❌ Telegram не найден');
     } else if (!wa) {
       setStatusMsg('❌ Telegram.WebApp не найден');
     } else if (!raw) {
       setStatusMsg('❌ initData отсутствует');
-    } else {
+    } else if (!unsafe.user?.id) {
       setStatusMsg('❌ User ID не найден');
+    } else {
+      setTgId(String(unsafe.user.id));
+      setStatusMsg('✅ Всё готово к регистрации');
     }
   }, []);
 
+  // 2) Если игрок уже есть — сразу переходим на профиль
+  useEffect(() => {
+    if (!tgId) return;
+    (async () => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/player/${tgId}`);
+        if (res.ok) {
+          navigate('/profile');
+        }
+      } catch {
+        // игнорируем сетевые ошибки на этом этапе
+      }
+    })();
+  }, [tgId, navigate]);
+
+  // 3) Обработчик отправки имени
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!name.trim()) {
@@ -126,9 +143,8 @@ export default function Init() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-
       if (res.ok) {
-        navigate('/path');
+        navigate('/profile');
       } else {
         const err = await res.json();
         setStatusMsg(`⚠️ Ошибка: ${err.error || 'неизвестно'}`);
@@ -138,12 +154,12 @@ export default function Init() {
     }
   };
 
-  // Если WebApp не готов — показываем только статус
+  // 4) Пока не готовы WebApp или ID — показываем статус
   if (!tgExists || !waExists || !initDataRaw || !tgId) {
     return (
       <div style={styles.fullscreen}>
         <div style={styles.overlayBox}>
-          <h2 style={styles.title}>Статус инициализации</h2>
+          <h2>Статус инициализации</h2>
           <ul style={styles.statusList}>
             <li>Telegram: {tgExists ? '✅ найден' : '❌ не найден'}</li>
             <li>WebApp: {waExists ? '✅ найден' : '❌ не найден'}</li>
@@ -156,17 +172,13 @@ export default function Init() {
     );
   }
 
-  // Экран ввода имени
+  // 5) Экран ввода имени
   return (
     <div style={styles.fullscreen}>
       <form onSubmit={handleSubmit} style={styles.formBox}>
-        <h1 style={styles.header}>Enter the Ash</h1>
-        <p style={styles.telegramId}>
-          Ваш Telegram ID: <strong>{tgId}</strong>
-        </p>
-        <label htmlFor="name" style={styles.label}>
-          Имя для профиля:
-        </label>
+        <h1>Enter the Ash</h1>
+        <p>Ваш Telegram ID: <strong>{tgId}</strong></p>
+        <label htmlFor="name">Имя для профиля:</label>
         <input
           id="name"
           type="text"
@@ -204,7 +216,6 @@ const styles = {
     textAlign: 'center',
     maxWidth: 320,
   },
-  title: { marginBottom: 12 },
   statusList: { listStyle: 'none', padding: 0, fontSize: 16, lineHeight: 1.5 },
   statusMsg: { marginTop: 12, fontSize: 14, textAlign: 'center' },
   formBox: {
@@ -217,9 +228,6 @@ const styles = {
     flexDirection: 'column',
     gap: 16,
   },
-  header: { margin: 0, fontSize: 24, textAlign: 'center' },
-  telegramId: { margin: '8px 0', fontSize: 14 },
-  label: { fontSize: 14 },
   input: {
     padding: '10px',
     fontSize: 16,
@@ -239,4 +247,3 @@ const styles = {
     fontWeight: 'bold',
   },
 };
-
