@@ -162,7 +162,7 @@ export default function Init() {
       padding: 20,
       fontFamily: 'Arial, sans-serif',
       color: '#fff',
-      backgroundImage: 'url(/background.jpg)',
+      backgroundImage: 'url(/bg-init.webp)',
       backgroundSize: 'cover',
       backgroundPosition: 'center',
       minHeight: '100vh',
