@@ -62,6 +62,7 @@ export default function Init() {
 // src/Init.jsx
 // src/Init.jsx
 // src/Init.jsx
+// src/screens/Init.jsx
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -72,7 +73,7 @@ const BACKEND_URL =
 export default function Init() {
   const navigate = useNavigate();
 
-  // WebApp state
+  // Telegram WebApp state
   const [tgExists, setTgExists] = useState(false);
   const [waExists, setWaExists] = useState(false);
   const [initDataRaw, setInitDataRaw] = useState('');
@@ -80,6 +81,9 @@ export default function Init() {
   const [tgId, setTgId] = useState('');
   const [name, setName] = useState('');
   const [statusMsg, setStatusMsg] = useState('');
+
+  // Loading state while checking if user exists
+  const [isChecking, setIsChecking] = useState(true);
 
   // 1) Инициализация Telegram WebApp
   useEffect(() => {
@@ -95,29 +99,42 @@ export default function Init() {
 
     if (!tg) {
       setStatusMsg('❌ Telegram не найден');
+      setIsChecking(false);
     } else if (!wa) {
       setStatusMsg('❌ Telegram.WebApp не найден');
+      setIsChecking(false);
     } else if (!raw) {
       setStatusMsg('❌ initData отсутствует');
+      setIsChecking(false);
     } else if (!unsafe.user?.id) {
       setStatusMsg('❌ User ID не найден');
+      setIsChecking(false);
     } else {
-      setTgId(String(unsafe.user.id));
-      setStatusMsg('✅ Всё готово к регистрации');
+      const id = String(unsafe.user.id);
+      setTgId(id);
+      setStatusMsg('✅ Проверка пользователя...');
+      // далее — проверим в БД
     }
   }, []);
 
-  // 2) Если игрок уже есть — сразу переходим на профиль
+  // 2) Проверяем: есть ли такой пользователь в БД
   useEffect(() => {
     if (!tgId) return;
+
     (async () => {
       try {
         const res = await fetch(`${BACKEND_URL}/api/player/${tgId}`);
         if (res.ok) {
+          // если найден — сразу на профиль
           navigate('/profile');
+          return;
         }
       } catch {
-        // игнорируем сетевые ошибки на этом этапе
+        // игнорируем сетевые ошибки здесь
+      } finally {
+        // если не найден или ошибка — показываем форму
+        setStatusMsg('✅ Всё готово к регистрации');
+        setIsChecking(false);
       }
     })();
   }, [tgId, navigate]);
@@ -130,13 +147,7 @@ export default function Init() {
       return;
     }
 
-    const payload = {
-      tg_id: tgId,
-      name,
-      initData: initDataRaw,
-      initDataUnsafe,
-    };
-
+    const payload = { tg_id: tgId, name, initData: initDataRaw, initDataUnsafe };
     try {
       const res = await fetch(`${BACKEND_URL}/api/init`, {
         method: 'POST',
@@ -154,18 +165,11 @@ export default function Init() {
     }
   };
 
-  // 4) Пока не готовы WebApp или ID — показываем статус
-  if (!tgExists || !waExists || !initDataRaw || !tgId) {
+  // 4) Пока идёт проверка — показываем «загрузку»
+  if (isChecking) {
     return (
       <div style={styles.fullscreen}>
         <div style={styles.overlayBox}>
-          <h2>Статус инициализации</h2>
-          <ul style={styles.statusList}>
-            <li>Telegram: {tgExists ? '✅ найден' : '❌ не найден'}</li>
-            <li>WebApp: {waExists ? '✅ найден' : '❌ не найден'}</li>
-            <li>initData: {initDataRaw ? '✅ получен' : '❌ отсутствует'}</li>
-            <li>User ID: {tgId ? `✅ ${tgId}` : '❌ нет'}</li>
-          </ul>
           <p style={styles.statusMsg}>{statusMsg}</p>
         </div>
       </div>
@@ -176,9 +180,11 @@ export default function Init() {
   return (
     <div style={styles.fullscreen}>
       <form onSubmit={handleSubmit} style={styles.formBox}>
-        <h1>Enter the Ash</h1>
-        <p>Ваш Telegram ID: <strong>{tgId}</strong></p>
-        <label htmlFor="name">Имя для профиля:</label>
+        <h1 style={styles.header}>Enter the Ash</h1>
+        <p style={styles.telegramId}>
+          Ваш Telegram ID: <strong>{tgId}</strong>
+        </p>
+        <label htmlFor="name" style={styles.label}>Имя для профиля:</label>
         <input
           id="name"
           type="text"
@@ -216,8 +222,7 @@ const styles = {
     textAlign: 'center',
     maxWidth: 320,
   },
-  statusList: { listStyle: 'none', padding: 0, fontSize: 16, lineHeight: 1.5 },
-  statusMsg: { marginTop: 12, fontSize: 14, textAlign: 'center' },
+  statusMsg: { fontSize: 16, textAlign: 'center' },
   formBox: {
     backgroundColor: 'rgba(0,0,0,0.6)',
     padding: 24,
@@ -228,6 +233,9 @@ const styles = {
     flexDirection: 'column',
     gap: 16,
   },
+  header: { margin: 0, fontSize: 24, textAlign: 'center' },
+  telegramId: { margin: '8px 0', fontSize: 14 },
+  label: { fontSize: 14 },
   input: {
     padding: '10px',
     fontSize: 16,
@@ -247,3 +255,4 @@ const styles = {
     fontWeight: 'bold',
   },
 };
+
