@@ -60,8 +60,10 @@ export default function Init() {
  */
 
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 export default function Init() {
+  const navigate = useNavigate();
   const [tgExists, setTgExists] = useState(false);
   const [waExists, setWaExists] = useState(false);
   const [hasInitData, setHasInitData] = useState(false);
@@ -73,30 +75,31 @@ export default function Init() {
   useEffect(() => {
     const tg = window.Telegram;
     const wa = tg?.WebApp;
-    setTgExists(!!tg);
-    setWaExists(!!wa);
-
     const initData = wa?.initData || '';
     const initDataUnsafe = wa?.initDataUnsafe || {};
 
+    setTgExists(!!tg);
+    setWaExists(!!wa);
     setHasInitData(!!initData);
+
     if (initDataUnsafe.user?.id) {
       setTgId(initDataUnsafe.user.id.toString());
       setHasUserId(true);
     }
 
-    setStatusMsg(
-      tg
-        ? wa
-          ? hasInitData
-            ? hasUserId
-              ? '✅ Всё готово к регистрации'
-              : '❌ Нет ID пользователя'
-            : '❌ Нет initData'
-          : '❌ Telegram.WebApp не найден'
-        : '❌ Telegram не найден'
-    );
-  }, [hasInitData, hasUserId]);
+    // статус
+    if (!tg) {
+      setStatusMsg('❌ Telegram не найден');
+    } else if (!wa) {
+      setStatusMsg('❌ Telegram.WebApp не найден');
+    } else if (!initData) {
+      setStatusMsg('❌ initData отсутствует');
+    } else if (!initDataUnsafe.user?.id) {
+      setStatusMsg('❌ User ID не найден');
+    } else {
+      setStatusMsg('✅ Всё готово к регистрации');
+    }
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -111,7 +114,8 @@ export default function Init() {
         body: JSON.stringify({ tgId, name }),
       });
       if (res.ok) {
-        setStatusMsg('🎉 Имя успешно сохранено');
+        // после успешного сохранения — переходим на /path
+        navigate('/path');
       } else {
         const text = await res.text();
         setStatusMsg(`⚠️ Ошибка: ${text}`);
@@ -121,14 +125,14 @@ export default function Init() {
     }
   };
 
-  // Пока нет подключения к Telegram или initData, показываем только статус
+  // Если что-то не готово — показываем статус
   if (!tgExists || !waExists || !hasInitData || !hasUserId) {
     return (
       <div style={{
         padding: 20,
         fontFamily: 'Arial, sans-serif',
         color: '#fff',
-        backgroundImage: 'url(/background.jpg)',
+        backgroundImage: 'url(/bg-init.webp)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         minHeight: '100vh',
@@ -138,7 +142,7 @@ export default function Init() {
       }}>
         <div style={{
           backgroundColor: 'rgba(0,0,0,0.7)',
-          padding: 20,
+          padding: 24,
           borderRadius: 8,
           textAlign: 'center',
           maxWidth: 320,
@@ -147,7 +151,7 @@ export default function Init() {
           <ul style={{ listStyle: 'none', padding: 0, fontSize: 16, lineHeight: 1.5 }}>
             <li>Telegram: {tgExists ? '✅ найден' : '❌ не найден'}</li>
             <li>WebApp: {waExists ? '✅ найден' : '❌ не найден'}</li>
-            <li>initData: {hasInitData ? '✅ есть' : '❌ нет'}</li>
+            <li>initData: {hasInitData ? '✅ получен' : '❌ отсутствует'}</li>
             <li>User ID: {hasUserId ? `✅ ${tgId}` : '❌ нет'}</li>
           </ul>
           <p style={{ marginTop: 12, fontSize: 14 }}>{statusMsg}</p>
@@ -156,7 +160,7 @@ export default function Init() {
     );
   }
 
-  // Основной экран ввода имени
+  // Экран ввода имени
   return (
     <div style={{
       padding: 20,
@@ -181,7 +185,9 @@ export default function Init() {
         gap: 16,
       }}>
         <h1 style={{ margin: 0, fontSize: 24, textAlign: 'center' }}>Enter the Ash</h1>
-        <p style={{ margin: '8px 0', fontSize: 14 }}>Ваш Telegram ID: <strong>{tgId}</strong></p>
+        <p style={{ margin: '8px 0', fontSize: 14 }}>
+          Ваш Telegram ID: <strong>{tgId}</strong>
+        </p>
 
         <label htmlFor="name" style={{ fontSize: 14 }}>Имя для профиля:</label>
         <input
@@ -210,7 +216,7 @@ export default function Init() {
           color: '#000',
           fontWeight: 'bold'
         }}>
-          Сохранить
+          Сохранить и продолжить
         </button>
 
         {statusMsg && (
@@ -220,4 +226,5 @@ export default function Init() {
     </div>
   );
 }
+
 
