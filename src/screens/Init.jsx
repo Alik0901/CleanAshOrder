@@ -60,10 +60,14 @@ export default function Init() {
  */
 
 // src/Init.jsx
+// src/Init.jsx
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL; // например https://ash-backend-production.up.railway.app
+// Если окружение не поставлено, используется ваш Railway URL
+const BACKEND_URL =
+  process.env.REACT_APP_BACKEND_URL ||
+  'https://ash-backend-production.up.railway.app';
 
 export default function Init() {
   const navigate = useNavigate();
@@ -89,7 +93,7 @@ export default function Init() {
     setInitDataUnsafe(unsafe);
 
     if (unsafe.user?.id) {
-      setTgId(unsafe.user.id.toString());
+      setTgId(String(unsafe.user.id));
       setStatusMsg('✅ Всё готово к регистрации');
     } else if (!tg) {
       setStatusMsg('❌ Telegram не найден');
@@ -134,36 +138,19 @@ export default function Init() {
     }
   };
 
-  // Пока WebApp не готов — показываем статус
+  // Если WebApp не готов — показываем только статус
   if (!tgExists || !waExists || !initDataRaw || !tgId) {
     return (
-      <div style={{
-        padding: 20,
-        fontFamily: 'Arial, sans-serif',
-        color: '#fff',
-        backgroundImage: 'url(/bg-init.webp)',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}>
-        <div style={{
-          backgroundColor: 'rgba(0,0,0,0.7)',
-          padding: 24,
-          borderRadius: 8,
-          textAlign: 'center',
-          maxWidth: 320,
-        }}>
-          <h2 style={{ marginBottom: 12 }}>Статус инициализации</h2>
-          <ul style={{ listStyle: 'none', padding: 0, fontSize: 16, lineHeight: 1.5 }}>
+      <div style={styles.fullscreen}>
+        <div style={styles.overlayBox}>
+          <h2 style={styles.title}>Статус инициализации</h2>
+          <ul style={styles.statusList}>
             <li>Telegram: {tgExists ? '✅ найден' : '❌ не найден'}</li>
             <li>WebApp: {waExists ? '✅ найден' : '❌ не найден'}</li>
             <li>initData: {initDataRaw ? '✅ получен' : '❌ отсутствует'}</li>
             <li>User ID: {tgId ? `✅ ${tgId}` : '❌ нет'}</li>
           </ul>
-          <p style={{ marginTop: 12, fontSize: 14 }}>{statusMsg}</p>
+          <p style={styles.statusMsg}>{statusMsg}</p>
         </div>
       </div>
     );
@@ -171,65 +158,85 @@ export default function Init() {
 
   // Экран ввода имени
   return (
-    <div style={{
-      padding: 20,
-      fontFamily: 'Arial, sans-serif',
-      color: '#fff',
-      backgroundImage: 'url(/bg-init.webp)',
-      backgroundSize: 'cover',
-      backgroundPosition: 'center',
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-    }}>
-      <form onSubmit={handleSubmit} style={{
-        backgroundColor: 'rgba(0, 0, 0, 0.6)',
-        padding: 24,
-        borderRadius: 8,
-        width: '100%',
-        maxWidth: 400,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 16,
-      }}>
-        <h1 style={{ margin: 0, fontSize: 24, textAlign: 'center' }}>Enter the Ash</h1>
-        <p style={{ margin: '8px 0', fontSize: 14 }}>
+    <div style={styles.fullscreen}>
+      <form onSubmit={handleSubmit} style={styles.formBox}>
+        <h1 style={styles.header}>Enter the Ash</h1>
+        <p style={styles.telegramId}>
           Ваш Telegram ID: <strong>{tgId}</strong>
         </p>
-        <label htmlFor="name" style={{ fontSize: 14 }}>Имя для профиля:</label>
+        <label htmlFor="name" style={styles.label}>
+          Имя для профиля:
+        </label>
         <input
           id="name"
           type="text"
           value={name}
-          onChange={e => setName(e.target.value)}
+          onChange={(e) => setName(e.target.value)}
           placeholder="Введите имя"
-          style={{
-            padding: '10px',
-            fontSize: 16,
-            borderRadius: 4,
-            border: '1px solid #555',
-            backgroundColor: '#222',
-            color: '#fff'
-          }}
+          style={styles.input}
         />
-        <button type="submit" style={{
-          padding: '12px',
-          fontSize: 16,
-          borderRadius: 4,
-          border: 'none',
-          cursor: 'pointer',
-          backgroundColor: '#f9d342',
-          color: '#000',
-          fontWeight: 'bold'
-        }}>
+        <button type="submit" style={styles.button}>
           Сохранить и продолжить
         </button>
-        {statusMsg && (
-          <p style={{ margin: 0, fontSize: 14, textAlign: 'center' }}>{statusMsg}</p>
-        )}
+        {statusMsg && <p style={styles.statusMsg}>{statusMsg}</p>}
       </form>
     </div>
   );
 }
+
+const styles = {
+  fullscreen: {
+    padding: 20,
+    fontFamily: 'Arial, sans-serif',
+    color: '#fff',
+    backgroundImage: 'url(/bg-init.webp)',
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    minHeight: '100vh',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  overlayBox: {
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    padding: 24,
+    borderRadius: 8,
+    textAlign: 'center',
+    maxWidth: 320,
+  },
+  title: { marginBottom: 12 },
+  statusList: { listStyle: 'none', padding: 0, fontSize: 16, lineHeight: 1.5 },
+  statusMsg: { marginTop: 12, fontSize: 14, textAlign: 'center' },
+  formBox: {
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    padding: 24,
+    borderRadius: 8,
+    width: '100%',
+    maxWidth: 400,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 16,
+  },
+  header: { margin: 0, fontSize: 24, textAlign: 'center' },
+  telegramId: { margin: '8px 0', fontSize: 14 },
+  label: { fontSize: 14 },
+  input: {
+    padding: '10px',
+    fontSize: 16,
+    borderRadius: 4,
+    border: '1px solid #555',
+    backgroundColor: '#222',
+    color: '#fff',
+  },
+  button: {
+    padding: '12px',
+    fontSize: 16,
+    borderRadius: 4,
+    border: 'none',
+    cursor: 'pointer',
+    backgroundColor: '#f9d342',
+    color: '#000',
+    fontWeight: 'bold',
+  },
+};
 
