@@ -62,48 +62,46 @@ export default function Init() {
 import { useEffect, useState } from 'react';
 
 export default function Init() {
+  const [tgExists, setTgExists] = useState(false);
+  const [waExists, setWaExists] = useState(false);
+  const [hasInitData, setHasInitData] = useState(false);
+  const [hasUserId, setHasUserId] = useState(false);
   const [tgId, setTgId] = useState('');
-  const [debug, setDebug] = useState('');
-  const [initDataRaw, setInitDataRaw] = useState('');
-  const [initDataUnsafe, setInitDataUnsafe] = useState('');
-  const [telegramDump, setTelegramDump] = useState('');
+  const [statusMsg, setStatusMsg] = useState('');
   const [name, setName] = useState('');
-  const [status, setStatus] = useState('');
 
   useEffect(() => {
     const tg = window.Telegram;
     const wa = tg?.WebApp;
+    setTgExists(!!tg);
+    setWaExists(!!wa);
+
     const initData = wa?.initData || '';
-    const initDataUnsafeObj = wa?.initDataUnsafe || {};
+    const initDataUnsafe = wa?.initDataUnsafe || {};
 
-    setInitDataRaw(initData || '—');
-    setInitDataUnsafe(JSON.stringify(initDataUnsafeObj, null, 2));
-
-    try {
-      const dump = JSON.stringify({
-        tgExists: !!tg,
-        waExists: !!wa,
-        initData,
-        initDataUnsafe: initDataUnsafeObj,
-        user: initDataUnsafeObj?.user,
-      }, null, 2);
-      setTelegramDump(dump);
-    } catch {
-      setTelegramDump('Failed to parse Telegram object');
+    setHasInitData(!!initData);
+    if (initDataUnsafe.user?.id) {
+      setTgId(initDataUnsafe.user.id.toString());
+      setHasUserId(true);
     }
 
-    if (initDataUnsafeObj?.user?.id) {
-      setTgId(initDataUnsafeObj.user.id.toString());
-      setDebug('✅ initDataUnsafe.user.id получен');
-    } else {
-      setDebug('❌ initDataUnsafe.user.id не найден');
-    }
-  }, []);
+    setStatusMsg(
+      tg
+        ? wa
+          ? hasInitData
+            ? hasUserId
+              ? '✅ Всё готово к регистрации'
+              : '❌ Нет ID пользователя'
+            : '❌ Нет initData'
+          : '❌ Telegram.WebApp не найден'
+        : '❌ Telegram не найден'
+    );
+  }, [hasInitData, hasUserId]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!name.trim()) {
-      setStatus('Введите, пожалуйста, имя');
+      setStatusMsg('❗ Введите имя');
       return;
     }
     try {
@@ -113,34 +111,52 @@ export default function Init() {
         body: JSON.stringify({ tgId, name }),
       });
       if (res.ok) {
-        setStatus('Имя успешно сохранено!');
+        setStatusMsg('🎉 Имя успешно сохранено');
       } else {
-        const err = await res.text();
-        setStatus(`Ошибка: ${err}`);
+        const text = await res.text();
+        setStatusMsg(`⚠️ Ошибка: ${text}`);
       }
     } catch (err) {
-      setStatus(`Сетевая ошибка: ${err.message}`);
+      setStatusMsg(`⚠️ Сетевая ошибка: ${err.message}`);
     }
   };
 
-  // Если tgId ещё не получен — показываем отладку
-  if (!tgId) {
+  // Пока нет подключения к Telegram или initData, показываем только статус
+  if (!tgExists || !waExists || !hasInitData || !hasUserId) {
     return (
       <div style={{
         padding: 20,
-        fontFamily: 'monospace',
-        color: '#f9d342',
-        backgroundColor: '#0f1218',
-        minHeight: '100vh'
+        fontFamily: 'Arial, sans-serif',
+        color: '#fff',
+        backgroundImage: 'url(/background.jpg)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
       }}>
-        <h2>Идёт инициализация...</h2>
-        <p>Debug: {debug}</p>
-        <pre style={{ color: '#ccc' }}>{telegramDump}</pre>
+        <div style={{
+          backgroundColor: 'rgba(0,0,0,0.7)',
+          padding: 20,
+          borderRadius: 8,
+          textAlign: 'center',
+          maxWidth: 320,
+        }}>
+          <h2 style={{ marginBottom: 12 }}>Статус инициализации</h2>
+          <ul style={{ listStyle: 'none', padding: 0, fontSize: 16, lineHeight: 1.5 }}>
+            <li>Telegram: {tgExists ? '✅ найден' : '❌ не найден'}</li>
+            <li>WebApp: {waExists ? '✅ найден' : '❌ не найден'}</li>
+            <li>initData: {hasInitData ? '✅ есть' : '❌ нет'}</li>
+            <li>User ID: {hasUserId ? `✅ ${tgId}` : '❌ нет'}</li>
+          </ul>
+          <p style={{ marginTop: 12, fontSize: 14 }}>{statusMsg}</p>
+        </div>
       </div>
     );
   }
 
-  // Основной UI
+  // Основной экран ввода имени
   return (
     <div style={{
       padding: 20,
@@ -151,41 +167,41 @@ export default function Init() {
       backgroundPosition: 'center',
       minHeight: '100vh',
       display: 'flex',
-      flexDirection: 'column',
       alignItems: 'center',
-      justifyContent: 'center'
+      justifyContent: 'center',
     }}>
-      <h1 style={{ marginBottom: 20 }}>Enter the Ash</h1>
-
       <form onSubmit={handleSubmit} style={{
         backgroundColor: 'rgba(0, 0, 0, 0.6)',
-        padding: 20,
+        padding: 24,
         borderRadius: 8,
         width: '100%',
         maxWidth: 400,
         display: 'flex',
         flexDirection: 'column',
-        gap: 12
+        gap: 16,
       }}>
-        <label htmlFor="name" style={{ fontSize: 14 }}>Ваше имя для профиля:</label>
+        <h1 style={{ margin: 0, fontSize: 24, textAlign: 'center' }}>Enter the Ash</h1>
+        <p style={{ margin: '8px 0', fontSize: 14 }}>Ваш Telegram ID: <strong>{tgId}</strong></p>
+
+        <label htmlFor="name" style={{ fontSize: 14 }}>Имя для профиля:</label>
         <input
           id="name"
           type="text"
           value={name}
           onChange={e => setName(e.target.value)}
-          placeholder="Имя"
+          placeholder="Введите имя"
           style={{
-            padding: '8px',
+            padding: '10px',
             fontSize: 16,
             borderRadius: 4,
-            border: '1px solid #444',
+            border: '1px solid #555',
             backgroundColor: '#222',
             color: '#fff'
           }}
         />
 
         <button type="submit" style={{
-          padding: '10px',
+          padding: '12px',
           fontSize: 16,
           borderRadius: 4,
           border: 'none',
@@ -194,10 +210,12 @@ export default function Init() {
           color: '#000',
           fontWeight: 'bold'
         }}>
-          Отправить
+          Сохранить
         </button>
 
-        {status && <p style={{ marginTop: 8, fontSize: 14 }}>{status}</p>}
+        {statusMsg && (
+          <p style={{ margin: 0, fontSize: 14, textAlign: 'center' }}>{statusMsg}</p>
+        )}
       </form>
     </div>
   );
