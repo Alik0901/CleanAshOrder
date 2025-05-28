@@ -12,20 +12,20 @@ export default function Init() {
   useEffect(() => {
     const tg = window.Telegram;
     const wa = tg?.WebApp;
-    const initData = wa?.initData || '';
+    const initDataRaw = wa?.initDataRaw || '';
     const initDataUnsafe = wa?.initDataUnsafe || {};
 
-    setRaw(initData);
+    setRaw(initDataRaw);
 
-    if (!initData) {
-      setDebug('No initData found');
+    if (!initDataRaw) {
+      setDebug('No initDataRaw found');
       return;
     }
 
     fetch(`${API_URL}/api/validate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ initData }),
+      body: JSON.stringify({ initData: initDataRaw }),
     })
       .then(res => res.json())
       .then(data => {
