@@ -63,6 +63,7 @@ export default function Init() {
 // src/Init.jsx
 // src/Init.jsx
 // src/screens/Init.jsx
+// src/screens/Init.jsx
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -155,7 +156,8 @@ export default function Init() {
         body: JSON.stringify(payload),
       });
       if (res.ok) {
-        navigate('/profile');
+        // для новых пользователей — сразу на /path
+        navigate('/path');
       } else {
         const err = await res.json();
         setStatusMsg(`⚠️ Ошибка: ${err.error || 'неизвестно'}`);
@@ -255,4 +257,5 @@ const styles = {
     fontWeight: 'bold',
   },
 };
+
 
