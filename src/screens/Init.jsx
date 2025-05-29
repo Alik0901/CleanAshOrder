@@ -11,19 +11,18 @@ const NAME_REGEX = /^[A-Za-z ]+$/;
 export default function Init() {
   const navigate = useNavigate();
 
-  // Telegram data
+  // Telegram/WebApp data
   const [tgId, setTgId] = useState('');
   const [initDataRaw, setInitDataRaw] = useState('');
   const [initDataUnsafe, setInitDataUnsafe] = useState({});
+  const [status, setStatus] = useState('Checking Telegram...');
+  const [checking, setChecking] = useState(true);
 
   // Form state
   const [name, setName] = useState('');
-  const [status, setStatus] = useState('');
-  const [checking, setChecking] = useState(true);
-
   const validName = name.trim().length > 0 && NAME_REGEX.test(name);
 
-  // 1) Read Telegram WebApp initData
+  // 1) Read Telegram initData once
   useEffect(() => {
     const tg = window.Telegram;
     const wa = tg?.WebApp;
@@ -35,20 +34,26 @@ export default function Init() {
 
     if (!tg) {
       setStatus('❌ Telegram not found');
-    } else if (!wa) {
-      setStatus('❌ Telegram.WebApp not found');
-    } else if (!raw) {
-      setStatus('❌ initData missing');
-    } else if (!unsafe.user?.id) {
-      setStatus('❌ User ID not found');
-    } else {
-      setTgId(String(unsafe.user.id));
-      setStatus('✅ Checking registration...');
+      return;
     }
-    setChecking(false);
+    if (!wa) {
+      setStatus('❌ Telegram.WebApp not found');
+      return;
+    }
+    if (!raw) {
+      setStatus('❌ initData missing');
+      return;
+    }
+    if (!unsafe.user?.id) {
+      setStatus('❌ User ID not found');
+      return;
+    }
+
+    setTgId(String(unsafe.user.id));
+    setStatus('Checking existing user...');
   }, []);
 
-  // 2) If tgId is present, check if user exists in DB
+  // 2) Check in database — once tgId is set
   useEffect(() => {
     if (!tgId) return;
     (async () => {
@@ -59,14 +64,15 @@ export default function Init() {
           return;
         }
       } catch {
-        // ignore
+        // network error, treat as new
       }
       setStatus('✅ Ready to register');
+      setChecking(false);
     })();
   }, [tgId, navigate]);
 
-  // 3) Handle form submission
-  const handleSubmit = async (e) => {
+  // 3) Handle form submit
+  const handleSubmit = async e => {
     e.preventDefault();
     if (!validName) {
       setStatus('❗ Name must be English letters and spaces only');
@@ -95,6 +101,7 @@ export default function Init() {
     }
   };
 
+  // 4) While checking, show status
   if (checking) {
     return (
       <div style={styles.container}>
@@ -103,6 +110,7 @@ export default function Init() {
     );
   }
 
+  // 5) Registration form
   return (
     <div style={styles.container}>
       <form onSubmit={handleSubmit} style={styles.form}>
@@ -114,7 +122,7 @@ export default function Init() {
         <input
           type="text"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={e => setName(e.target.value)}
           placeholder="Your name (A–Z only)"
           style={styles.input}
         />
@@ -122,10 +130,7 @@ export default function Init() {
         <button
           type="submit"
           disabled={!validName}
-          style={{
-            ...styles.button,
-            opacity: validName ? 1 : 0.5,
-          }}
+          style={{ ...styles.button, opacity: validName ? 1 : 0.5 }}
         >
           Save and Continue
         </button>
@@ -159,16 +164,8 @@ const styles = {
     flexDirection: 'column',
     gap: 16,
   },
-  title: {
-    margin: 0,
-    fontSize: 24,
-    textAlign: 'center',
-  },
-  info: {
-    fontSize: 14,
-    textAlign: 'center',
-    margin: '4px 0 12px',
-  },
+  title: { margin: 0, fontSize: 24, textAlign: 'center' },
+  info: { fontSize: 14, textAlign: 'center', margin: '4px 0 12px' },
   input: {
     padding: 10,
     fontSize: 16,
@@ -187,9 +184,5 @@ const styles = {
     cursor: 'pointer',
     fontWeight: 'bold',
   },
-  status: {
-    marginTop: 12,
-    fontSize: 14,
-    textAlign: 'center',
-  },
+  status: { marginTop: 12, fontSize: 14, textAlign: 'center' },
 };
