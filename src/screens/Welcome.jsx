@@ -8,7 +8,7 @@ export default function Welcome() {
 
   // Play intro sound on mount
   useEffect(() => {
-    const intro = new Audio('/sounds/start.m4r');
+    const intro = new Audio('/sounds/start.mp3');
     intro.volume = 0.7;
     intro.play().catch(() => {
       // autoplay might be blocked
@@ -18,7 +18,7 @@ export default function Welcome() {
 
   const handleShowScroll = () => {
     setShowScroll(true);
-    const audio = new Audio('/sounds/start.m4r'); // same sound file
+    const audio = new Audio('/sounds/start.mp3'); // same sound file
     audio.volume = 0.7;
     audio.play().catch(() => {});
   };
