@@ -13,6 +13,7 @@ export default function Profile() {
   const [name, setName] = useState('');
   const [totalUsers, setTotalUsers] = useState(0);
   const [collectedFragments, setCollectedFragments] = useState([]);
+  const [selected, setSelected] = useState(null); // id of enlarged fragment
 
   useEffect(() => {
     const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {};
@@ -24,14 +25,12 @@ export default function Profile() {
 
     (async () => {
       try {
-        // load player
         const res = await fetch(`${BACKEND_URL}/api/player/${userId}`);
         if (!res.ok) throw new Error();
         const player = await res.json();
         setName(player.name);
         setCollectedFragments(player.fragments || []);
 
-        // load global stats
         const statsRes = await fetch(`${BACKEND_URL}/api/stats/total_users`);
         if (statsRes.ok) {
           const { value } = await statsRes.json();
@@ -60,7 +59,6 @@ export default function Profile() {
     );
   }
 
-  // slugs for each fragment image file name
   const slugs = [
     'the_whisper',
     'the_number',
@@ -71,7 +69,6 @@ export default function Profile() {
     'the_mark',
     'the_gate',
   ];
-  // layout in two rows of four
   const rows = [
     [1, 2, 3, 4],
     [5, 6, 7, 8],
@@ -88,13 +85,17 @@ export default function Profile() {
         <div style={styles.grid}>
           {rows.map((row, ri) => (
             <div key={ri} style={styles.row}>
-              {row.map((id) => {
+              {row.map(id => {
                 const owned = collectedFragments.includes(id);
                 const src = owned
                   ? `/fragments/fragment_${id}_${slugs[id - 1]}.webp`
                   : null;
                 return (
-                  <div key={id} style={styles.slot}>
+                  <div
+                    key={id}
+                    style={styles.slot}
+                    onClick={() => owned && setSelected(id)}
+                  >
                     {owned && (
                       <img
                         src={src}
@@ -117,6 +118,17 @@ export default function Profile() {
           🔥 Burn Again
         </button>
       </div>
+
+      {/* Modal for enlarged fragment */}
+      {selected && (
+        <div style={styles.modal} onClick={() => setSelected(null)}>
+          <img
+            src={`/fragments/fragment_${selected}_${slugs[selected - 1]}.webp`}
+            alt="Enlarged fragment"
+            style={styles.modalImage}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -158,6 +170,7 @@ const styles = {
     border: '1px solid #d4af37',
     borderRadius: 4,
     overflow: 'hidden',
+    cursor: 'pointer',
   },
   fragmentImage: {
     width: '100%',
@@ -173,5 +186,24 @@ const styles = {
     fontSize: 14,
     cursor: 'pointer',
     borderRadius: 4,
+  },
+  modal: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    width: '100vw',
+    height: '100vh',
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 9999,
+    cursor: 'pointer',
+  },
+  modalImage: {
+    maxWidth: '90%',
+    maxHeight: '90%',
+    objectFit: 'contain',
+    boxShadow: '0 0 20px rgba(0,0,0,0.5)',
   },
 };
