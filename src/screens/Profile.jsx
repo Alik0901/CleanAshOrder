@@ -74,13 +74,12 @@ export default function Profile() {
 
   return (
     <div style={styles.page}>
-      {/* Здесь позже можно вставить верхний баннер/изображение */}
-      <div style={styles.card}>
+      {/* Верхнее пространство для баннера или декоративного рисунка */}
+      <div style={styles.content}>
         <h2 style={styles.header}>{name}</h2>
         <p style={styles.subtitle}>
           Fragments: {collectedFragments.length} / 8
         </p>
-
         <div style={styles.grid}>
           {rows.map((row, ri) => (
             <div key={ri} style={styles.row}>
@@ -108,16 +107,13 @@ export default function Profile() {
             </div>
           ))}
         </div>
-
         <p style={styles.counter}>
           <em>Ash Seekers: {totalUsers.toLocaleString()}</em>
         </p>
-
         <button style={styles.burnButton} onClick={() => navigate('/path')}>
           🔥 Burn Again
         </button>
       </div>
-
       {selected && (
         <div style={styles.modal} onClick={() => setSelected(null)}>
           <img
@@ -142,23 +138,18 @@ const styles = {
     color: '#d4af37',
     display: 'flex',
     flexDirection: 'column',
+    justifyContent: 'flex-end', // прижать к нижней границе
     alignItems: 'center',
-    justifyContent: 'flex-start', // сдвиг вниз
-    paddingTop: 40,               // отступ сверху для баннера
-    paddingBottom: 20,
+    padding: '16px',
+  },
+  content: {
+    width: '100%',
+    maxWidth: '95vw',
+    textAlign: 'center',
+    backgroundColor: 'transparent',
   },
   loading: { fontSize: 18, color: '#fff' },
   error: { fontSize: 16, color: '#f00' },
-  card: {
-    position: 'relative',
-    zIndex: 2,
-    width: '100%',
-    maxWidth: '95vw',
-    padding: 16,
-    backgroundColor: 'transparent',
-    borderRadius: 12,
-    textAlign: 'center',
-  },
   header: { fontSize: 24, margin: '0 0 8px' },
   subtitle: { fontSize: 14, marginBottom: 16, opacity: 0.85 },
   grid: {
@@ -196,6 +187,7 @@ const styles = {
     fontSize: 14,
     cursor: 'pointer',
     borderRadius: 4,
+    marginBottom: 16,
   },
   modal: {
     position: 'fixed',
