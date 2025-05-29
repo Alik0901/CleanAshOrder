@@ -74,8 +74,7 @@ export default function Profile() {
 
   return (
     <div style={styles.page}>
-      {/* Верхнее пространство для баннера или декоративного рисунка */}
-      <div style={styles.content}>
+      <div style={styles.card}>
         <h2 style={styles.header}>{name}</h2>
         <p style={styles.subtitle}>
           Fragments: {collectedFragments.length} / 8
@@ -130,23 +129,26 @@ export default function Profile() {
 const styles = {
   page: {
     position: 'relative',
-    minHeight: '100vh',
+    height: '100vh',
+    width: '100vw',
     backgroundImage: 'url("/profile-bg.webp")',
     backgroundSize: 'cover',
     backgroundPosition: 'center',
+    display: 'flex',
+    justifyContent: 'center',      // центр по вертикали
+    alignItems: 'center',          // центр по горизонтали
+    paddingTop: '50px',            // смещение вниз на 50px
+    overflow: 'hidden',
     fontFamily: 'serif',
     color: '#d4af37',
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'flex-end', // прижать к нижней границе
-    alignItems: 'center',
-    padding: '16px',
   },
-  content: {
-    width: '100%',
-    maxWidth: '95vw',
-    textAlign: 'center',
+  card: {
+    position: 'relative',
+    width: '90%',
+    maxWidth: 360,
+    padding: 16,
     backgroundColor: 'transparent',
+    textAlign: 'center',
   },
   loading: { fontSize: 18, color: '#fff' },
   error: { fontSize: 16, color: '#f00' },
@@ -187,7 +189,6 @@ const styles = {
     fontSize: 14,
     cursor: 'pointer',
     borderRadius: 4,
-    marginBottom: 16,
   },
   modal: {
     position: 'fixed',
