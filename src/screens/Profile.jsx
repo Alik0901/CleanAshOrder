@@ -149,8 +149,7 @@ const styles = {
     maxWidth: '95vw',
     padding: 16,
     backgroundColor: 'transparent',
-    border: '1px solid #d4af37',
-    borderRadius: 12,
+    borderRadius: 12, // убрали border
     textAlign: 'center',
   },
   header: { fontSize: 24, margin: '0 0 8px' },
