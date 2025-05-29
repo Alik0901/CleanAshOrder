@@ -74,11 +74,13 @@ export default function Profile() {
 
   return (
     <div style={styles.page}>
+      {/* Здесь позже можно вставить верхний баннер/изображение */}
       <div style={styles.card}>
         <h2 style={styles.header}>{name}</h2>
         <p style={styles.subtitle}>
           Fragments: {collectedFragments.length} / 8
         </p>
+
         <div style={styles.grid}>
           {rows.map((row, ri) => (
             <div key={ri} style={styles.row}>
@@ -106,13 +108,16 @@ export default function Profile() {
             </div>
           ))}
         </div>
+
         <p style={styles.counter}>
           <em>Ash Seekers: {totalUsers.toLocaleString()}</em>
         </p>
+
         <button style={styles.burnButton} onClick={() => navigate('/path')}>
           🔥 Burn Again
         </button>
       </div>
+
       {selected && (
         <div style={styles.modal} onClick={() => setSelected(null)}>
           <img
@@ -136,9 +141,11 @@ const styles = {
     fontFamily: 'serif',
     color: '#d4af37',
     display: 'flex',
-    justifyContent: 'center',
+    flexDirection: 'column',
     alignItems: 'center',
-    padding: '16px',
+    justifyContent: 'flex-start', // сдвиг вниз
+    paddingTop: 40,               // отступ сверху для баннера
+    paddingBottom: 20,
   },
   loading: { fontSize: 18, color: '#fff' },
   error: { fontSize: 16, color: '#f00' },
@@ -149,7 +156,7 @@ const styles = {
     maxWidth: '95vw',
     padding: 16,
     backgroundColor: 'transparent',
-    borderRadius: 12, // убрали border
+    borderRadius: 12,
     textAlign: 'center',
   },
   header: { fontSize: 24, margin: '0 0 8px' },
