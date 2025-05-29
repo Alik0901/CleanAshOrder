@@ -1,35 +1,47 @@
-// src/screens/Profile.jsx
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+// URL вашего бэкенда для запросов
 const BACKEND_URL =
   process.env.REACT_APP_BACKEND_URL ||
   'https://ash-backend-production.up.railway.app';
 
 export default function Profile() {
   const navigate = useNavigate();
-  const [tgId, setTgId] = useState('');
-  const [fragments, setFragments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  // 1) Получаем Telegram ID и загружаем профиль
+  // Динамические данные из бэкенда
+  const [name, setName] = useState('');           // имя игрока
+  const [totalUsers, setTotalUsers] = useState(0); // общее число пользователей
+  const [collectedFragments, setCollectedFragments] = useState([]);
+
   useEffect(() => {
+    // Получаем Telegram ID из WebApp
     const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {};
-    const id = unsafe.user?.id;
-    if (!id) {
+    const userId = unsafe.user?.id;
+    if (!userId) {
       navigate('/init');
       return;
     }
-    setTgId(String(id));
 
+    // Запросим данные игрока
     (async () => {
       try {
-        const res = await fetch(`${BACKEND_URL}/api/player/${id}`);
+        const res = await fetch(`${BACKEND_URL}/api/player/${userId}`);
         if (!res.ok) throw new Error();
         const player = await res.json();
-        setFragments(player.fragments || []);
+        setName(player.name);
+        setCollectedFragments(player.fragments || []);
+
+        // Запросим глобальную статистику
+        const statsRes = await fetch(`${BACKEND_URL}/api/stats/total_users`);
+        if (statsRes.ok) {
+          const { value } = await statsRes.json();
+          setTotalUsers(value);
+        }
       } catch {
-        navigate('/init');
+        setError('Не удалось загрузить профиль');
       } finally {
         setLoading(false);
       }
@@ -38,105 +50,130 @@ export default function Profile() {
 
   if (loading) {
     return (
-      <div style={styles.container}>
+      <div style={styles.page}>
         <p style={styles.loading}>Загрузка профиля...</p>
       </div>
     );
   }
 
-  const ownedSet = new Set(fragments);
-  const allSlots = [1, 2, 3, 4, 5, 6, 7];
-  const firstRow = allSlots.slice(0, 4);
+  if (error) {
+    return (
+      <div style={styles.page}>
+        <p style={styles.error}>{error}</p>
+      </div>
+    );
+  }
+
+  // Настройка всех фрагментов 1–7
+  const fragmentImages = {
+    1: '/frag1.webp', 2: '/frag2.webp', 3: '/frag3.webp',
+    4: '/frag4.webp', 5: '/frag5.webp', 6: '/frag6.webp', 7: '/frag7.webp',
+  };
+  const allSlots = [1,2,3,4,5,6,7];
+  const firstRow = allSlots.slice(0,4);
   const secondRow = allSlots.slice(4);
+  const ownedSet = new Set(collectedFragments);
 
   return (
-    <div style={styles.container}>
-      <h1 style={styles.header}>Your Fragments</h1>
-      <p style={styles.count}>
-        Collected {fragments.length} of {allSlots.length}
-      </p>
+    <div style={styles.page}>
+      <div style={styles.overlay} />
+      <div style={styles.card}>
+        {/* Аватар и имя игрока */}
+        <img src="/avatar.webp" alt="Avatar" style={styles.avatar} />
+        <h2 style={styles.title}>{name}</h2>
+        <p style={styles.subtitle}>
+          Fragments: {collectedFragments.length} / 7
+        </p>
 
-      <div style={styles.row}>
-        {firstRow.map((id) => {
-          const owned = ownedSet.has(id);
-          return (
-            <div
-              key={id}
-              style={{
-                ...styles.slot,
-                backgroundColor: owned ? '#f9d342' : '#555',
-                opacity: owned ? 1 : 0.3,
-              }}
-            >
-              <span style={styles.slotText}>{id}</span>
+        {/* Сетка фрагментов */}
+        <div style={styles.fragmentsWrapper}>
+          <div style={styles.gridTop}>
+            {firstRow.map(id => (
+              <div key={id} style={styles.fragment}>
+                {ownedSet.has(id) ? (
+                  <img
+                    src={fragmentImages[id]}
+                    alt={`Fragment ${id}`}
+                    style={styles.fragmentImage}
+                  />
+                ) : (
+                  <div style={styles.placeholder} />
+                )}
+              </div>
+            ))}
+          </div>
+          <div style={styles.gridBottomWrapper}>
+            <div style={styles.gridBottom}>
+              {secondRow.map(id => (
+                <div key={id} style={styles.fragment}>
+                  {ownedSet.has(id) ? (
+                    <img
+                      src={fragmentImages[id]}
+                      alt={`Fragment ${id}`}
+                      style={styles.fragmentImage}
+                    />
+                  ) : (
+                    <div style={styles.placeholder} />
+                  )}
+                </div>
+              ))}
             </div>
-          );
-        })}
-      </div>
+          </div>
+        </div>
 
-      <div style={{ ...styles.row, justifyContent: 'center' }}>
-        {secondRow.map((id) => {
-          const owned = ownedSet.has(id);
-          return (
-            <div
-              key={id}
-              style={{
-                ...styles.slot,
-                backgroundColor: owned ? '#f9d342' : '#555',
-                opacity: owned ? 1 : 0.3,
-              }}
-            >
-              <span style={styles.slotText}>{id}</span>
-            </div>
-          );
-        })}
+        {/* Счётчик всех пользователей */}
+        <p style={styles.counter}>
+          <em>Ash Seekers: {totalUsers.toLocaleString()}</em>
+        </p>
+        {/* Кнопка для «Burn Again» */}
+        <button
+          style={styles.burnButton}
+          onClick={() => navigate('/path')}
+        >
+          🔥 Burn Again
+        </button>
       </div>
     </div>
   );
 }
 
 const styles = {
-  container: {
-    padding: 20,
-    fontFamily: 'Arial, sans-serif',
-    color: '#fff',
-    backgroundImage: 'url(/bg-profile.webp)',
+  page: {
+    position: 'relative',
+    minHeight: '100dvh',
+    backgroundImage: 'url("/bg-profile.webp")',
     backgroundSize: 'cover',
     backgroundPosition: 'center',
-    minHeight: '100vh',
-  },
-  loading: {
-    fontSize: 18,
-    textAlign: 'center',
-    marginTop: '40vh',
-  },
-  header: {
-    fontSize: 24,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  count: {
-    textAlign: 'center',
-    fontSize: 16,
-    marginBottom: 20,
-  },
-  row: {
+    fontFamily: 'serif',
+    color: '#d4af37',
     display: 'flex',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  slot: {
-    width: 60,
-    height: 60,
-    margin: '0 8px',
-    borderRadius: 8,
-    display: 'flex',
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
   },
-  slotText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#000',
+  overlay: {
+    position: 'absolute', inset: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    zIndex: 1,
   },
+  card: {
+    position: 'relative', zIndex: 2,
+    maxWidth: 360, width: '100%', padding: 20,
+    backgroundColor: 'rgba(0,0,0,0.4)', borderRadius: 12,
+    textAlign: 'center',
+  },
+  avatar: {
+    width: 72, height: 72, borderRadius: '50%',
+    marginBottom: 10, border: '2px solid #d4af37',
+  },
+  title: { fontSize: 24, margin: '10px 0 4px' },
+  subtitle: { fontSize: 14, marginBottom: 20, opacity: 0.85 },
+  fragmentsWrapper: { display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center', marginBottom: 16 },
+  gridTop: { display: 'grid', gridTemplateColumns: 'repeat(4, 60px)', gap: 6 },
+  gridBottomWrapper: { display: 'flex', justifyContent: 'center', width: '100%' },
+  gridBottom: { display: 'grid', gridTemplateColumns: 'repeat(3, 60px)', gap: 6 },
+  fragment: { width: 60, height: 60, backgroundColor: '#111', border: '1px solid #d4af37', borderRadius: 4, display: 'flex', justifyContent: 'center', alignItems: 'center' },
+  fragmentImage: { width: '100%', height: '100%', objectFit: 'cover' },
+  placeholder: { width: '100%', height: '100%', backgroundColor: 'rgba(255,255,255,0.05)' },
+  counter: { fontSize: 14, color: '#ccc', marginBottom: 16, fontStyle: 'italic' },
+  burnButton: { backgroundColor: '#d4af37', color: '#000', border: 'none', padding: '10px 20px', fontSize: 14, cursor: 'pointer', borderRadius: 4 }
 };
