@@ -130,7 +130,10 @@ export default function Init() {
         <button
           type="submit"
           disabled={!validName}
-          style={{ ...styles.button, opacity: validName ? 1 : 0.5 }}
+          style={{
+            ...styles.button,
+            opacity: validName ? 1 : 0.5,
+          }}
         >
           Save and Continue
         </button>
@@ -146,8 +149,8 @@ const styles = {
     backgroundImage: 'url("/bg-init.webp")',
     backgroundSize: 'cover',
     backgroundPosition: 'center',
-    minHeight: '100vh',
-    padding: 20,
+    height: '100vh',       // фиксированная высота
+    overflow: 'hidden',     // убираем прокрутку
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -158,7 +161,7 @@ const styles = {
     backgroundColor: 'rgba(0,0,0,0.7)',
     padding: 24,
     borderRadius: 8,
-    width: '100%',
+    width: '90%',
     maxWidth: 360,
     display: 'flex',
     flexDirection: 'column',
