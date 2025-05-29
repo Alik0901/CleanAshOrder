@@ -141,7 +141,7 @@ const styles = {
   page: {
     position: 'relative',
     minHeight: '100dvh',
-    backgroundImage: 'url("/bg-profile.webp")',
+    backgroundImage: 'url("/profile-bg.webp")',
     backgroundSize: 'cover',
     backgroundPosition: 'center',
     fontFamily: 'serif',
