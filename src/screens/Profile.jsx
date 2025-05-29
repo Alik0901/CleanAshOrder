@@ -1,7 +1,8 @@
+// src/screens/Profile.jsx
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-// URL вашего бэкенда для запросов
+// URL вашего бэкенда
 const BACKEND_URL =
   process.env.REACT_APP_BACKEND_URL ||
   'https://ash-backend-production.up.railway.app';
@@ -10,14 +11,11 @@ export default function Profile() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-
-  // Динамические данные из бэкенда
-  const [name, setName] = useState('');           // имя игрока
-  const [totalUsers, setTotalUsers] = useState(0); // общее число пользователей
+  const [name, setName] = useState('');
+  const [totalUsers, setTotalUsers] = useState(0);
   const [collectedFragments, setCollectedFragments] = useState([]);
 
   useEffect(() => {
-    // Получаем Telegram ID из WebApp
     const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {};
     const userId = unsafe.user?.id;
     if (!userId) {
@@ -25,16 +23,16 @@ export default function Profile() {
       return;
     }
 
-    // Запросим данные игрока
     (async () => {
       try {
+        // Получаем данные игрока
         const res = await fetch(`${BACKEND_URL}/api/player/${userId}`);
         if (!res.ok) throw new Error();
         const player = await res.json();
         setName(player.name);
         setCollectedFragments(player.fragments || []);
 
-        // Запросим глобальную статистику
+        // Глобальная статистика
         const statsRes = await fetch(`${BACKEND_URL}/api/stats/total_users`);
         if (statsRes.ok) {
           const { value } = await statsRes.json();
@@ -55,7 +53,6 @@ export default function Profile() {
       </div>
     );
   }
-
   if (error) {
     return (
       <div style={styles.page}>
@@ -64,7 +61,7 @@ export default function Profile() {
     );
   }
 
-  // Настройка всех фрагментов 1–7
+  // Настройка фрагментов
   const fragmentImages = {
     1: '/frag1.webp', 2: '/frag2.webp', 3: '/frag3.webp',
     4: '/frag4.webp', 5: '/frag5.webp', 6: '/frag6.webp', 7: '/frag7.webp',
@@ -76,16 +73,13 @@ export default function Profile() {
 
   return (
     <div style={styles.page}>
-      <div style={styles.overlay} />
       <div style={styles.card}>
-        {/* Аватар и имя игрока */}
         <img src="/avatar.webp" alt="Avatar" style={styles.avatar} />
         <h2 style={styles.title}>{name}</h2>
         <p style={styles.subtitle}>
           Fragments: {collectedFragments.length} / 7
         </p>
 
-        {/* Сетка фрагментов */}
         <div style={styles.fragmentsWrapper}>
           <div style={styles.gridTop}>
             {firstRow.map(id => (
@@ -121,11 +115,9 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* Счётчик всех пользователей */}
         <p style={styles.counter}>
           <em>Ash Seekers: {totalUsers.toLocaleString()}</em>
         </p>
-        {/* Кнопка для «Burn Again» */}
         <button
           style={styles.burnButton}
           onClick={() => navigate('/path')}
@@ -150,30 +142,97 @@ const styles = {
     justifyContent: 'center',
     alignItems: 'center',
   },
-  overlay: {
-    position: 'absolute', inset: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    zIndex: 1,
+  loading: {
+    fontSize: 18,
+    color: '#fff',
+  },
+  error: {
+    fontSize: 16,
+    color: '#f00',
   },
   card: {
-    position: 'relative', zIndex: 2,
-    maxWidth: 360, width: '100%', padding: 20,
-    backgroundColor: 'rgba(0,0,0,0.4)', borderRadius: 12,
+    position: 'relative',
+    zIndex: 2,
+    maxWidth: 360,
+    width: '100%',
+    padding: 20,
+    // Убрали тёмный фон, оставили прозрачность
+    backgroundColor: 'transparent',
+    border: '1px solid #d4af37',
+    borderRadius: 12,
     textAlign: 'center',
   },
   avatar: {
-    width: 72, height: 72, borderRadius: '50%',
-    marginBottom: 10, border: '2px solid #d4af37',
+    width: 72,
+    height: 72,
+    borderRadius: '50%',
+    marginBottom: 10,
+    border: '2px solid #d4af37',
   },
-  title: { fontSize: 24, margin: '10px 0 4px' },
-  subtitle: { fontSize: 14, marginBottom: 20, opacity: 0.85 },
-  fragmentsWrapper: { display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center', marginBottom: 16 },
-  gridTop: { display: 'grid', gridTemplateColumns: 'repeat(4, 60px)', gap: 6 },
-  gridBottomWrapper: { display: 'flex', justifyContent: 'center', width: '100%' },
-  gridBottom: { display: 'grid', gridTemplateColumns: 'repeat(3, 60px)', gap: 6 },
-  fragment: { width: 60, height: 60, backgroundColor: '#111', border: '1px solid #d4af37', borderRadius: 4, display: 'flex', justifyContent: 'center', alignItems: 'center' },
-  fragmentImage: { width: '100%', height: '100%', objectFit: 'cover' },
-  placeholder: { width: '100%', height: '100%', backgroundColor: 'rgba(255,255,255,0.05)' },
-  counter: { fontSize: 14, color: '#ccc', marginBottom: 16, fontStyle: 'italic' },
-  burnButton: { backgroundColor: '#d4af37', color: '#000', border: 'none', padding: '10px 20px', fontSize: 14, cursor: 'pointer', borderRadius: 4 }
+  title: {
+    fontSize: 24,
+    margin: '10px 0 4px',
+  },
+  subtitle: {
+    fontSize: 14,
+    marginBottom: 20,
+    opacity: 0.85,
+  },
+  fragmentsWrapper: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 10,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  gridTop: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(4, 60px)',
+    gap: 6,
+  },
+  gridBottomWrapper: {
+    display: 'flex',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  gridBottom: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, 60px)',
+    gap: 6,
+  },
+  fragment: {
+    width: 60,
+    height: 60,
+    backgroundColor: '#111',
+    border: '1px solid #d4af37',
+    borderRadius: 4,
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fragmentImage: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+  },
+  placeholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  counter: {
+    fontSize: 14,
+    color: '#ccc',
+    marginBottom: 16,
+    fontStyle: 'italic',
+  },
+  burnButton: {
+    backgroundColor: '#d4af37',
+    color: '#000',
+    border: 'none',
+    padding: '10px 20px',
+    fontSize: 14,
+    cursor: 'pointer',
+    borderRadius: 4,
+  },
 };
