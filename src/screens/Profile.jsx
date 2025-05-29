@@ -13,7 +13,7 @@ export default function Profile() {
   const [name, setName] = useState('');
   const [totalUsers, setTotalUsers] = useState(0);
   const [collectedFragments, setCollectedFragments] = useState([]);
-  const [selected, setSelected] = useState(null); // id of enlarged fragment
+  const [selected, setSelected] = useState(null);
 
   useEffect(() => {
     const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {};
@@ -22,7 +22,6 @@ export default function Profile() {
       navigate('/init');
       return;
     }
-
     (async () => {
       try {
         const res = await fetch(`${BACKEND_URL}/api/player/${userId}`);
@@ -30,7 +29,6 @@ export default function Profile() {
         const player = await res.json();
         setName(player.name);
         setCollectedFragments(player.fragments || []);
-
         const statsRes = await fetch(`${BACKEND_URL}/api/stats/total_users`);
         if (statsRes.ok) {
           const { value } = await statsRes.json();
@@ -81,11 +79,10 @@ export default function Profile() {
         <p style={styles.subtitle}>
           Fragments: {collectedFragments.length} / 8
         </p>
-
         <div style={styles.grid}>
           {rows.map((row, ri) => (
             <div key={ri} style={styles.row}>
-              {row.map(id => {
+              {row.map((id) => {
                 const owned = collectedFragments.includes(id);
                 const src = owned
                   ? `/fragments/fragment_${id}_${slugs[id - 1]}.webp`
@@ -109,17 +106,13 @@ export default function Profile() {
             </div>
           ))}
         </div>
-
         <p style={styles.counter}>
           <em>Ash Seekers: {totalUsers.toLocaleString()}</em>
         </p>
-
         <button style={styles.burnButton} onClick={() => navigate('/path')}>
           🔥 Burn Again
         </button>
       </div>
-
-      {/* Modal for enlarged fragment */}
       {selected && (
         <div style={styles.modal} onClick={() => setSelected(null)}>
           <img
@@ -145,15 +138,16 @@ const styles = {
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
+    padding: '16px',
   },
   loading: { fontSize: 18, color: '#fff' },
   error: { fontSize: 16, color: '#f00' },
   card: {
     position: 'relative',
     zIndex: 2,
-    maxWidth: 360,
     width: '100%',
-    padding: 20,
+    maxWidth: '95vw',
+    padding: 16,
     backgroundColor: 'transparent',
     border: '1px solid #d4af37',
     borderRadius: 12,
@@ -161,14 +155,24 @@ const styles = {
   },
   header: { fontSize: 24, margin: '0 0 8px' },
   subtitle: { fontSize: 14, marginBottom: 16, opacity: 0.85 },
-  grid: { display: 'flex', flexDirection: 'column', gap: 12 },
-  row: { display: 'flex', justifyContent: 'center', gap: 8 },
+  grid: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8,
+    marginBottom: 16,
+  },
+  row: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    gap: 4,
+  },
   slot: {
-    width: 60,
-    height: 60,
+    flex: '1 1 0',
+    aspectRatio: '1 / 1',
+    maxWidth: '22%',
     backgroundColor: '#111',
     border: '1px solid #d4af37',
-    borderRadius: 4,
+    borderRadius: 6,
     overflow: 'hidden',
     cursor: 'pointer',
   },
@@ -177,7 +181,7 @@ const styles = {
     height: '100%',
     objectFit: 'cover',
   },
-  counter: { fontSize: 14, color: '#ccc', marginTop: 16 },
+  counter: { fontSize: 14, color: '#ccc', marginBottom: 16 },
   burnButton: {
     backgroundColor: '#d4af37',
     color: '#000',
