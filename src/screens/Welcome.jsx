@@ -1,13 +1,25 @@
-import { useState } from 'react';
+// src/screens/Welcome.jsx
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 export default function Welcome() {
   const [showScroll, setShowScroll] = useState(false);
   const navigate = useNavigate();
 
+  // Play intro sound on mount
+  useEffect(() => {
+    const intro = new Audio('/sounds/start.m4r');
+    intro.volume = 0.7;
+    intro.play().catch(() => {
+      // autoplay might be blocked
+    });
+    // no cleanup — let it play through
+  }, []);
+
   const handleShowScroll = () => {
     setShowScroll(true);
-    const audio = new Audio('/sounds/scroll.mp3');
+    const audio = new Audio('/sounds/start.m4r'); // same sound file
+    audio.volume = 0.7;
     audio.play().catch(() => {});
   };
 
