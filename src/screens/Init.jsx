@@ -1,68 +1,3 @@
-/* import { useEffect, useState } from 'react';
-
-export default function Init() {
-  const [tgId, setTgId] = useState('');
-  const [debug, setDebug] = useState('');
-  const [initDataRaw, setInitDataRaw] = useState('');
-  const [initDataUnsafe, setInitDataUnsafe] = useState('');
-  const [telegramDump, setTelegramDump] = useState('');
-
-  useEffect(() => {
-    const tg = window.Telegram;
-    const wa = tg?.WebApp;
-    const initData = wa?.initData || '';
-    const initDataUnsafeObj = wa?.initDataUnsafe || {};
-
-    setInitDataRaw(initData || '—');
-    setInitDataUnsafe(JSON.stringify(initDataUnsafeObj, null, 2) || '—');
-
-    try {
-      const dump = JSON.stringify({
-        tgExists: !!tg,
-        waExists: !!wa,
-        initData: initData,
-        initDataUnsafe: initDataUnsafeObj,
-        user: initDataUnsafeObj?.user,
-      }, null, 2);
-
-      setTelegramDump(dump);
-    } catch (e) {
-      setTelegramDump('Failed to parse Telegram object');
-    }
-
-    if (initDataUnsafeObj?.user?.id) {
-      setTgId(initDataUnsafeObj.user.id.toString());
-      setDebug('✅ initDataUnsafe.user.id получен');
-    } else {
-      setDebug('❌ initDataRaw not found or no user ID');
-    }
-  }, []);
-
-  return (
-    <div style={{ padding: 20, fontFamily: 'monospace', color: '#f9d342', backgroundColor: '#0f1218', minHeight: '100vh' }}>
-      <h2 style={{ color: '#f9d342' }}>Enter the Ash</h2>
-      <p>TG ID: {tgId || '—'}</p>
-      <p>Debug: {debug}</p>
-
-      <div style={{ marginTop: 16 }}>
-        <p><strong>window.Telegram.WebApp.initData:</strong></p>
-        <textarea readOnly value={initDataRaw} style={{ width: '100%', height: 100 }} />
-
-        <p><strong>initDataUnsafe:</strong></p>
-        <textarea readOnly value={initDataUnsafe} style={{ width: '100%', height: 100 }} />
-
-        <p><strong>window.Telegram dump:</strong></p>
-        <textarea readOnly value={telegramDump} style={{ width: '100%', height: 200 }} />
-      </div>
-    </div>
-  );
-}
- */
-
-// src/Init.jsx
-// src/Init.jsx
-// src/Init.jsx
-// src/screens/Init.jsx
 // src/screens/Init.jsx
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -71,175 +6,171 @@ const BACKEND_URL =
   process.env.REACT_APP_BACKEND_URL ||
   'https://ash-backend-production.up.railway.app';
 
+const NAME_REGEX = /^[A-Za-z ]+$/;
+
 export default function Init() {
   const navigate = useNavigate();
 
-  // Telegram WebApp state
-  const [tgExists, setTgExists] = useState(false);
-  const [waExists, setWaExists] = useState(false);
+  // Telegram data
+  const [tgId, setTgId] = useState('');
   const [initDataRaw, setInitDataRaw] = useState('');
   const [initDataUnsafe, setInitDataUnsafe] = useState({});
-  const [tgId, setTgId] = useState('');
+
+  // Form state
   const [name, setName] = useState('');
-  const [statusMsg, setStatusMsg] = useState('');
+  const [status, setStatus] = useState('');
+  const [checking, setChecking] = useState(true);
 
-  // Loading state while checking if user exists
-  const [isChecking, setIsChecking] = useState(true);
+  const validName = name.trim().length > 0 && NAME_REGEX.test(name);
 
-  // 1) Инициализация Telegram WebApp
+  // 1) Read Telegram WebApp initData
   useEffect(() => {
     const tg = window.Telegram;
     const wa = tg?.WebApp;
     const raw = wa?.initData || '';
     const unsafe = wa?.initDataUnsafe || {};
 
-    setTgExists(!!tg);
-    setWaExists(!!wa);
     setInitDataRaw(raw);
     setInitDataUnsafe(unsafe);
 
     if (!tg) {
-      setStatusMsg('❌ Telegram не найден');
-      setIsChecking(false);
+      setStatus('❌ Telegram not found');
     } else if (!wa) {
-      setStatusMsg('❌ Telegram.WebApp не найден');
-      setIsChecking(false);
+      setStatus('❌ Telegram.WebApp not found');
     } else if (!raw) {
-      setStatusMsg('❌ initData отсутствует');
-      setIsChecking(false);
+      setStatus('❌ initData missing');
     } else if (!unsafe.user?.id) {
-      setStatusMsg('❌ User ID не найден');
-      setIsChecking(false);
+      setStatus('❌ User ID not found');
     } else {
-      const id = String(unsafe.user.id);
-      setTgId(id);
-      setStatusMsg('✅ Проверка пользователя...');
-      // далее — проверим в БД
+      setTgId(String(unsafe.user.id));
+      setStatus('✅ Checking registration...');
     }
+    setChecking(false);
   }, []);
 
-  // 2) Проверяем: есть ли такой пользователь в БД
+  // 2) If tgId is present, check if user exists in DB
   useEffect(() => {
     if (!tgId) return;
-
     (async () => {
       try {
         const res = await fetch(`${BACKEND_URL}/api/player/${tgId}`);
         if (res.ok) {
-          // если найден — сразу на профиль
           navigate('/profile');
           return;
         }
       } catch {
-        // игнорируем сетевые ошибки здесь
-      } finally {
-        // если не найден или ошибка — показываем форму
-        setStatusMsg('✅ Всё готово к регистрации');
-        setIsChecking(false);
+        // ignore
       }
+      setStatus('✅ Ready to register');
     })();
   }, [tgId, navigate]);
 
-  // 3) Обработчик отправки имени
+  // 3) Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!name.trim()) {
-      setStatusMsg('❗ Введите имя');
+    if (!validName) {
+      setStatus('❗ Name must be English letters and spaces only');
       return;
     }
-
-    const payload = { tg_id: tgId, name, initData: initDataRaw, initDataUnsafe };
+    setStatus('⏳ Submitting...');
     try {
       const res = await fetch(`${BACKEND_URL}/api/init`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          tg_id: tgId,
+          name: name.trim(),
+          initData: initDataRaw,
+          initDataUnsafe
+        }),
       });
-      if (res.ok) {
-        // для новых пользователей — сразу на /path
-        navigate('/path');
+      const data = await res.json();
+      if (!res.ok) {
+        setStatus(`⚠️ ${data.error || 'Unknown error'}`);
       } else {
-        const err = await res.json();
-        setStatusMsg(`⚠️ Ошибка: ${err.error || 'неизвестно'}`);
+        navigate('/path');
       }
-    } catch (err) {
-      setStatusMsg(`⚠️ Сетевая ошибка: ${err.message}`);
+    } catch {
+      setStatus('⚠️ Network error');
     }
   };
 
-  // 4) Пока идёт проверка — показываем «загрузку»
-  if (isChecking) {
+  if (checking) {
     return (
-      <div style={styles.fullscreen}>
-        <div style={styles.overlayBox}>
-          <p style={styles.statusMsg}>{statusMsg}</p>
-        </div>
+      <div style={styles.container}>
+        <p style={styles.status}>{status}</p>
       </div>
     );
   }
 
-  // 5) Экран ввода имени
   return (
-    <div style={styles.fullscreen}>
-      <form onSubmit={handleSubmit} style={styles.formBox}>
-        <h1 style={styles.header}>Enter the Ash</h1>
-        <p style={styles.telegramId}>
-          Ваш Telegram ID: <strong>{tgId}</strong>
+    <div style={styles.container}>
+      <form onSubmit={handleSubmit} style={styles.form}>
+        <h1 style={styles.title}>Enter the Ash</h1>
+        <p style={styles.info}>
+          Your Telegram ID: <strong>{tgId}</strong>
         </p>
-        <label htmlFor="name" style={styles.label}>Имя для профиля:</label>
+
         <input
-          id="name"
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Введите имя"
+          placeholder="Your name (A–Z only)"
           style={styles.input}
         />
-        <button type="submit" style={styles.button}>
-          Сохранить и продолжить
+
+        <button
+          type="submit"
+          disabled={!validName}
+          style={{
+            ...styles.button,
+            opacity: validName ? 1 : 0.5,
+          }}
+        >
+          Save and Continue
         </button>
-        {statusMsg && <p style={styles.statusMsg}>{statusMsg}</p>}
+
+        {status && <p style={styles.status}>{status}</p>}
       </form>
     </div>
   );
 }
 
 const styles = {
-  fullscreen: {
-    padding: 20,
-    fontFamily: 'Arial, sans-serif',
-    color: '#fff',
-    backgroundImage: 'url(/bg-init.webp)',
+  container: {
+    backgroundImage: 'url("/bg-init.webp")',
     backgroundSize: 'cover',
     backgroundPosition: 'center',
     minHeight: '100vh',
+    padding: 20,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    fontFamily: 'Arial, sans-serif',
+    color: '#f9d342',
   },
-  overlayBox: {
+  form: {
     backgroundColor: 'rgba(0,0,0,0.7)',
     padding: 24,
     borderRadius: 8,
-    textAlign: 'center',
-    maxWidth: 320,
-  },
-  statusMsg: { fontSize: 16, textAlign: 'center' },
-  formBox: {
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    padding: 24,
-    borderRadius: 8,
     width: '100%',
-    maxWidth: 400,
+    maxWidth: 360,
     display: 'flex',
     flexDirection: 'column',
     gap: 16,
   },
-  header: { margin: 0, fontSize: 24, textAlign: 'center' },
-  telegramId: { margin: '8px 0', fontSize: 14 },
-  label: { fontSize: 14 },
+  title: {
+    margin: 0,
+    fontSize: 24,
+    textAlign: 'center',
+  },
+  info: {
+    fontSize: 14,
+    textAlign: 'center',
+    margin: '4px 0 12px',
+  },
   input: {
-    padding: '10px',
+    padding: 10,
     fontSize: 16,
     borderRadius: 4,
     border: '1px solid #555',
@@ -247,15 +178,18 @@ const styles = {
     color: '#fff',
   },
   button: {
-    padding: '12px',
+    padding: 12,
     fontSize: 16,
     borderRadius: 4,
     border: 'none',
-    cursor: 'pointer',
     backgroundColor: '#f9d342',
     color: '#000',
+    cursor: 'pointer',
     fontWeight: 'bold',
   },
+  status: {
+    marginTop: 12,
+    fontSize: 14,
+    textAlign: 'center',
+  },
 };
-
-
