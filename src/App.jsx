@@ -1,7 +1,6 @@
 // src/App.jsx
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-
 import Welcome from './screens/Welcome';
 import Init from './screens/Init';
 import Path from './screens/Path';
@@ -17,7 +16,7 @@ export default function App() {
         <Route path="/path" element={<Path />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/final" element={<Final />} />
-        {/* на любые другие пути — перенаправляем на Welcome */}
+        {/* все остальные ведут на главную */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
