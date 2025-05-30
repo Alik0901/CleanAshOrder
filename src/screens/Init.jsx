@@ -27,7 +27,7 @@ export default function Init() {
     const tg = window.Telegram;
     const wa = tg?.WebApp;
     const raw = wa?.initData || '';
-    const unsafe = wa?.initDataUnsafe || {};
+    const unsafe = wa?.WebApp?.initDataUnsafe || wa?.initDataUnsafe || {};
 
     setInitDataRaw(raw);
     setInitDataUnsafe(unsafe);
@@ -53,13 +53,17 @@ export default function Init() {
     setStatus('Checking existing user...');
   }, []);
 
-  // 2) Check in database — once tgId is set
+  // 2) Check in database — once tgId is set, using existing token if any
   useEffect(() => {
     if (!tgId) return;
     (async () => {
       try {
-        const res = await fetch(`${BACKEND_URL}/api/player/${tgId}`);
+        const token = localStorage.getItem('token');
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const res = await fetch(`${BACKEND_URL}/api/player/${tgId}`, { headers });
         if (res.ok) {
+          // если токен есть и валиден, сразу идём в профиль
           navigate('/profile');
           return;
         }
@@ -86,14 +90,17 @@ export default function Init() {
         body: JSON.stringify({
           tg_id: tgId,
           name: name.trim(),
-          initData: initDataRaw,
-          initDataUnsafe
+          initData: initDataRaw
         }),
       });
       const data = await res.json();
       if (!res.ok) {
         setStatus(`⚠️ ${data.error || 'Unknown error'}`);
       } else {
+        // Сохраняем токен и переходим
+        if (data.token) {
+          localStorage.setItem('token', data.token);
+        }
         navigate('/path');
       }
     } catch {
@@ -149,8 +156,8 @@ const styles = {
     backgroundImage: 'url("/bg-init.webp")',
     backgroundSize: 'cover',
     backgroundPosition: 'center',
-    height: '100vh',       // фиксированная высота
-    overflow: 'hidden',     // убираем прокрутку
+    height: '100vh',
+    overflow: 'hidden',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
