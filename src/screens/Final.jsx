@@ -1,5 +1,5 @@
 // src/screens/Final.jsx
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const BACKEND_URL =
@@ -7,101 +7,76 @@ const BACKEND_URL =
 
 export default function Final() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [allowed, setAllowed] = useState(false);
-  const [status, setStatus] = useState('');
-  const [input, setInput] = useState('');
-  const [success, setSuccess] = useState(false);
+  const [input, setInput]       = useState('');
+  const [status, setStatus]     = useState('');
+  const [loading, setLoading]   = useState(false);
 
-  useEffect(() => {
+  const handleVerify = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setStatus('');
+
     const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {};
     const userId = unsafe.user?.id;
     if (!userId) {
-      navigate('/init');
+      setStatus('⚠️ Не могу определить пользователя. Пожалуйста, перезапустите WebApp.');
+      setLoading(false);
       return;
     }
-    (async () => {
-      try {
-        const res = await fetch(`${BACKEND_URL}/api/final/${userId}`);
-        if (!res.ok) throw new Error();
-        const { canEnter } = await res.json();
-        setAllowed(canEnter);
-        setStatus(
-          canEnter
-            ? '🗝 You may now enter your final phrase.'
-            : '🕓 Not the time yet.'
-        );
-      } catch (err) {
-        console.error(err);
-        setStatus('⚠️ Error checking permission.');
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [navigate]);
 
-  const handleVerify = async () => {
-    const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {};
-    const userId = unsafe.user?.id;
-    setStatus('⏳ Verifying...');
     try {
-      const res = await fetch(`${BACKEND_URL}/api/final`, {
+      const res = await fetch(`${BACKEND_URL}/api/validate-final`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tg_id: userId, phrase: input.trim() }),
+        body: JSON.stringify({
+          userId,
+          inputPhrase: input.trim()
+        }),
       });
       const data = await res.json();
-      if (res.ok && data.valid) {
-        setSuccess(true);
-        setStatus('✅ Phrase accepted. The Final Shape is yours.');
+
+      if (res.ok && data.ok) {
+        setStatus('✅ Фраза принята! The Final Shape is yours.');
+        // Перейти на экран поздравления
+        navigate('/congratulations');
       } else {
-        setStatus(data.error || '❌ Incorrect phrase or not allowed.');
+        setStatus(data.error || '❌ Неверная или просроченная фраза.');
       }
     } catch (err) {
       console.error(err);
-      setStatus('⚠️ Network error.');
+      setStatus('⚠️ Сетевая ошибка.');
+    } finally {
+      setLoading(false);
     }
   };
-
-  if (loading) {
-    return (
-      <div style={styles.page}>
-        <p style={styles.message}>Checking access...</p>
-      </div>
-    );
-  }
 
   return (
     <div style={styles.page}>
       <div style={styles.container}>
         <h1 style={styles.title}>The Final Shape</h1>
-
-        {success ? (
-          <p style={styles.success}>{status}</p>
-        ) : (
-          <>
-            <p style={styles.message}>{status}</p>
-            <input
-              type="text"
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              placeholder="Enter secret phrase..."
-              style={styles.input}
-              disabled={!allowed}
-            />
-            <button
-              onClick={handleVerify}
-              style={{
-                ...styles.button,
-                opacity: allowed ? 1 : 0.5,
-                cursor: allowed ? 'pointer' : 'not-allowed'
-              }}
-              disabled={!allowed}
-            >
-              Verify Phrase
-            </button>
-          </>
-        )}
+        <form onSubmit={handleVerify} style={{ width: '100%' }}>
+          <input
+            type="text"
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            placeholder="Enter secret phrase..."
+            style={styles.input}
+            disabled={loading}
+            required
+          />
+          <button
+            type="submit"
+            style={{
+              ...styles.button,
+              opacity: loading ? 0.6 : 1,
+              cursor: loading ? 'not-allowed' : 'pointer'
+            }}
+            disabled={loading}
+          >
+            {loading ? 'Verifying...' : 'Verify Phrase'}
+          </button>
+        </form>
+        {status && <p style={styles.status}>{status}</p>}
       </div>
     </div>
   );
@@ -132,15 +107,6 @@ const styles = {
     fontSize: 28,
     marginBottom: 16,
   },
-  message: {
-    fontSize: 14,
-    margin: '12px 0',
-  },
-  success: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#7CFC00',
-  },
   input: {
     width: '100%',
     padding: 10,
@@ -158,5 +124,11 @@ const styles = {
     color: '#000',
     border: 'none',
     borderRadius: 6,
+    width: '100%',
+  },
+  status: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#d4af37',
   },
 };
