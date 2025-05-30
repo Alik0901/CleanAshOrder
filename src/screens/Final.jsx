@@ -3,16 +3,17 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const BACKEND_URL =
-  process.env.REACT_APP_BACKEND_URL || 'https://ash-backend-production.up.railway.app';
+  process.env.REACT_APP_BACKEND_URL ||
+  'https://ash-backend-production.up.railway.app';
 
 export default function Final() {
   const navigate = useNavigate();
-  const [input, setInput]       = useState('');
-  const [status, setStatus]     = useState('');
-  const [loading, setLoading]   = useState(true);
-  const [allowed, setAllowed]   = useState(false);
+  const [input, setInput]     = useState('');
+  const [status, setStatus]   = useState('');
+  const [loading, setLoading] = useState(true);
+  const [allowed, setAllowed] = useState(false);
 
-  // Проверяем, можно ли вводить фразу
+  // Проверяем разрешение на ввод фразы
   useEffect(() => {
     const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {};
     const userId = unsafe.user?.id;
@@ -20,6 +21,7 @@ export default function Final() {
       navigate('/init');
       return;
     }
+
     fetch(`${BACKEND_URL}/api/final/${userId}`)
       .then(res => res.json())
       .then(data => {
@@ -40,7 +42,7 @@ export default function Final() {
     setLoading(true);
     setStatus('');
 
-    const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {};
+    const unsafe = window.Telegram.WebApp.initDataUnsafe || {};
     const userId = unsafe.user?.id;
 
     try {
@@ -64,10 +66,11 @@ export default function Final() {
     }
   };
 
+  // пока идёт проверка — показываем спиннер
   if (loading) {
     return (
       <div style={styles.page}>
-        <p style={styles.status}>Checking access...</p>
+        <p style={styles.checking}>Checking access...</p>
       </div>
     );
   }
@@ -77,7 +80,7 @@ export default function Final() {
       <div style={styles.container}>
         <h1 style={styles.title}>The Final Shape</h1>
         <p style={styles.status}>{status}</p>
-        <form onSubmit={handleVerify} style={{ width: '100%' }}>
+        <form onSubmit={handleVerify} style={styles.form}>
           <input
             type="text"
             value={input}
@@ -104,4 +107,61 @@ export default function Final() {
   );
 }
 
-// (стили без изменений)
+const styles = {
+  page: {
+    minHeight: '100vh',
+    backgroundImage: 'url("/bg-final.webp")',
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    padding: 20,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontFamily: 'serif',
+    color: '#d4af37',
+  },
+  container: {
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    padding: 24,
+    borderRadius: 12,
+    maxWidth: 400,
+    width: '100%',
+    textAlign: 'center',
+  },
+  title: {
+    fontSize: 28,
+    marginBottom: 16,
+  },
+  checking: {
+    fontSize: 16,
+    color: '#d4af37'
+  },
+  status: {
+    marginBottom: 12,
+    fontSize: 14,
+    color: '#d4af37',
+  },
+  form: {
+    width: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 12,
+  },
+  input: {
+    width: '100%',
+    padding: 10,
+    fontSize: 16,
+    borderRadius: 6,
+    border: '1px solid #d4af37',
+    backgroundColor: '#111',
+    color: '#fff',
+  },
+  button: {
+    padding: '10px 24px',
+    fontSize: 16,
+    backgroundColor: '#d4af37',
+    color: '#000',
+    border: 'none',
+    borderRadius: 6,
+  },
+};
