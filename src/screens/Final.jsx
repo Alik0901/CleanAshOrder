@@ -5,24 +5,11 @@ import { useNavigate } from 'react-router-dom';
 const BACKEND_URL =
   process.env.REACT_APP_BACKEND_URL || 'https://ash-backend-production.up.railway.app';
 
-// Предопределённые части финальной фразы (кроме имени)
-const PHRASE_PARTS = [
-  'the key is time',
-  'thirteen',
-  'ashen',
-  'mirror',
-  'broken chain',
-  'hour',
-  'mark',
-  'gate',
-];
-
 export default function Final() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [allowed, setAllowed] = useState(false);
   const [status, setStatus] = useState('');
-  const [createdMinute, setCreatedMinute] = useState(null);
-  const [expectedPhrase, setExpectedPhrase] = useState('');
   const [input, setInput] = useState('');
   const [success, setSuccess] = useState(false);
 
@@ -33,71 +20,86 @@ export default function Final() {
       navigate('/init');
       return;
     }
-
     (async () => {
       try {
-        const res = await fetch(`${BACKEND_URL}/api/player/${userId}`);
+        const res = await fetch(`${BACKEND_URL}/api/final/${userId}`);
         if (!res.ok) throw new Error();
-        const player = await res.json();
-
-        // minute UTC создания профиля
-        const createdAt = new Date(player.created_at);
-        setCreatedMinute(createdAt.getUTCMinutes());
-
-        // склеиваем предопределённые части + имя пользователя
-        const phrase = [...PHRASE_PARTS, player.name]
-          .join(' ')
-          .toLowerCase();
-        setExpectedPhrase(phrase);
-
-        setStatus('⏳ Awaiting the appointed minute…');
-      } catch {
-        setStatus('⚠️ Could not load your data.');
+        const { canEnter } = await res.json();
+        setAllowed(canEnter);
+        setStatus(
+          canEnter
+            ? '🗝 You may now enter your final phrase.'
+            : '🕓 Not the appointed minute yet.'
+        );
+      } catch (err) {
+        console.error(err);
+        setStatus('⚠️ Error checking permission.');
       } finally {
         setLoading(false);
       }
     })();
   }, [navigate]);
 
-  const handleVerify = () => {
-    const now = new Date();
-    if (now.getUTCMinutes() !== createdMinute) {
-      setStatus(
-        `❌ Not the moment yet. Come back at minute ${String(createdMinute).padStart(2, '0')} UTC.`
-      );
-      return;
-    }
-
-    if (input.trim().toLowerCase() === expectedPhrase) {
-      setSuccess(true);
-      setStatus('✅ Correct. The Final Shape is yours.');
-    } else {
-      setStatus('❌ That’s not it. Try again.');
+  const handleVerify = async () => {
+    const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {};
+    const userId = unsafe.user?.id;
+    setStatus('⏳ Verifying...');
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/final`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tg_id: userId, phrase: input.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok && data.valid) {
+        setSuccess(true);
+        setStatus('✅ Phrase accepted. The Final Shape is yours.');
+      } else {
+        setStatus(data.error || '❌ Incorrect phrase or not allowed.');
+      }
+    } catch (err) {
+      console.error(err);
+      setStatus('⚠️ Network error.');
     }
   };
+
+  if (loading) {
+    return (
+      <div style={styles.page}>
+        <p style={styles.message}>Checking access...</p>
+      </div>
+    );
+  }
 
   return (
     <div style={styles.page}>
       <div style={styles.container}>
         <h1 style={styles.title}>The Final Shape</h1>
 
-        {loading ? (
-          <p style={styles.msg}>{status}</p>
-        ) : success ? (
+        {success ? (
           <p style={styles.success}>{status}</p>
         ) : (
           <>
-            <p style={styles.msg}>Enter the secret phrase assembled from your fragments.</p>
+            <p style={styles.message}>{status}</p>
             <input
+              type="text"
               value={input}
               onChange={e => setInput(e.target.value)}
-              placeholder="Type the phrase..."
+              placeholder="Enter secret phrase..."
               style={styles.input}
+              disabled={!allowed}
             />
-            <button onClick={handleVerify} style={styles.button}>
+            <button
+              onClick={handleVerify}
+              style={{
+                ...styles.button,
+                opacity: allowed ? 1 : 0.5,
+                cursor: allowed ? 'pointer' : 'not-allowed'
+              }}
+              disabled={!allowed}
+            >
               Verify Phrase
             </button>
-            <p style={styles.msg}>{status}</p>
           </>
         )}
       </div>
@@ -130,7 +132,7 @@ const styles = {
     fontSize: 28,
     marginBottom: 16,
   },
-  msg: {
+  message: {
     fontSize: 14,
     margin: '12px 0',
   },
@@ -156,6 +158,5 @@ const styles = {
     color: '#000',
     border: 'none',
     borderRadius: 6,
-    cursor: 'pointer',
   },
 };

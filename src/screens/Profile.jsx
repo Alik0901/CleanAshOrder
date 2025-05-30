@@ -22,13 +22,19 @@ export default function Profile() {
       navigate('/init');
       return;
     }
-    (async () => {
+
+    const loadProfile = async () => {
+      setLoading(true);
+      setError('');
       try {
+        // fetch player data
         const res = await fetch(`${BACKEND_URL}/api/player/${userId}`);
         if (!res.ok) throw new Error();
         const player = await res.json();
         setName(player.name);
         setCollectedFragments(player.fragments || []);
+
+        // fetch global stats
         const statsRes = await fetch(`${BACKEND_URL}/api/stats/total_users`);
         if (statsRes.ok) {
           const { value } = await statsRes.json();
@@ -39,7 +45,12 @@ export default function Profile() {
       } finally {
         setLoading(false);
       }
-    })();
+    };
+
+    // initial load and reload on window focus
+    loadProfile();
+    window.addEventListener('focus', loadProfile);
+    return () => window.removeEventListener('focus', loadProfile);
   }, [navigate]);
 
   if (loading) {
@@ -121,6 +132,7 @@ export default function Profile() {
           </button>
         )}
       </div>
+
       {selected && (
         <div style={styles.modal} onClick={() => setSelected(null)}>
           <img
