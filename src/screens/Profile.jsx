@@ -13,7 +13,7 @@ export default function Profile() {
   const [name, setName] = useState('');
   const [totalUsers, setTotalUsers] = useState(0);
   const [collectedFragments, setCollectedFragments] = useState([]);
-  const [selected, setSelected] = useState<number | null>(null);
+  const [selected, setSelected] = useState(null);
 
   useEffect(() => {
     const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {};
@@ -27,14 +27,12 @@ export default function Profile() {
       setLoading(true);
       setError('');
       try {
-        // Получаем данные игрока
         const res = await fetch(`${BACKEND_URL}/api/player/${userId}`);
         if (!res.ok) throw new Error();
         const player = await res.json();
         setName(player.name);
         setCollectedFragments(player.fragments || []);
 
-        // Получаем глобальную статистику
         const statsRes = await fetch(`${BACKEND_URL}/api/stats/total_users`);
         if (statsRes.ok) {
           const { value } = await statsRes.json();
@@ -50,7 +48,6 @@ export default function Profile() {
     };
 
     loadProfile();
-    // Обновляем при возврате фокуса (например, после burn)
     window.addEventListener('focus', loadProfile);
     return () => window.removeEventListener('focus', loadProfile);
   }, [navigate]);
@@ -62,7 +59,6 @@ export default function Profile() {
       </div>
     );
   }
-
   if (error) {
     return (
       <div style={styles.page}>
@@ -110,7 +106,7 @@ export default function Profile() {
                   >
                     {owned && (
                       <img
-                        src={src!}
+                        src={src}
                         alt={`Fragment ${id}`}
                         style={styles.fragmentImage}
                       />
@@ -126,12 +122,10 @@ export default function Profile() {
           <em>Ash Seekers: {totalUsers.toLocaleString()}</em>
         </p>
 
-        {/* 🔥 Burn Again */}
         <button style={styles.burnButton} onClick={() => navigate('/path')}>
           🔥 Burn Again
         </button>
 
-        {/* 🗝 Enter Final Phrase (под кнопкой Burn Again) */}
         {collectedFragments.length === 8 && (
           <button
             style={styles.finalButton}
@@ -155,7 +149,7 @@ export default function Profile() {
   );
 }
 
-const styles: Record<string, React.CSSProperties> = {
+const styles = {
   page: {
     position: 'relative',
     minHeight: '100vh',
