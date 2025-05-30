@@ -27,14 +27,12 @@ export default function Profile() {
       setLoading(true);
       setError('');
       try {
-        // fetch player data
         const res = await fetch(`${BACKEND_URL}/api/player/${userId}`);
         if (!res.ok) throw new Error();
         const player = await res.json();
         setName(player.name);
         setCollectedFragments(player.fragments || []);
 
-        // fetch global stats
         const statsRes = await fetch(`${BACKEND_URL}/api/stats/total_users`);
         if (statsRes.ok) {
           const { value } = await statsRes.json();
@@ -47,7 +45,6 @@ export default function Profile() {
       }
     };
 
-    // initial load and reload on window focus
     loadProfile();
     window.addEventListener('focus', loadProfile);
     return () => window.removeEventListener('focus', loadProfile);
@@ -120,9 +117,16 @@ export default function Profile() {
         <p style={styles.counter}>
           <em>Ash Seekers: {totalUsers.toLocaleString()}</em>
         </p>
-        <button style={styles.burnButton} onClick={() => navigate('/path')}>
+
+        {/* Burn Again button */}
+        <button
+          style={styles.burnButton}
+          onClick={() => navigate('/path')}
+        >
           🔥 Burn Again
         </button>
+
+        {/* Enter Final Phrase button: now placed below Burn Again */}
         {collectedFragments.length === 8 && (
           <button
             style={styles.finalButton}
@@ -207,9 +211,10 @@ const styles = {
     fontSize: 14,
     cursor: 'pointer',
     borderRadius: 4,
+    marginTop: 8,
   },
   finalButton: {
-    marginTop: 12,
+    marginTop: 8,
     padding: '10px 24px',
     fontSize: 16,
     backgroundColor: '#d4af37',

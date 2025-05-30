@@ -29,7 +29,7 @@ export default function Final() {
         setStatus(
           canEnter
             ? '🗝 You may now enter your final phrase.'
-            : '🕓 Not the appointed minute yet.'
+            : '🕓 Not the time yet.'
         );
       } catch (err) {
         console.error(err);
