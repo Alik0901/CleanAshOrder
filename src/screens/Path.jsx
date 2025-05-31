@@ -19,18 +19,17 @@ export default function Path() {
   const [cooldown, setCooldown] = useState(0);
   const timerRef = useRef(null);
 
-  // 2-minute cooldown in seconds
   const COOLDOWN_SECONDS = 2 * 60;
 
-  // Calculate remaining cooldown
+  // Рассчитываем оставшийся кулдаун
   const computeCooldown = (last) => {
     if (!last) return 0;
     const lastTime = new Date(last).getTime();
-    const elapsedSeconds = (Date.now() - lastTime) / 1000;
-    return Math.max(0, COOLDOWN_SECONDS - Math.floor(elapsedSeconds));
+    const elapsed = (Date.now() - lastTime) / 1000;
+    return Math.max(0, COOLDOWN_SECONDS - Math.floor(elapsed));
   };
 
-  // Cooldown ticker
+  // Тикер кулдауна
   useEffect(() => {
     if (cooldown <= 0) return;
     timerRef.current = setInterval(() => {
@@ -45,7 +44,7 @@ export default function Path() {
     return () => clearInterval(timerRef.current);
   }, [cooldown]);
 
-  // Load profile and cooldown
+  // Загрузка профиля
   useEffect(() => {
     const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {};
     const id = unsafe.user?.id;
@@ -65,7 +64,6 @@ export default function Path() {
       setLoading(true);
       setError('');
       try {
-        // GET /api/player/:tg_id
         const res = await fetch(`${BACKEND_URL}/api/player/${id}`, {
           headers: {
             'Content-Type': 'application/json',

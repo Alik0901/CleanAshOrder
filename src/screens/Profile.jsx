@@ -33,7 +33,7 @@ export default function Profile() {
       setLoading(true);
       setError('');
       try {
-        // 1) GET /api/player/:tg_id
+        // Получаем профиль игрока
         const playerRes = await fetch(`${BACKEND_URL}/api/player/${userId}`, {
           headers: {
             'Content-Type': 'application/json',
@@ -45,7 +45,7 @@ export default function Profile() {
         setName(player.name);
         setCollectedFragments(player.fragments || []);
 
-        // 2) GET /api/stats/total_users
+        // Получаем общее число пользователей
         const statsRes = await fetch(`${BACKEND_URL}/api/stats/total_users`, {
           headers: {
             'Content-Type': 'application/json',
@@ -65,12 +65,12 @@ export default function Profile() {
       }
     })();
 
-    // Refresh profile when window gains focus
+    // Обновляем при фокусе окна
     const handleFocus = () => {
       setLoading(true);
       setError('');
-      // re-run the same load logic
       (async () => {
+        const token = localStorage.getItem('token');
         try {
           const playerRes = await fetch(`${BACKEND_URL}/api/player/${userId}`, {
             headers: {

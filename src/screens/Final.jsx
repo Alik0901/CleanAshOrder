@@ -97,7 +97,7 @@ export default function Final() {
           <input
             type="text"
             value={input}
-            onChange={e => setInput(e.target.value)}
+            onChange={(e) => setInput(e.target.value)}
             placeholder="Enter secret phrase..."
             style={styles.input}
             disabled={!allowed || loading}
@@ -127,9 +127,10 @@ const styles = {
     backgroundSize: 'cover',
     backgroundPosition: 'center',
     padding: 20,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
+    display: 'flex',               // делаем flex контейнер
+    flexDirection: 'column',
+    justifyContent: 'center',      // выравниваем по вертикали
+    alignItems: 'center',          // выравниваем по горизонтали
     fontFamily: 'serif',
     color: '#d4af37',
   },
@@ -139,6 +140,10 @@ const styles = {
     borderRadius: 12,
     maxWidth: 400,
     width: '100%',
+    display: 'flex',               // flex-контейнер внутри
+    flexDirection: 'column',
+    justifyContent: 'center',      // выровнять содержимое по вертикали
+    alignItems: 'center',          // выровнять по горизонтали
     textAlign: 'center',
   },
   title: {
@@ -148,11 +153,13 @@ const styles = {
   checking: {
     fontSize: 16,
     color: '#d4af37',
+    textAlign: 'center',
   },
   status: {
     marginBottom: 12,
     fontSize: 14,
     color: '#d4af37',
+    textAlign: 'center',
   },
   form: {
     width: '100%',

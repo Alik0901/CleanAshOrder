@@ -14,7 +14,6 @@ export default function Init() {
   // Telegram/WebApp data
   const [tgId, setTgId] = useState('');
   const [initDataRaw, setInitDataRaw] = useState('');
-  const [initDataUnsafe, setInitDataUnsafe] = useState({});
   const [status, setStatus] = useState('Checking Telegram...');
   const [checking, setChecking] = useState(true);
 
@@ -22,15 +21,14 @@ export default function Init() {
   const [name, setName] = useState('');
   const validName = name.trim().length > 0 && NAME_REGEX.test(name);
 
-  // 1) Read Telegram initData once
+  // 1) Читаем Telegram initData
   useEffect(() => {
     const tg = window.Telegram;
     const wa = tg?.WebApp;
     const raw = wa?.initData || '';
-    const unsafe = wa?.WebApp?.initDataUnsafe || wa?.initDataUnsafe || {};
+    const unsafe = wa?.initDataUnsafe || {};
 
     setInitDataRaw(raw);
-    setInitDataUnsafe(unsafe);
 
     if (!tg) {
       setStatus('❌ Telegram not found');
@@ -53,30 +51,35 @@ export default function Init() {
     setStatus('Checking existing user...');
   }, []);
 
-  // 2) Check in database — once tgId is set, using existing token if any
+  // 2) Проверяем, не залогинен ли уже
   useEffect(() => {
     if (!tgId) return;
     (async () => {
-      try {
-        const token = localStorage.getItem('token');
-        const headers = { 'Content-Type': 'application/json' };
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-        const res = await fetch(`${BACKEND_URL}/api/player/${tgId}`, { headers });
-        if (res.ok) {
-          // если токен есть и валиден, сразу идём в профиль
-          navigate('/profile');
-          return;
+      const token = localStorage.getItem('token');
+      if (token) {
+        // Если есть токен, пробуем получить профиль
+        try {
+          const res = await fetch(`${BACKEND_URL}/api/player/${tgId}`, {
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+          if (res.ok) {
+            navigate('/profile');
+            return;
+          }
+        } catch {
+          // network error — считаем, что не залогинен
         }
-      } catch {
-        // network error, treat as new
       }
       setStatus('✅ Ready to register');
       setChecking(false);
     })();
   }, [tgId, navigate]);
 
-  // 3) Handle form submit
-  const handleSubmit = async e => {
+  // 3) Обработка отправки формы (регистрация)
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validName) {
       setStatus('❗ Name must be English letters and spaces only');
@@ -90,7 +93,7 @@ export default function Init() {
         body: JSON.stringify({
           tg_id: tgId,
           name: name.trim(),
-          initData: initDataRaw
+          initData: initDataRaw,
         }),
       });
       const data = await res.json();
@@ -108,7 +111,7 @@ export default function Init() {
     }
   };
 
-  // 4) While checking, show status
+  // 4) Пока проверяем, показываем текст
   if (checking) {
     return (
       <div style={styles.container}>
@@ -117,7 +120,7 @@ export default function Init() {
     );
   }
 
-  // 5) Registration form
+  // 5) Форма регистрации
   return (
     <div style={styles.container}>
       <form onSubmit={handleSubmit} style={styles.form}>
@@ -129,7 +132,7 @@ export default function Init() {
         <input
           type="text"
           value={name}
-          onChange={e => setName(e.target.value)}
+          onChange={(e) => setName(e.target.value)}
           placeholder="Your name (A–Z only)"
           style={styles.input}
         />
