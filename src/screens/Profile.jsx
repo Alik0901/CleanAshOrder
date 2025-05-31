@@ -23,17 +23,35 @@ export default function Profile() {
       return;
     }
 
-    const loadProfile = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/init');
+      return;
+    }
+
+    (async () => {
       setLoading(true);
       setError('');
       try {
-        const res = await fetch(`${BACKEND_URL}/api/player/${userId}`);
-        if (!res.ok) throw new Error();
-        const player = await res.json();
+        // 1) GET /api/player/:tg_id
+        const playerRes = await fetch(`${BACKEND_URL}/api/player/${userId}`, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        if (!playerRes.ok) throw new Error();
+        const player = await playerRes.json();
         setName(player.name);
         setCollectedFragments(player.fragments || []);
 
-        const statsRes = await fetch(`${BACKEND_URL}/api/stats/total_users`);
+        // 2) GET /api/stats/total_users
+        const statsRes = await fetch(`${BACKEND_URL}/api/stats/total_users`, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        });
         if (statsRes.ok) {
           const { value } = await statsRes.json();
           setTotalUsers(value);
@@ -45,11 +63,45 @@ export default function Profile() {
       } finally {
         setLoading(false);
       }
-    };
+    })();
 
-    loadProfile();
-    window.addEventListener('focus', loadProfile);
-    return () => window.removeEventListener('focus', loadProfile);
+    // Refresh profile when window gains focus
+    const handleFocus = () => {
+      setLoading(true);
+      setError('');
+      // re-run the same load logic
+      (async () => {
+        try {
+          const playerRes = await fetch(`${BACKEND_URL}/api/player/${userId}`, {
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+          if (playerRes.ok) {
+            const player = await playerRes.json();
+            setName(player.name);
+            setCollectedFragments(player.fragments || []);
+          }
+          const statsRes = await fetch(`${BACKEND_URL}/api/stats/total_users`, {
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+          if (statsRes.ok) {
+            const { value } = await statsRes.json();
+            setTotalUsers(value);
+          }
+        } catch {
+          setError('Failed to refresh data');
+        } finally {
+          setLoading(false);
+        }
+      })();
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
   }, [navigate]);
 
   if (loading) {

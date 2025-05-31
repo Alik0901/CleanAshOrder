@@ -8,12 +8,11 @@ const BACKEND_URL =
 
 export default function Final() {
   const navigate = useNavigate();
-  const [input, setInput]     = useState('');
-  const [status, setStatus]   = useState('');
+  const [input, setInput] = useState('');
+  const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(true);
   const [allowed, setAllowed] = useState(false);
 
-  // Проверяем разрешение на ввод фразы
   useEffect(() => {
     const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {};
     const userId = unsafe.user?.id;
@@ -22,7 +21,18 @@ export default function Final() {
       return;
     }
 
-    fetch(`${BACKEND_URL}/api/final/${userId}`)
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/init');
+      return;
+    }
+
+    fetch(`${BACKEND_URL}/api/final/${userId}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+    })
       .then(res => res.json())
       .then(data => {
         if (data.canEnter) {
@@ -44,11 +54,15 @@ export default function Final() {
 
     const unsafe = window.Telegram.WebApp.initDataUnsafe || {};
     const userId = unsafe.user?.id;
+    const token = localStorage.getItem('token');
 
     try {
       const res = await fetch(`${BACKEND_URL}/api/validate-final`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
         body: JSON.stringify({ userId, inputPhrase: input.trim() }),
       });
       const data = await res.json();
@@ -66,7 +80,6 @@ export default function Final() {
     }
   };
 
-  // пока идёт проверка — показываем спиннер
   if (loading) {
     return (
       <div style={styles.page}>
@@ -95,7 +108,7 @@ export default function Final() {
             style={{
               ...styles.button,
               opacity: allowed && !loading ? 1 : 0.5,
-              cursor: allowed && !loading ? 'pointer' : 'not-allowed'
+              cursor: allowed && !loading ? 'pointer' : 'not-allowed',
             }}
             disabled={!allowed || loading}
           >
@@ -134,7 +147,7 @@ const styles = {
   },
   checking: {
     fontSize: 16,
-    color: '#d4af37'
+    color: '#d4af37',
   },
   status: {
     marginBottom: 12,
@@ -163,5 +176,6 @@ const styles = {
     color: '#000',
     border: 'none',
     borderRadius: 6,
+    width: '100%',
   },
 };

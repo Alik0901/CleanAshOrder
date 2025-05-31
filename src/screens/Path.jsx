@@ -19,18 +19,18 @@ export default function Path() {
   const [cooldown, setCooldown] = useState(0);
   const timerRef = useRef(null);
 
-  // отладочный кулдаун: 2 минуты = 120 секунд
-  const DEBUG_COOLDOWN_SECONDS = 2 * 60;
+  // 2-minute cooldown in seconds
+  const COOLDOWN_SECONDS = 2 * 60;
 
-  // считаем, сколько осталось секунд
+  // Calculate remaining cooldown
   const computeCooldown = (last) => {
     if (!last) return 0;
     const lastTime = new Date(last).getTime();
     const elapsedSeconds = (Date.now() - lastTime) / 1000;
-    return Math.max(0, DEBUG_COOLDOWN_SECONDS - Math.floor(elapsedSeconds));
+    return Math.max(0, COOLDOWN_SECONDS - Math.floor(elapsedSeconds));
   };
 
-  // тикер кулдауна
+  // Cooldown ticker
   useEffect(() => {
     if (cooldown <= 0) return;
     timerRef.current = setInterval(() => {
@@ -45,39 +45,62 @@ export default function Path() {
     return () => clearInterval(timerRef.current);
   }, [cooldown]);
 
-  // загрузка профиля
+  // Load profile and cooldown
   useEffect(() => {
     const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {};
     const id = unsafe.user?.id;
     if (!id) {
-      setError('Не удалось получить Telegram ID');
-      setLoading(false);
+      navigate('/init');
       return;
     }
     setTgId(String(id));
 
-    fetch(`${BACKEND_URL}/api/player/${id}`)
-      .then(res => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/init');
+      return;
+    }
+
+    const loadProfile = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        // GET /api/player/:tg_id
+        const res = await fetch(`${BACKEND_URL}/api/player/${id}`, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        });
         if (!res.ok) throw new Error();
-        return res.json();
-      })
-      .then(player => {
+        const player = await res.json();
         setFragments(player.fragments || []);
         setLastBurn(player.last_burn);
         setIsCursed(player.is_cursed);
         setCooldown(computeCooldown(player.last_burn));
-      })
-      .catch(() => navigate('/init'))
-      .finally(() => setLoading(false));
+      } catch {
+        navigate('/init');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProfile();
+    window.addEventListener('focus', loadProfile);
+    return () => window.removeEventListener('focus', loadProfile);
   }, [navigate]);
 
   const handleBurn = async () => {
     setBurning(true);
     setError('');
+    const token = localStorage.getItem('token');
     try {
       const res = await fetch(`${BACKEND_URL}/api/burn`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
         body: JSON.stringify({ tg_id: tgId }),
       });
       const data = await res.json();
@@ -94,11 +117,13 @@ export default function Path() {
     }
   };
 
-  if (loading) return <div style={styles.center}>Загрузка...</div>;
+  if (loading) {
+    return <div style={styles.center}>Loading...</div>;
+  }
 
-  const formatTime = sec => {
-    const m = String(Math.floor(sec/60)).padStart(2,'0');
-    const s = String(sec%60).padStart(2,'0');
+  const formatTime = (sec) => {
+    const m = String(Math.floor(sec / 60)).padStart(2, '0');
+    const s = String(sec % 60).padStart(2, '0');
     return `${m}:${s}`;
   };
 
@@ -135,11 +160,47 @@ export default function Path() {
 }
 
 const styles = {
-  center: { display:'flex',height:'100vh',alignItems:'center',justifyContent:'center',color:'#fff' },
-  container: { position:'relative',height:'100vh',backgroundImage:'url("/bg-path.webp")',backgroundSize:'cover' },
-  overlay: { position:'absolute',inset:0,backgroundColor:'rgba(0,0,0,0.5)' },
-  content: { position:'relative',zIndex:2,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',color:'#d4af37' },
-  burnButton: { padding:'10px 24px',margin:'16px',background:'#d4af37',border:'none',cursor:'pointer' },
-  secondary: { background:'transparent',border:'1px solid #d4af37',padding:'8px 20px',cursor:'pointer',color:'#d4af37' },
-  error: { color:'red',marginTop:12 }
+  center: {
+    display: 'flex',
+    height: '100vh',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: '#fff',
+  },
+  container: {
+    position: 'relative',
+    height: '100vh',
+    backgroundImage: 'url("/bg-path.webp")',
+    backgroundSize: 'cover',
+  },
+  overlay: {
+    position: 'absolute',
+    inset: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  content: {
+    position: 'relative',
+    zIndex: 2,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: '100%',
+    color: '#d4af37',
+  },
+  burnButton: {
+    padding: '10px 24px',
+    margin: '16px',
+    background: '#d4af37',
+    border: 'none',
+    cursor: 'pointer',
+  },
+  secondary: {
+    background: 'transparent',
+    border: '1px solid #d4af37',
+    padding: '8px 20px',
+    cursor: 'pointer',
+    color: '#d4af37',
+  },
+  error: { color: 'red', marginTop: 12 },
 };
