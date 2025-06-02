@@ -240,7 +240,7 @@ export default function Path() {
 
         {/* кнопка просмотра профиля */}
         <button onClick={() => navigate('/profile')} style={styles.secondary}>
-          📜 View Your Ashes
+          📜 Go to your personal account
         </button>
 
         {/* ошибки и предупреждения */}
