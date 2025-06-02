@@ -13,7 +13,6 @@ export default function Path() {
   const [lastBurn, setLastBurn] = useState(null);
   const [isCursed, setIsCursed] = useState(false);
   const [curseExpires, setCurseExpires] = useState(null);
-  const [cursesCount, setCursesCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [burning, setBurning] = useState(false);
   const [error, setError] = useState('');
@@ -51,8 +50,7 @@ export default function Path() {
     const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {};
     const id = unsafe.user?.id;
     if (!id) {
-      setError('❌ Не удалось получить Telegram ID');
-      setLoading(false);
+      navigate('/init');
       return;
     }
     setTgId(String(id));
@@ -83,23 +81,20 @@ export default function Path() {
         const player = await res.json();
         setFragments(player.fragments || []);
         setLastBurn(player.last_burn);
-        setIsCursed(player.is_cursed);
-        setCursesCount(player.curses_count || 0);
-        setCurseExpires(player.curse_expires || null);
 
-        // Если у игрока стоит активное проклятие (curse_expires в будущем), 
-        // оставляем isCursed = true, и кулдаун не рассчитываем.
+        // Проверяем проклятие
         if (player.curse_expires) {
           const expireDate = new Date(player.curse_expires);
           if (expireDate > new Date()) {
             setIsCursed(true);
+            setCurseExpires(player.curse_expires);
           } else {
             setIsCursed(false);
             setCurseExpires(null);
           }
         }
 
-        // Рассчитываем кулдаун для обычного «сожжения» (если не под проклятием и есть last_burn)
+        // Если не под проклятием, рассчитываем кулдаун
         if (!player.curse_expires) {
           setCooldown(computeCooldown(player.last_burn));
         }
@@ -140,13 +135,12 @@ export default function Path() {
       const data = await res.json();
 
       if (!res.ok) {
-        // Сервер вернул ошибку или сообщение «вы под проклятием»
+        // Если сервер вернул ошибку или сообщение «вы под проклятием»
         if (data.error && data.curse_expires) {
           const expireDate = new Date(data.curse_expires);
           setError(`⚠️ You are cursed until ${expireDate.toLocaleString()}`);
           setIsCursed(true);
           setCurseExpires(data.curse_expires);
-          setCursesCount(data.curses_count);
         } else {
           setError(data.error || '⚠️ Unknown error');
         }
@@ -154,17 +148,13 @@ export default function Path() {
         return;
       }
 
-      // Если res.ok === true, это могут быть два варианта:
-      // 1) data.cursed === true  → игрок только что получил проклятие
-      // 2) data.cursed === false → игрок получил новый фрагмент
-
+      // res.ok === true
       if (data.cursed) {
         // Игрок только что проклят на 24 часа
         const expireDate = new Date(data.curse_expires);
         setError(`⚠️ You have been cursed until ${expireDate.toLocaleString()}`);
         setIsCursed(true);
         setCurseExpires(data.curse_expires);
-        setCursesCount(data.curses_count);
       } else {
         // Игрок получил новый фрагмент
         setNewFragment(data.newFragment);
@@ -224,15 +214,23 @@ export default function Path() {
         {/* Кнопка Burn */}
         <button
           onClick={handleBurn}
-          disabled={burning || (isCursed && new Date(curseExpires) > new Date()) || cooldown > 0}
+          disabled={
+            burning ||
+            (isCursed && new Date(curseExpires) > new Date()) ||
+            cooldown > 0
+          }
           style={{
             ...styles.burnButton,
             opacity:
-              burning || (isCursed && new Date(curseExpires) > new Date()) || cooldown > 0
+              burning ||
+              (isCursed && new Date(curseExpires) > new Date()) ||
+              cooldown > 0
                 ? 0.6
                 : 1,
             cursor:
-              burning || (isCursed && new Date(curseExpires) > new Date()) || cooldown > 0
+              burning ||
+              (isCursed && new Date(curseExpires) > new Date()) ||
+              cooldown > 0
                 ? 'not-allowed'
                 : 'pointer',
           }}
@@ -247,11 +245,6 @@ export default function Path() {
 
         {/* Ошибки и предупреждения */}
         {error && <p style={styles.error}>{error}</p>}
-
-        {/* Информация о том, сколько раз уже проклят */}
-        <p style={styles.cursesInfo}>
-          Curses received: {cursesCount} / 6
-        </p>
       </div>
     </div>
   );
@@ -324,10 +317,5 @@ const styles = {
     color: '#FF6347',
     fontSize: 14,
     marginTop: 12,
-  },
-  cursesInfo: {
-    fontSize: 14,
-    marginTop: 8,
-    opacity: 0.8,
   },
 };
