@@ -22,7 +22,7 @@ export default function Path() {
 
   const COOLDOWN_SECONDS = 2 * 60;
 
-  // Рассчитываем оставшийся кулдаун (2 минуты)
+  // рассчитываем оставшийся кулдаун (2 минуты)
   const computeCooldown = (last) => {
     if (!last) return 0;
     const lastTime = new Date(last).getTime();
@@ -30,7 +30,7 @@ export default function Path() {
     return Math.max(0, COOLDOWN_SECONDS - Math.floor(elapsed));
   };
 
-  // Тикер для кулдауна в реальном времени
+  // тикер для кулдауна в реальном времени
   useEffect(() => {
     if (cooldown <= 0) return;
     timerRef.current = setInterval(() => {
@@ -45,7 +45,7 @@ export default function Path() {
     return () => clearInterval(timerRef.current);
   }, [cooldown]);
 
-  // Загрузка профиля при монтировании
+  // загрузка профиля при монтировании
   useEffect(() => {
     const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {};
     const id = unsafe.user?.id;
@@ -71,7 +71,7 @@ export default function Path() {
             'Authorization': `Bearer ${token}`,
           },
         });
-        // Обновляем токен, если сервер вернул новый
+        // обновляем токен, если сервер вернул новый
         const newAuth = res.headers.get('Authorization');
         if (newAuth?.startsWith('Bearer ')) {
           localStorage.setItem('token', newAuth.split(' ')[1]);
@@ -82,7 +82,7 @@ export default function Path() {
         setFragments(player.fragments || []);
         setLastBurn(player.last_burn);
 
-        // Проверяем проклятие
+        // проверяем проклятие
         if (player.curse_expires) {
           const expireDate = new Date(player.curse_expires);
           if (expireDate > new Date()) {
@@ -94,7 +94,7 @@ export default function Path() {
           }
         }
 
-        // Если не под проклятием, рассчитываем кулдаун
+        // если не под проклятием, рассчитываем кулдаун
         if (!player.curse_expires) {
           setCooldown(computeCooldown(player.last_burn));
         }
@@ -110,7 +110,7 @@ export default function Path() {
     return () => window.removeEventListener('focus', loadProfile);
   }, [navigate]);
 
-  // Обработка клика «Burn Yourself»
+  // обработка клика «Burn Yourself»
   const handleBurn = async () => {
     setBurning(true);
     setError('');
@@ -126,7 +126,7 @@ export default function Path() {
         body: JSON.stringify({ tg_id: tgId }),
       });
 
-      // Обновляем токен, если сервер вернул новый
+      // обновляем токен, если сервер вернул новый
       const newAuth = res.headers.get('Authorization');
       if (newAuth?.startsWith('Bearer ')) {
         localStorage.setItem('token', newAuth.split(' ')[1]);
@@ -135,7 +135,7 @@ export default function Path() {
       const data = await res.json();
 
       if (!res.ok) {
-        // Если сервер вернул ошибку или сообщение «вы под проклятием»
+        // если сервер вернул ошибку или сообщение «вы под проклятием»
         if (data.error && data.curse_expires) {
           const expireDate = new Date(data.curse_expires);
           setError(`⚠️ You are cursed until ${expireDate.toLocaleString()}`);
@@ -149,19 +149,19 @@ export default function Path() {
       }
 
       // res.ok === true
+      // если data.cursed === true → игрок получил новое проклятие
+      // иначе → игрок получил новый фрагмент
       if (data.cursed) {
-        // Игрок только что проклят на 24 часа
         const expireDate = new Date(data.curse_expires);
         setError(`⚠️ You have been cursed until ${expireDate.toLocaleString()}`);
         setIsCursed(true);
         setCurseExpires(data.curse_expires);
       } else {
-        // Игрок получил новый фрагмент
         setNewFragment(data.newFragment);
         setFragments(data.fragments);
         setIsCursed(false);
         setCurseExpires(null);
-        // Обновляем lastBurn и запускаем двухминутный кулдаун
+        // обновляем lastBurn и запускаем двухминутный кулдаун
         const nowIso = new Date().toISOString();
         setLastBurn(nowIso);
         setCooldown(computeCooldown(nowIso));
@@ -177,7 +177,7 @@ export default function Path() {
     return <div style={styles.center}>Loading...</div>;
   }
 
-  // Преобразуем секунды в формат MM:SS
+  // преобразуем секунды в формат MM:SS
   const formatTime = (sec) => {
     const m = String(Math.floor(sec / 60)).padStart(2, '0');
     const s = String(sec % 60).padStart(2, '0');
@@ -190,14 +190,14 @@ export default function Path() {
       <div style={styles.content}>
         <h2 style={styles.title}>The Path Begins</h2>
 
-        {/* Сообщение о новом фрагменте */}
+        {/* сообщение о новом фрагменте */}
         {newFragment && (
           <p style={styles.message}>
             🔥 You received fragment #{newFragment}!
           </p>
         )}
 
-        {/* Статус: проклят, кулдаун или готов к сжиганию */}
+        {/* статус: проклят, кулдаун или готов к сжиганию */}
         {isCursed ? (
           <p style={styles.status}>
             ⚠️ You are cursed until{' '}
@@ -211,7 +211,7 @@ export default function Path() {
           <p style={styles.status}>Ready to burn yourself.</p>
         )}
 
-        {/* Кнопка Burn */}
+        {/* кнопка Burn */}
         <button
           onClick={handleBurn}
           disabled={
@@ -238,12 +238,12 @@ export default function Path() {
           {burning ? 'Processing…' : '🔥 Burn Yourself for 1 TON'}
         </button>
 
-        {/* Кнопка просмотра профиля */}
+        {/* кнопка просмотра профиля */}
         <button onClick={() => navigate('/profile')} style={styles.secondary}>
           📜 View Your Ashes
         </button>
 
-        {/* Ошибки и предупреждения */}
+        {/* ошибки и предупреждения */}
         {error && <p style={styles.error}>{error}</p>}
       </div>
     </div>
