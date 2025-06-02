@@ -1,3 +1,4 @@
+// src/screens/Path.jsx
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -11,6 +12,8 @@ export default function Path() {
   const [fragments, setFragments] = useState([]);
   const [lastBurn, setLastBurn] = useState(null);
   const [isCursed, setIsCursed] = useState(false);
+  const [curseExpires, setCurseExpires] = useState(null);
+  const [cursesCount, setCursesCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [burning, setBurning] = useState(false);
   const [error, setError] = useState('');
@@ -20,7 +23,7 @@ export default function Path() {
 
   const COOLDOWN_SECONDS = 2 * 60;
 
-  // Рассчитываем оставшийся кулдаун
+  // Рассчитываем оставшийся кулдаун (2 минуты)
   const computeCooldown = (last) => {
     if (!last) return 0;
     const lastTime = new Date(last).getTime();
@@ -28,7 +31,7 @@ export default function Path() {
     return Math.max(0, COOLDOWN_SECONDS - Math.floor(elapsed));
   };
 
-  // Тикер кулдауна
+  // Тикер для кулдауна в реальном времени
   useEffect(() => {
     if (cooldown <= 0) return;
     timerRef.current = setInterval(() => {
@@ -43,12 +46,13 @@ export default function Path() {
     return () => clearInterval(timerRef.current);
   }, [cooldown]);
 
-  // Загрузка профиля
+  // Загрузка профиля при монтировании
   useEffect(() => {
     const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {};
     const id = unsafe.user?.id;
     if (!id) {
-      navigate('/init');
+      setError('❌ Не удалось получить Telegram ID');
+      setLoading(false);
       return;
     }
     setTgId(String(id));
@@ -75,11 +79,30 @@ export default function Path() {
           localStorage.setItem('token', newAuth.split(' ')[1]);
         }
         if (!res.ok) throw new Error();
+
         const player = await res.json();
         setFragments(player.fragments || []);
         setLastBurn(player.last_burn);
         setIsCursed(player.is_cursed);
-        setCooldown(computeCooldown(player.last_burn));
+        setCursesCount(player.curses_count || 0);
+        setCurseExpires(player.curse_expires || null);
+
+        // Если у игрока стоит активное проклятие (curse_expires в будущем), 
+        // оставляем isCursed = true, и кулдаун не рассчитываем.
+        if (player.curse_expires) {
+          const expireDate = new Date(player.curse_expires);
+          if (expireDate > new Date()) {
+            setIsCursed(true);
+          } else {
+            setIsCursed(false);
+            setCurseExpires(null);
+          }
+        }
+
+        // Рассчитываем кулдаун для обычного «сожжения» (если не под проклятием и есть last_burn)
+        if (!player.curse_expires) {
+          setCooldown(computeCooldown(player.last_burn));
+        }
       } catch {
         navigate('/init');
       } finally {
@@ -92,10 +115,12 @@ export default function Path() {
     return () => window.removeEventListener('focus', loadProfile);
   }, [navigate]);
 
+  // Обработка клика «Burn Yourself»
   const handleBurn = async () => {
     setBurning(true);
     setError('');
     const token = localStorage.getItem('token');
+
     try {
       const res = await fetch(`${BACKEND_URL}/api/burn`, {
         method: 'POST',
@@ -105,20 +130,54 @@ export default function Path() {
         },
         body: JSON.stringify({ tg_id: tgId }),
       });
+
       // Обновляем токен, если сервер вернул новый
       const newAuth = res.headers.get('Authorization');
       if (newAuth?.startsWith('Bearer ')) {
         localStorage.setItem('token', newAuth.split(' ')[1]);
       }
+
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || data.message);
-      setNewFragment(data.newFragment);
-      setFragments(data.fragments);
-      const nowIso = new Date().toISOString();
-      setLastBurn(nowIso);
-      setCooldown(computeCooldown(nowIso));
+
+      if (!res.ok) {
+        // Сервер вернул ошибку или сообщение «вы под проклятием»
+        if (data.error && data.curse_expires) {
+          const expireDate = new Date(data.curse_expires);
+          setError(`⚠️ You are cursed until ${expireDate.toLocaleString()}`);
+          setIsCursed(true);
+          setCurseExpires(data.curse_expires);
+          setCursesCount(data.curses_count);
+        } else {
+          setError(data.error || '⚠️ Unknown error');
+        }
+        setBurning(false);
+        return;
+      }
+
+      // Если res.ok === true, это могут быть два варианта:
+      // 1) data.cursed === true  → игрок только что получил проклятие
+      // 2) data.cursed === false → игрок получил новый фрагмент
+
+      if (data.cursed) {
+        // Игрок только что проклят на 24 часа
+        const expireDate = new Date(data.curse_expires);
+        setError(`⚠️ You have been cursed until ${expireDate.toLocaleString()}`);
+        setIsCursed(true);
+        setCurseExpires(data.curse_expires);
+        setCursesCount(data.curses_count);
+      } else {
+        // Игрок получил новый фрагмент
+        setNewFragment(data.newFragment);
+        setFragments(data.fragments);
+        setIsCursed(false);
+        setCurseExpires(null);
+        // Обновляем lastBurn и запускаем двухминутный кулдаун
+        const nowIso = new Date().toISOString();
+        setLastBurn(nowIso);
+        setCooldown(computeCooldown(nowIso));
+      }
     } catch (e) {
-      setError(e.message);
+      setError(`⚠️ ${e.message}`);
     } finally {
       setBurning(false);
     }
@@ -128,6 +187,7 @@ export default function Path() {
     return <div style={styles.center}>Loading...</div>;
   }
 
+  // Преобразуем секунды в формат MM:SS
   const formatTime = (sec) => {
     const m = String(Math.floor(sec / 60)).padStart(2, '0');
     const s = String(sec % 60).padStart(2, '0');
@@ -138,29 +198,60 @@ export default function Path() {
     <div style={styles.container}>
       <div style={styles.overlay} />
       <div style={styles.content}>
-        <h2>The Path Begins</h2>
-        {newFragment && <p>🔥 You received fragment #{newFragment}!</p>}
-        <p>
-          {isCursed
-            ? 'You are cursed and cannot burn now.'
-            : cooldown > 0
-            ? `Next burn in ${formatTime(cooldown)}`
-            : 'Ready to burn yourself.'}
-        </p>
+        <h2 style={styles.title}>The Path Begins</h2>
 
+        {/* Сообщение о новом фрагменте */}
+        {newFragment && (
+          <p style={styles.message}>
+            🔥 You received fragment #{newFragment}!
+          </p>
+        )}
+
+        {/* Статус: проклят, кулдаун или готов к сжиганию */}
+        {isCursed ? (
+          <p style={styles.status}>
+            ⚠️ You are cursed until{' '}
+            {new Date(curseExpires).toLocaleString()}
+          </p>
+        ) : cooldown > 0 ? (
+          <p style={styles.status}>
+            ⏳ Next burn in {formatTime(cooldown)}
+          </p>
+        ) : (
+          <p style={styles.status}>Ready to burn yourself.</p>
+        )}
+
+        {/* Кнопка Burn */}
         <button
           onClick={handleBurn}
-          disabled={burning || isCursed || cooldown > 0}
-          style={styles.burnButton}
+          disabled={burning || (isCursed && new Date(curseExpires) > new Date()) || cooldown > 0}
+          style={{
+            ...styles.burnButton,
+            opacity:
+              burning || (isCursed && new Date(curseExpires) > new Date()) || cooldown > 0
+                ? 0.6
+                : 1,
+            cursor:
+              burning || (isCursed && new Date(curseExpires) > new Date()) || cooldown > 0
+                ? 'not-allowed'
+                : 'pointer',
+          }}
         >
           {burning ? 'Processing…' : '🔥 Burn Yourself for 1 TON'}
         </button>
 
+        {/* Кнопка просмотра профиля */}
         <button onClick={() => navigate('/profile')} style={styles.secondary}>
           📜 View Your Ashes
         </button>
 
+        {/* Ошибки и предупреждения */}
         {error && <p style={styles.error}>{error}</p>}
+
+        {/* Информация о том, сколько раз уже проклят */}
+        <p style={styles.cursesInfo}>
+          Curses received: {cursesCount} / 6
+        </p>
       </div>
     </div>
   );
@@ -173,6 +264,7 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     color: '#fff',
+    fontSize: 18,
   },
   container: {
     position: 'relative',
@@ -194,13 +286,30 @@ const styles = {
     justifyContent: 'center',
     height: '100%',
     color: '#d4af37',
+    padding: '0 16px',
+    textAlign: 'center',
+  },
+  title: {
+    fontSize: 28,
+    marginBottom: 16,
+  },
+  message: {
+    fontSize: 16,
+    color: '#7CFC00',
+    marginBottom: 12,
+  },
+  status: {
+    fontSize: 16,
+    marginBottom: 12,
   },
   burnButton: {
     padding: '10px 24px',
-    margin: '16px',
-    background: '#d4af37',
+    backgroundColor: '#d4af37',
     border: 'none',
-    cursor: 'pointer',
+    borderRadius: 6,
+    color: '#000',
+    fontSize: 16,
+    marginBottom: 12,
   },
   secondary: {
     background: 'transparent',
@@ -208,6 +317,17 @@ const styles = {
     padding: '8px 20px',
     cursor: 'pointer',
     color: '#d4af37',
+    fontSize: 14,
+    marginBottom: 12,
   },
-  error: { color: 'red', marginTop: 12 },
+  error: {
+    color: '#FF6347',
+    fontSize: 14,
+    marginTop: 12,
+  },
+  cursesInfo: {
+    fontSize: 14,
+    marginTop: 8,
+    opacity: 0.8,
+  },
 };
