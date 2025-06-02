@@ -14,14 +14,14 @@ export default function Init() {
   // Telegram/WebApp data
   const [tgId, setTgId] = useState('');
   const [initDataRaw, setInitDataRaw] = useState('');
-  const [status, setStatus] = useState('Проверяем Telegram…');
+  const [status, setStatus] = useState('Checking Telegram…');
   const [checking, setChecking] = useState(true);
 
   // Form state
   const [name, setName] = useState('');
   const validName = name.trim().length > 0 && NAME_REGEX.test(name);
 
-  // 1) Читаем tgId и initData
+  // 1) Read Telegram initData once
   useEffect(() => {
     const tg = window.Telegram;
     const wa = tg?.WebApp;
@@ -31,47 +31,45 @@ export default function Init() {
     setInitDataRaw(raw);
 
     if (!tg) {
-      setStatus('❌ Telegram не найден');
+      setStatus('❌ Telegram not found');
       return;
     }
     if (!wa) {
-      setStatus('❌ Telegram.WebApp не найден');
+      setStatus('❌ Telegram.WebApp not found');
       return;
     }
     if (!raw) {
-      setStatus('❌ initData отсутствует');
+      setStatus('❌ initData missing');
       return;
     }
     if (!unsafe.user?.id) {
-      setStatus('❌ User ID не найден');
+      setStatus('❌ User ID not found');
       return;
     }
 
     setTgId(String(unsafe.user.id));
   }, []);
 
-  // 2) Как только tgId установлен, попробуем «автоматически» проверить, 
-  //    зарегистрирован ли пользователь:
+  // 2) Once tgId is set, check if user exists
   useEffect(() => {
     if (!tgId) return;
 
     (async () => {
-      setStatus('Проверяем существующего игрока…');
+      setStatus('Checking existing user…');
       try {
-        // 2.1) Сначала пытаемся получить профиль (GET /api/player/:tg_id)
+        // 2.1) Try GET /api/player/:tg_id (public)
         const res = await fetch(`${BACKEND_URL}/api/player/${tgId}`, {
           headers: { 'Content-Type': 'application/json' },
         });
 
         if (res.ok) {
-          // 2.2) Если профиль найден, сразу запрашиваем POST /api/init,
-          //       чтобы получить JWT (имя уже хранится в БД, name-параметр мы передаём пустым)
+          // 2.2) If found, POST /api/init to get JWT
           const initRes = await fetch(`${BACKEND_URL}/api/init`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               tg_id: tgId,
-              name: '',         // сервер при существующем профиле не перезапишет имя
+              name: '',
               initData: initDataRaw,
             }),
           });
@@ -82,25 +80,24 @@ export default function Init() {
             return;
           }
         }
-        // Если пришёл 404 (или любой не-OK), считаем, что игрок новый
-        setStatus('✅ Готов к регистрации');
+        // Если 404 или не OK → новый пользователь
+        setStatus('✅ Ready to register');
         setChecking(false);
       } catch {
-        // Сетевая ошибка, но всё равно показываем форму
-        setStatus('⚠️ Ошибка сети, но вы можете зарегистрироваться');
+        setStatus('⚠️ Network error, please register');
         setChecking(false);
       }
     })();
   }, [tgId, initDataRaw, navigate]);
 
-  // 3) Обработка отправки формы регистрации
+  // 3) Handle form submit
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validName) {
-      setStatus('❗ Имя должно содержать только латинские буквы и пробелы');
+      setStatus('❗ Name must be English letters and spaces only');
       return;
     }
-    setStatus('⏳ Отправляем данные…');
+    setStatus('⏳ Submitting…');
     try {
       const res = await fetch(`${BACKEND_URL}/api/init`, {
         method: 'POST',
@@ -113,7 +110,7 @@ export default function Init() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setStatus(`⚠️ ${data.error || 'Неизвестная ошибка'}`);
+        setStatus(`⚠️ ${data.error || 'Unknown error'}`);
       } else {
         if (data.token) {
           localStorage.setItem('token', data.token);
@@ -121,11 +118,11 @@ export default function Init() {
         navigate('/path');
       }
     } catch {
-      setStatus('⚠️ Сетевая ошибка');
+      setStatus('⚠️ Network error');
     }
   };
 
-  // 4) Если идёт проверка, показываем просто статус
+  // 4) While checking, show status
   if (checking) {
     return (
       <div style={styles.container}>
@@ -134,20 +131,20 @@ export default function Init() {
     );
   }
 
-  // 5) Форма регистрации для нового игрока
+  // 5) Registration form (English only)
   return (
     <div style={styles.container}>
       <form onSubmit={handleSubmit} style={styles.form}>
         <h1 style={styles.title}>Enter the Ash</h1>
         <p style={styles.info}>
-          Ваш Telegram ID: <strong>{tgId}</strong>
+          Your Telegram ID: <strong>{tgId}</strong>
         </p>
 
         <input
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Ваше имя (A–Z only)"
+          placeholder="Your name (A–Z only)"
           style={styles.input}
         />
 
