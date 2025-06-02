@@ -1,4 +1,3 @@
-// src/screens/Init.jsx
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -21,7 +20,7 @@ export default function Init() {
   const [name, setName] = useState('');
   const validName = name.trim().length > 0 && NAME_REGEX.test(name);
 
-  // 1) Читаем Telegram initData
+  // 1) Читаем Telegram initData один раз при монтировании
   useEffect(() => {
     const tg = window.Telegram;
     const wa = tg?.WebApp;
@@ -51,13 +50,12 @@ export default function Init() {
     setStatus('Checking existing user...');
   }, []);
 
-  // 2) Проверяем, не залогинен ли уже
+  // 2) Проверяем, не залогинен ли уже пользователь (наличие валидного JWT)
   useEffect(() => {
     if (!tgId) return;
     (async () => {
       const token = localStorage.getItem('token');
       if (token) {
-        // Если есть токен, пробуем получить профиль
         try {
           const res = await fetch(`${BACKEND_URL}/api/player/${tgId}`, {
             headers: {
@@ -65,12 +63,17 @@ export default function Init() {
               'Authorization': `Bearer ${token}`,
             },
           });
+          // Если сервер вернул новый JWT — сохраняем
+          const newAuth = res.headers.get('Authorization');
+          if (newAuth?.startsWith('Bearer ')) {
+            localStorage.setItem('token', newAuth.split(' ')[1]);
+          }
           if (res.ok) {
             navigate('/profile');
             return;
           }
         } catch {
-          // network error — считаем, что не залогинен
+          // Network error — считаем, что пользователь не залогинен
         }
       }
       setStatus('✅ Ready to register');
@@ -78,7 +81,7 @@ export default function Init() {
     })();
   }, [tgId, navigate]);
 
-  // 3) Обработка отправки формы (регистрация)
+  // 3) Обработка отправки формы регистрации
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validName) {
@@ -100,7 +103,7 @@ export default function Init() {
       if (!res.ok) {
         setStatus(`⚠️ ${data.error || 'Unknown error'}`);
       } else {
-        // Сохраняем токен и переходим
+        // Ожидаем, что сервер вернёт { user, token }
         if (data.token) {
           localStorage.setItem('token', data.token);
         }
@@ -111,7 +114,7 @@ export default function Init() {
     }
   };
 
-  // 4) Пока проверяем, показываем текст
+  // 4) Пока проверяем существование — показываем статус
   if (checking) {
     return (
       <div style={styles.container}>

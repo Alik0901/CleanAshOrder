@@ -32,7 +32,7 @@ export default function Final() {
         'Authorization': `Bearer ${token}`,
       },
     })
-      .then(res => {
+      .then((res) => {
         // Обновляем токен, если сервер вернул новый
         const newAuth = res.headers.get('Authorization');
         if (newAuth?.startsWith('Bearer ')) {
@@ -40,7 +40,7 @@ export default function Final() {
         }
         return res.json();
       })
-      .then(data => {
+      .then((data) => {
         if (data.canEnter) {
           setAllowed(true);
           setStatus('🗝 You may now enter your final phrase.');

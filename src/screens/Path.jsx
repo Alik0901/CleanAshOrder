@@ -32,7 +32,7 @@ export default function Path() {
   useEffect(() => {
     if (cooldown <= 0) return;
     timerRef.current = setInterval(() => {
-      setCooldown(prev => {
+      setCooldown((prev) => {
         if (prev <= 1) {
           clearInterval(timerRef.current);
           return 0;

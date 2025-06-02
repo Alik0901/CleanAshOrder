@@ -32,7 +32,7 @@ export default function Profile() {
       setLoading(true);
       setError('');
       try {
-        // Получаем профиль игрока и обновляем токен
+        // 1) GET /api/player/:tg_id
         const playerRes = await fetch(`${BACKEND_URL}/api/player/${userId}`, {
           headers: {
             'Content-Type': 'application/json',
@@ -48,7 +48,7 @@ export default function Profile() {
         setName(player.name);
         setCollectedFragments(player.fragments || []);
 
-        // Получаем общее число пользователей и обновляем токен
+        // 2) GET /api/stats/total_users
         const statsRes = await fetch(`${BACKEND_URL}/api/stats/total_users`, {
           headers: {
             'Content-Type': 'application/json',
