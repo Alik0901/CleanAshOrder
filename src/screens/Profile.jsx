@@ -1,4 +1,3 @@
-// src/screens/Profile.jsx
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -33,25 +32,33 @@ export default function Profile() {
       setLoading(true);
       setError('');
       try {
-        // Получаем профиль игрока
+        // Получаем профиль игрока и обновляем токен
         const playerRes = await fetch(`${BACKEND_URL}/api/player/${userId}`, {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`,
           },
         });
+        const newAuth = playerRes.headers.get('Authorization');
+        if (newAuth?.startsWith('Bearer ')) {
+          localStorage.setItem('token', newAuth.split(' ')[1]);
+        }
         if (!playerRes.ok) throw new Error();
         const player = await playerRes.json();
         setName(player.name);
         setCollectedFragments(player.fragments || []);
 
-        // Получаем общее число пользователей
+        // Получаем общее число пользователей и обновляем токен
         const statsRes = await fetch(`${BACKEND_URL}/api/stats/total_users`, {
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
           },
         });
+        const newAuth2 = statsRes.headers.get('Authorization');
+        if (newAuth2?.startsWith('Bearer ')) {
+          localStorage.setItem('token', newAuth2.split(' ')[1]);
+        }
         if (statsRes.ok) {
           const { value } = await statsRes.json();
           setTotalUsers(value);
@@ -65,7 +72,6 @@ export default function Profile() {
       }
     })();
 
-    // Обновляем при фокусе окна
     const handleFocus = () => {
       setLoading(true);
       setError('');
@@ -78,6 +84,10 @@ export default function Profile() {
               'Authorization': `Bearer ${token}`,
             },
           });
+          const newAuth = playerRes.headers.get('Authorization');
+          if (newAuth?.startsWith('Bearer ')) {
+            localStorage.setItem('token', newAuth.split(' ')[1]);
+          }
           if (playerRes.ok) {
             const player = await playerRes.json();
             setName(player.name);
@@ -86,9 +96,13 @@ export default function Profile() {
           const statsRes = await fetch(`${BACKEND_URL}/api/stats/total_users`, {
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`,
+              'Authorization': `Bearer ${localStorage.getItem('token')}`,
             },
           });
+          const newAuth2 = statsRes.headers.get('Authorization');
+          if (newAuth2?.startsWith('Bearer ')) {
+            localStorage.setItem('token', newAuth2.split(' ')[1]);
+          }
           if (statsRes.ok) {
             const { value } = await statsRes.json();
             setTotalUsers(value);

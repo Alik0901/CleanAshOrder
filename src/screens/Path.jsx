@@ -1,4 +1,3 @@
-// src/screens/Path.jsx
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -70,6 +69,11 @@ export default function Path() {
             'Authorization': `Bearer ${token}`,
           },
         });
+        // Обновляем токен, если сервер вернул новый
+        const newAuth = res.headers.get('Authorization');
+        if (newAuth?.startsWith('Bearer ')) {
+          localStorage.setItem('token', newAuth.split(' ')[1]);
+        }
         if (!res.ok) throw new Error();
         const player = await res.json();
         setFragments(player.fragments || []);
@@ -101,6 +105,11 @@ export default function Path() {
         },
         body: JSON.stringify({ tg_id: tgId }),
       });
+      // Обновляем токен, если сервер вернул новый
+      const newAuth = res.headers.get('Authorization');
+      if (newAuth?.startsWith('Bearer ')) {
+        localStorage.setItem('token', newAuth.split(' ')[1]);
+      }
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || data.message);
       setNewFragment(data.newFragment);

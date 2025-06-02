@@ -1,4 +1,3 @@
-// src/screens/Final.jsx
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -33,7 +32,14 @@ export default function Final() {
         'Authorization': `Bearer ${token}`,
       },
     })
-      .then(res => res.json())
+      .then(res => {
+        // Обновляем токен, если сервер вернул новый
+        const newAuth = res.headers.get('Authorization');
+        if (newAuth?.startsWith('Bearer ')) {
+          localStorage.setItem('token', newAuth.split(' ')[1]);
+        }
+        return res.json();
+      })
       .then(data => {
         if (data.canEnter) {
           setAllowed(true);
@@ -65,8 +71,13 @@ export default function Final() {
         },
         body: JSON.stringify({ userId, inputPhrase: input.trim() }),
       });
-      const data = await res.json();
+      // Обновляем токен, если сервер вернул новый
+      const newAuth = res.headers.get('Authorization');
+      if (newAuth?.startsWith('Bearer ')) {
+        localStorage.setItem('token', newAuth.split(' ')[1]);
+      }
 
+      const data = await res.json();
       if (res.ok && data.ok) {
         setStatus('✅ Phrase accepted! The Final Shape is yours.');
         navigate('/congratulations');
@@ -127,10 +138,10 @@ const styles = {
     backgroundSize: 'cover',
     backgroundPosition: 'center',
     padding: 20,
-    display: 'flex',               // делаем flex контейнер
+    display: 'flex',
     flexDirection: 'column',
-    justifyContent: 'center',      // выравниваем по вертикали
-    alignItems: 'center',          // выравниваем по горизонтали
+    justifyContent: 'center',
+    alignItems: 'center',
     fontFamily: 'serif',
     color: '#d4af37',
   },
@@ -140,10 +151,10 @@ const styles = {
     borderRadius: 12,
     maxWidth: 400,
     width: '100%',
-    display: 'flex',               // flex-контейнер внутри
+    display: 'flex',
     flexDirection: 'column',
-    justifyContent: 'center',      // выровнять содержимое по вертикали
-    alignItems: 'center',          // выровнять по горизонтали
+    justifyContent: 'center',
+    alignItems: 'center',
     textAlign: 'center',
   },
   title: {
