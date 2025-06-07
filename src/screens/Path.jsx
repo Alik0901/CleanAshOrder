@@ -37,16 +37,16 @@ export default function Path() {
   // Тикер в реальном времени для cooldown
   useEffect(() => {
     if (cooldown <= 0) return;
-    pollingRef.current = setInterval(() => {
+    const id = setInterval(() => {
       setCooldown((prev) => {
         if (prev <= 1) {
-          clearInterval(pollingRef.current);
+          clearInterval(id);
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
-    return () => clearInterval(pollingRef.current);
+    return () => clearInterval(id);
   }, [cooldown]);
 
   // Загрузка профиля при монтировании
@@ -135,31 +135,32 @@ export default function Path() {
         return;
       }
 
-      // Сохраняем invoiceId
-      setInvoiceId(data.invoiceId);
+      // Сохраняем invoiceId в state и ref
+      const id = data.invoiceId;
+      setInvoiceId(id);
 
       // Формируем TON-deeplink (0.5 TON)
       const amountTon = data.tonInvoice.amountNano / 1e9; // 0.5
       const comment = encodeURIComponent(data.tonInvoice.comment);
       const tonURI = `ton://transfer/${data.tonInvoice.address}?amount=${amountTon}&text=${comment}`;
 
-      // Пытаемся открыть кошелек
+      // Пытаемся открыть кошелек (Telegram WebApp при этом вернёт нас обратно)
       window.location.href = tonURI;
 
-      // Запускаем polling: проверяем статус каждые 5 сек
+      // Запускаем polling: проверяем статус каждые 5 сек, явно передаём свежий id
       setPolling(true);
-      pollingRef.current = setInterval(checkPaymentStatus, 5000);
+      pollingRef.current = setInterval(() => checkPaymentStatus(id), 5000);
     } catch (e) {
       setError(`⚠️ ${e.message}`);
       setBurning(false);
     }
   };
 
-  // Шаг 2: проверка статуса платежа
-  const checkPaymentStatus = async () => {
+  // Шаг 2: проверка статуса платежа, теперь принимает invoiceId
+  const checkPaymentStatus = async (id) => {
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch(`${BACKEND_URL}/api/burn-status/${invoiceId}`, {
+      const res = await fetch(`${BACKEND_URL}/api/burn-status/${id}`, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
@@ -187,8 +188,8 @@ export default function Path() {
         setPolling(false);
         setBurning(false);
 
-        // Если получили проклятие
         if (data.cursed) {
+          // Если получили проклятие
           const expireDate = new Date(data.curse_expires);
           setError(`⚠️ You are cursed until ${expireDate.toLocaleString()}`);
           setIsCursed(true);
@@ -204,7 +205,7 @@ export default function Path() {
           setCooldown(remain);
         }
       }
-      // Если paid === false → ждём дальше
+      // paid === false → ждём дальше
     } catch (e) {
       setError(`⚠️ ${e.message}`);
       clearInterval(pollingRef.current);
@@ -217,7 +218,6 @@ export default function Path() {
     return <div style={styles.center}>Loading...</div>;
   }
 
-  // Форматируем секунды в MM:SS
   const formatTime = (sec) => {
     const m = String(Math.floor(sec / 60)).padStart(2, '0');
     const s = String(sec % 60).padStart(2, '0');
