@@ -26,19 +26,16 @@ export default function Path() {
 
   const COOLDOWN_SECONDS = 2 * 60;
 
-  // Рассчитываем остаток кулдауна (2 мин)
   const computeCooldown = (last) => {
     if (!last) return 0;
-    const lastTime = new Date(last).getTime();
-    const elapsed = (Date.now() - lastTime) / 1000;
+    const elapsed = (Date.now() - new Date(last).getTime()) / 1000;
     return Math.max(0, COOLDOWN_SECONDS - Math.floor(elapsed));
   };
 
-  // Тикер в реальном времени для cooldown
   useEffect(() => {
     if (cooldown <= 0) return;
     const id = setInterval(() => {
-      setCooldown((prev) => {
+      setCooldown(prev => {
         if (prev <= 1) {
           clearInterval(id);
           return 0;
@@ -49,49 +46,41 @@ export default function Path() {
     return () => clearInterval(id);
   }, [cooldown]);
 
-  // Загрузка профиля при монтировании
+  // Загрузка профиля
   useEffect(() => {
     const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {};
     const id = unsafe.user?.id;
-    if (!id) {
-      navigate('/init');
-      return;
-    }
+    if (!id) return navigate('/init');
     setTgId(String(id));
 
     const token = localStorage.getItem('token');
-    if (!token) {
-      navigate('/init');
-      return;
-    }
+    if (!token) return navigate('/init');
 
     const loadProfile = async () => {
       setLoading(true);
       setError('');
       try {
         const res = await fetch(`${BACKEND_URL}/api/player/${id}`, {
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' }
         });
         if (!res.ok) throw new Error();
         const player = await res.json();
         setFragments(player.fragments || []);
         setLastBurn(player.last_burn);
 
-        // Проверяем проклятие
         if (player.curse_expires) {
-          const expireDate = new Date(player.curse_expires);
-          if (expireDate > new Date()) {
+          const exp = new Date(player.curse_expires);
+          if (exp > new Date()) {
             setIsCursed(true);
             setCurseExpires(player.curse_expires);
           } else {
             setIsCursed(false);
             setCurseExpires(null);
+            setCooldown(computeCooldown(player.last_burn));
           }
-        }
-        // Если не под проклятием, рассчитываем кулдаун
-        if (!player.curse_expires) {
+        } else {
+          setIsCursed(false);
+          setCurseExpires(null);
           setCooldown(computeCooldown(player.last_burn));
         }
       } catch {
@@ -106,12 +95,11 @@ export default function Path() {
     return () => window.removeEventListener('focus', loadProfile);
   }, [navigate]);
 
-  // Шаг 1: создаём счёт–invoice за 0.5 TON
+  // Создаём инвойс
   const handleBurn = async () => {
     setBurning(true);
     setError('');
     const token = localStorage.getItem('token');
-
     try {
       const res = await fetch(`${BACKEND_URL}/api/burn-invoice`, {
         method: 'POST',
@@ -122,7 +110,6 @@ export default function Path() {
         body: JSON.stringify({ tg_id: tgId }),
       });
 
-      // Обновляем JWT, если вернулся новый
       const newAuth = res.headers.get('Authorization');
       if (newAuth?.startsWith('Bearer ')) {
         localStorage.setItem('token', newAuth.split(' ')[1]);
@@ -135,19 +122,22 @@ export default function Path() {
         return;
       }
 
-      // Сохраняем invoiceId в state и ref
       const id = data.invoiceId;
       setInvoiceId(id);
 
-      // Формируем TON-deeplink (0.5 TON)
-      const amountTon = data.tonInvoice.amountNano / 1e9; // 0.5
+      // Deeplink TON
+      const amountTon = data.tonInvoice.amountNano / 1e9;
       const comment = encodeURIComponent(data.tonInvoice.comment);
       const tonURI = `ton://transfer/${data.tonInvoice.address}?amount=${amountTon}&text=${comment}`;
 
-      // Пытаемся открыть кошелек (Telegram WebApp при этом вернёт нас обратно)
-      window.location.href = tonURI;
+      // Открываем кошелёк через WebApp API, иначе fallback в window.location
+      if (window.Telegram?.WebApp?.openLink) {
+        window.Telegram.WebApp.openLink(tonURI);
+      } else {
+        window.location.href = tonURI;
+      }
 
-      // Запускаем polling: проверяем статус каждые 5 сек, явно передаём свежий id
+      // Запускаем polling со свежим ID
       setPolling(true);
       pollingRef.current = setInterval(() => checkPaymentStatus(id), 5000);
     } catch (e) {
@@ -156,7 +146,7 @@ export default function Path() {
     }
   };
 
-  // Шаг 2: проверка статуса платежа, теперь принимает invoiceId
+  // Проверяем статус
   const checkPaymentStatus = async (id) => {
     const token = localStorage.getItem('token');
     try {
@@ -168,7 +158,6 @@ export default function Path() {
       });
       const data = await res.json();
 
-      // Обновляем JWT, если вернулся новый
       const newAuth = res.headers.get('Authorization');
       if (newAuth?.startsWith('Bearer ')) {
         localStorage.setItem('token', newAuth.split(' ')[1]);
@@ -183,29 +172,24 @@ export default function Path() {
       }
 
       if (data.paid) {
-        // Платёж окончательно подтверждён
         clearInterval(pollingRef.current);
         setPolling(false);
         setBurning(false);
 
         if (data.cursed) {
-          // Если получили проклятие
-          const expireDate = new Date(data.curse_expires);
-          setError(`⚠️ You are cursed until ${expireDate.toLocaleString()}`);
+          const exp = new Date(data.curse_expires);
+          setError(`⚠️ You are cursed until ${exp.toLocaleString()}`);
           setIsCursed(true);
           setCurseExpires(data.curse_expires);
         } else {
-          // Получили фрагмент
           setNewFragment(data.newFragment);
           setFragments(data.fragments);
           setIsCursed(false);
           setCurseExpires(null);
           setLastBurn(data.lastBurn);
-          const remain = computeCooldown(data.lastBurn);
-          setCooldown(remain);
+          setCooldown(computeCooldown(data.lastBurn));
         }
       }
-      // paid === false → ждём дальше
     } catch (e) {
       setError(`⚠️ ${e.message}`);
       clearInterval(pollingRef.current);
@@ -218,7 +202,7 @@ export default function Path() {
     return <div style={styles.center}>Loading...</div>;
   }
 
-  const formatTime = (sec) => {
+  const formatTime = sec => {
     const m = String(Math.floor(sec / 60)).padStart(2, '0');
     const s = String(sec % 60).padStart(2, '0');
     return `${m}:${s}`;
@@ -319,19 +303,9 @@ const styles = {
     padding: '0 16px',
     textAlign: 'center',
   },
-  title: {
-    fontSize: 28,
-    marginBottom: 16,
-  },
-  message: {
-    fontSize: 16,
-    color: '#7CFC00',
-    marginBottom: 12,
-  },
-  status: {
-    fontSize: 16,
-    marginBottom: 12,
-  },
+  title: { fontSize: 28, marginBottom: 16 },
+  message: { fontSize: 16, color: '#7CFC00', marginBottom: 12 },
+  status: { fontSize: 16, marginBottom: 12 },
   burnButton: {
     padding: '10px 24px',
     backgroundColor: '#d4af37',
@@ -350,9 +324,5 @@ const styles = {
     fontSize: 14,
     marginBottom: 12,
   },
-  error: {
-    color: '#FF6347',
-    fontSize: 14,
-    marginTop: 12,
-  },
+  error: { color: '#FF6347', fontSize: 14, marginTop: 12 },
 };
