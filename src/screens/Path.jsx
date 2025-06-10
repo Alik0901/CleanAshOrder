@@ -28,15 +28,13 @@ export default function Path() {
   const pollingRef = useRef(null);
   const COOLDOWN_SECONDS = 2 * 60;
 
-  // Кулер для кулдауна
+  // Кулер кулдауна
   const computeCooldown = last =>
     last ? Math.max(0, COOLDOWN_SECONDS - Math.floor((Date.now() - new Date(last).getTime()) / 1000)) : 0;
 
   useEffect(() => {
-    if (cooldown <= 0) return;
-    const id = setInterval(() => {
-      setCooldown(prev => (prev > 1 ? prev - 1 : 0));
-    }, 1000);
+    if (!cooldown) return;
+    const id = setInterval(() => setCooldown(prev => (prev > 1 ? prev - 1 : 0)), 1000);
     return () => clearInterval(id);
   }, [cooldown]);
 
@@ -56,6 +54,7 @@ export default function Path() {
       return;
     }
 
+    // Восстановление инвойса
     const savedId  = localStorage.getItem('invoiceId');
     const savedUrl = localStorage.getItem('paymentUrl');
     if (savedId && savedUrl) {
@@ -65,6 +64,7 @@ export default function Path() {
       pollingRef.current = setInterval(() => checkPaymentStatus(savedId), 5000);
     }
 
+    // Загрузка профиля
     const loadProfile = async () => {
       setLoading(true);
       setError('');
@@ -97,7 +97,7 @@ export default function Path() {
     return () => window.removeEventListener('focus', loadProfile);
   }, [navigate]);
 
-  // Шаг 1: создать инвойс
+  // Шаг 1: создаём инвойс
   const handleBurn = async () => {
     setBurning(true);
     setError('');
@@ -113,8 +113,9 @@ export default function Path() {
         body: JSON.stringify({ tg_id: tgId })
       });
       const auth = res.headers.get('Authorization');
-      if (auth?.startsWith('Bearer ')) localStorage.setItem('token', auth.split(' ')[1]);
-
+      if (auth?.startsWith('Bearer ')) {
+        localStorage.setItem('token', auth.split(' ')[1]);
+      }
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || '⚠️ Could not create invoice');
@@ -128,7 +129,7 @@ export default function Path() {
       localStorage.setItem('invoiceId', data.invoiceId);
       localStorage.setItem('paymentUrl', data.paymentUrl);
 
-      // Открываем Tonhub
+      // Переходим на Tonhub
       window.location.href = data.paymentUrl;
 
       // Запускаем polling
@@ -151,14 +152,15 @@ export default function Path() {
         }
       });
       const auth = res.headers.get('Authorization');
-      if (auth?.startsWith('Bearer ')) localStorage.setItem('token', auth.split(' ')[1]);
-
+      if (auth?.startsWith('Bearer ')) {
+        localStorage.setItem('token', auth.split(' ')[1]);
+      }
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || '⚠️ Error checking payment');
         clearInterval(pollingRef.current);
         setPolling(false);
         setBurning(false);
+        setError(data.error || '⚠️ Error checking payment');
         return;
       }
 
@@ -195,8 +197,8 @@ export default function Path() {
   }
 
   const formatTime = sec => {
-    const m = String(Math.floor(sec/60)).padStart(2,'0');
-    const s = String(sec%60).padStart(2,'0');
+    const m = String(Math.floor(sec / 60)).padStart(2, '0');
+    const s = String(sec % 60).padStart(2, '0');
     return `${m}:${s}`;
   };
 
