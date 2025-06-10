@@ -1,3 +1,4 @@
+// src/screens/Path.jsx
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -18,13 +19,14 @@ export default function Path() {
   const [newFragment, setNewFragment] = useState(null);
   const [cooldown, setCooldown] = useState(0);
 
+  // счет в TON
   const [invoiceId, setInvoiceId] = useState(null);
   const [polling, setPolling] = useState(false);
   const pollingRef = useRef(null);
 
   const COOLDOWN_SECONDS = 2 * 60;
 
-  const computeCooldown = last => {
+  const computeCooldown = (last) => {
     if (!last) return 0;
     const elapsed = (Date.now() - new Date(last).getTime()) / 1000;
     return Math.max(0, COOLDOWN_SECONDS - Math.floor(elapsed));
@@ -33,7 +35,7 @@ export default function Path() {
   useEffect(() => {
     if (cooldown <= 0) return;
     const id = setInterval(() => {
-      setCooldown(prev => {
+      setCooldown((prev) => {
         if (prev <= 1) {
           clearInterval(id);
           return 0;
@@ -44,6 +46,7 @@ export default function Path() {
     return () => clearInterval(id);
   }, [cooldown]);
 
+  // Загрузка профиля + восстановление invoiceId
   useEffect(() => {
     const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {};
     const id = unsafe.user?.id;
@@ -59,7 +62,7 @@ export default function Path() {
       return;
     }
 
-    // Восстановим invoiceId, если возвращались из кошелька
+    // Если остался незавершённый invoice
     const saved = localStorage.getItem('invoiceId');
     if (saved) {
       setInvoiceId(saved);
@@ -110,6 +113,7 @@ export default function Path() {
     setBurning(true);
     setError('');
     const token = localStorage.getItem('token');
+
     try {
       const res = await fetch(`${BACKEND_URL}/api/burn-invoice`, {
         method: 'POST',
@@ -136,14 +140,15 @@ export default function Path() {
       setInvoiceId(id);
       localStorage.setItem('invoiceId', id);
 
-      // Открываем десктоп-кошелёк или Telegram WebApp
-      const url = data.paymentUrl;
-      if (window.Telegram?.WebApp?.openLink) {
-        window.Telegram.WebApp.openLink(url);
-      } else {
-        window.location.href = url;
-      }
+      // Deeplink TON
+      const amountTon = data.tonInvoice.amountNano / 1e9;
+      const comment   = encodeURIComponent(data.tonInvoice.comment);
+      const tonURI    = `ton://transfer/${data.tonInvoice.address}?amount=${amountTon}&text=${comment}`;
 
+      // Если схема ton://, сразу меняем window.location
+      window.location.href = tonURI;
+
+      // Запускаем polling по свежему ID
       setPolling(true);
       pollingRef.current = setInterval(() => checkPaymentStatus(id), 5000);
     } catch (e) {
@@ -152,7 +157,7 @@ export default function Path() {
     }
   };
 
-  const checkPaymentStatus = async id => {
+  const checkPaymentStatus = async (id) => {
     const token = localStorage.getItem('token');
     try {
       const res = await fetch(`${BACKEND_URL}/api/burn-status/${id}`, {
@@ -208,7 +213,7 @@ export default function Path() {
     return <div style={styles.center}>Loading...</div>;
   }
 
-  const formatTime = sec => {
+  const formatTime = (sec) => {
     const m = String(Math.floor(sec / 60)).padStart(2, '0');
     const s = String(sec % 60).padStart(2, '0');
     return `${m}:${s}`;
