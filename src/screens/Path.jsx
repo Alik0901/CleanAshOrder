@@ -54,7 +54,7 @@ export default function Path() {
       return;
     }
 
-    // восстановление незавершённого счёта
+    // восстановление счёта
     const savedId  = localStorage.getItem('invoiceId');
     const savedUrl = localStorage.getItem('paymentUrl');
     if (savedId && savedUrl) {
@@ -97,7 +97,7 @@ export default function Path() {
     return () => window.removeEventListener('focus', loadProfile);
   }, [navigate]);
 
-  // создать инвойс
+  // создание инвойса
   const handleBurn = async () => {
     setBurning(true);
     setError('');
@@ -110,11 +110,12 @@ export default function Path() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ tg_id: tgId })
+        body: JSON.stringify({ tg_id })
       });
       const auth = res.headers.get('Authorization');
-      if (auth?.startsWith('Bearer ')) localStorage.setItem('token', auth.split(' ')[1]);
-
+      if (auth?.startsWith('Bearer ')) {
+        localStorage.setItem('token', auth.split(' ')[1]);
+      }
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || '⚠️ Could not create invoice');
@@ -128,7 +129,7 @@ export default function Path() {
       localStorage.setItem('invoiceId', data.invoiceId);
       localStorage.setItem('paymentUrl', data.paymentUrl);
 
-      // открываем Tonhub
+      // редирект
       window.location.href = data.paymentUrl;
 
       // polling
@@ -140,7 +141,7 @@ export default function Path() {
     }
   };
 
-  // проверить статус
+  // проверка статуса
   const checkPaymentStatus = async id => {
     const token = localStorage.getItem('token');
     try {
@@ -151,8 +152,9 @@ export default function Path() {
         }
       });
       const auth = res.headers.get('Authorization');
-      if (auth?.startsWith('Bearer ')) localStorage.setItem('token', auth.split(' ')[1]);
-
+      if (auth?.startsWith('Bearer ')) {
+        localStorage.setItem('token', auth.split(' ')[1]);
+      }
       const data = await res.json();
       if (!res.ok) {
         clearInterval(pollingRef.current);
@@ -161,7 +163,6 @@ export default function Path() {
         setError(data.error || '⚠️ Error checking payment');
         return;
       }
-
       if (data.paid) {
         clearInterval(pollingRef.current);
         setPolling(false);
@@ -223,7 +224,7 @@ export default function Path() {
           disabled={
             burning ||
             polling ||
-            (isCursed && new Date(curseExpires) > new Date()) ||
+            (isCursed && new Date(curse_expires) > new Date()) ||
             cooldown > 0
           }
           style={{
@@ -231,14 +232,14 @@ export default function Path() {
             opacity:
               burning ||
               polling ||
-              (isCursed && new Date(curseExpires) > new Date()) ||
+              (isCursed && new Date(curse_expires) > new Date()) ||
               cooldown > 0
                 ? 0.6
                 : 1,
             cursor:
               burning ||
               polling ||
-              (isCursed && new Date(curseExpires) > new Date()) ||
+              (isCursed && new Date(curse_expires) > new Date()) ||
               cooldown > 0
                 ? 'not-allowed'
                 : 'pointer',
