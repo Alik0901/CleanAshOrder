@@ -7,35 +7,40 @@ const BACKEND_URL =
 
 export default function Path() {
   const navigate = useNavigate();
-  const [tgId, setTgId] = useState('');
-  const [fragments, setFragments] = useState([]);
-  const [lastBurn, setLastBurn] = useState(null);
-  const [isCursed, setIsCursed] = useState(false);
-  const [curseExpires, setCurseExpires] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [burning, setBurning] = useState(false);
-  const [error, setError] = useState('');
-  const [newFragment, setNewFragment] = useState(null);
-  const [cooldown, setCooldown] = useState(0);
 
-  // Для инвойса
+  // Профиль
+  const [tgId, setTgId]           = useState('');
+  const [fragments, setFragments] = useState([]);
+  const [lastBurn, setLastBurn]   = useState(null);
+  const [isCursed, setIsCursed]   = useState(false);
+  const [curseExpires, setCurseExpires] = useState(null);
+  const [cooldown, setCooldown]   = useState(0);
+
+  // Платёж
+  const [loading, setLoading]     = useState(true);
+  const [burning, setBurning]     = useState(false);
   const [invoiceId, setInvoiceId] = useState(null);
   const [paymentUrl, setPaymentUrl] = useState('');
-  const [polling, setPolling] = useState(false);
-  const pollingRef = useRef(null);
+  const [polling, setPolling]     = useState(false);
+  const [error, setError]         = useState('');
+  const [newFragment, setNewFragment] = useState(null);
 
+  const pollingRef = useRef(null);
   const COOLDOWN_SECONDS = 2 * 60;
+
+  // Кулер для кулдауна
   const computeCooldown = last =>
     last ? Math.max(0, COOLDOWN_SECONDS - Math.floor((Date.now() - new Date(last).getTime()) / 1000)) : 0;
 
-  // Кулер кулдауна
   useEffect(() => {
-    if (!cooldown) return;
-    const id = setInterval(() => setCooldown(prev => (prev > 1 ? prev - 1 : 0)), 1000);
+    if (cooldown <= 0) return;
+    const id = setInterval(() => {
+      setCooldown(prev => (prev > 1 ? prev - 1 : 0));
+    }, 1000);
     return () => clearInterval(id);
   }, [cooldown]);
 
-  // Монтирование: загрузка профиля + восстановление инвойса
+  // Монтирование: загрузка профиля + восстановление незавершённого инвойса
   useEffect(() => {
     const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {};
     const id = unsafe.user?.id;
@@ -51,7 +56,6 @@ export default function Path() {
       return;
     }
 
-    // Восстановление незавершённого платежа
     const savedId  = localStorage.getItem('invoiceId');
     const savedUrl = localStorage.getItem('paymentUrl');
     if (savedId && savedUrl) {
@@ -61,13 +65,12 @@ export default function Path() {
       pollingRef.current = setInterval(() => checkPaymentStatus(savedId), 5000);
     }
 
-    // Загрузка профиля
     const loadProfile = async () => {
       setLoading(true);
       setError('');
       try {
         const res = await fetch(`${BACKEND_URL}/api/player/${id}`, {
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json' }
         });
         if (!res.ok) throw new Error();
         const player = await res.json();
@@ -94,24 +97,24 @@ export default function Path() {
     return () => window.removeEventListener('focus', loadProfile);
   }, [navigate]);
 
-  // Создание инвойса
+  // Шаг 1: создать инвойс
   const handleBurn = async () => {
     setBurning(true);
     setError('');
     const token = localStorage.getItem('token');
+
     try {
       const res = await fetch(`${BACKEND_URL}/api/burn-invoice`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ tg_id: tgId }),
+        body: JSON.stringify({ tg_id: tgId })
       });
       const auth = res.headers.get('Authorization');
-      if (auth?.startsWith('Bearer ')) {
-        localStorage.setItem('token', auth.split(' ')[1]);
-      }
+      if (auth?.startsWith('Bearer ')) localStorage.setItem('token', auth.split(' ')[1]);
+
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || '⚠️ Could not create invoice');
@@ -137,28 +140,28 @@ export default function Path() {
     }
   };
 
-  // Проверка оплаты
+  // Шаг 2: проверка статуса
   const checkPaymentStatus = async id => {
     const token = localStorage.getItem('token');
     try {
       const res = await fetch(`${BACKEND_URL}/api/burn-status/${id}`, {
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
+          'Authorization': `Bearer ${token}`
+        }
       });
       const auth = res.headers.get('Authorization');
-      if (auth?.startsWith('Bearer ')) {
-        localStorage.setItem('token', auth.split(' ')[1]);
-      }
+      if (auth?.startsWith('Bearer ')) localStorage.setItem('token', auth.split(' ')[1]);
+
       const data = await res.json();
       if (!res.ok) {
+        setError(data.error || '⚠️ Error checking payment');
         clearInterval(pollingRef.current);
         setPolling(false);
         setBurning(false);
-        setError(data.error || '⚠️ Error checking payment');
         return;
       }
+
       if (data.paid) {
         clearInterval(pollingRef.current);
         setPolling(false);
@@ -203,34 +206,63 @@ export default function Path() {
       <div style={styles.content}>
         <h2 style={styles.title}>The Path Begins</h2>
 
-        {newFragment && <p style={styles.message}>🔥 You received fragment #{newFragment}!</p>}
+        {newFragment && (
+          <p style={styles.message}>🔥 You received fragment #{newFragment}!</p>
+        )}
 
-        {isCursed
-          ? <p style={styles.status}>⚠️ You are cursed until {new Date(curseExpires).toLocaleString()}</p>
-          : cooldown>0
-            ? <p style={styles.status}>⏳ Next burn in {formatTime(cooldown)}</p>
-            : <p style={styles.status}>Ready to burn yourself.</p>
-        }
+        {isCursed ? (
+          <p style={styles.status}>
+            ⚠️ You are cursed until {new Date(curseExpires).toLocaleString()}
+          </p>
+        ) : cooldown > 0 ? (
+          <p style={styles.status}>⏳ Next burn in {formatTime(cooldown)}</p>
+        ) : (
+          <p style={styles.status}>Ready to burn yourself.</p>
+        )}
 
         <button
           onClick={handleBurn}
-          disabled={burning||polling||(isCursed&&new Date(curseExpires)>new Date())||cooldown>0}
+          disabled={
+            burning ||
+            polling ||
+            (isCursed && new Date(curseExpires) > new Date()) ||
+            cooldown > 0
+          }
           style={{
             ...styles.burnButton,
-            opacity: (burning||polling||(isCursed&&new Date(curseExpires)>new Date())||cooldown>0)?0.6:1,
-            cursor: (burning||polling||(isCursed&&new Date(curseExpires)>new Date())||cooldown>0)?'not-allowed':'pointer'
+            opacity:
+              burning ||
+              polling ||
+              (isCursed && new Date(curseExpires) > new Date()) ||
+              cooldown > 0
+                ? 0.6
+                : 1,
+            cursor:
+              burning ||
+              polling ||
+              (isCursed && new Date(curseExpires) > new Date()) ||
+              cooldown > 0
+                ? 'not-allowed'
+                : 'pointer',
           }}
         >
-          {burning ? 'Creating invoice…' : polling ? 'Waiting for payment…' : '🔥 Burn Yourself for 0.5 TON'}
+          {burning
+            ? 'Creating invoice…'
+            : polling
+            ? 'Waiting for payment…'
+            : '🔥 Burn Yourself for 0.5 TON'}
         </button>
 
         {!burning && polling && paymentUrl && (
-          <button onClick={()=>window.location.href=paymentUrl} style={styles.secondary}>
+          <button
+            onClick={() => (window.location.href = paymentUrl)}
+            style={styles.secondary}
+          >
             Continue Payment
           </button>
         )}
 
-        <button onClick={()=>navigate('/profile')} style={styles.secondary}>
+        <button onClick={() => navigate('/profile')} style={styles.secondary}>
           Go to your personal account
         </button>
 
