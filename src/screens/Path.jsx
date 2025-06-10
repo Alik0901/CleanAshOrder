@@ -19,23 +19,25 @@ export default function Path() {
   const [newFragment, setNewFragment] = useState(null);
   const [cooldown, setCooldown] = useState(0);
 
-  // счет в TON
+  // Для инвойса
   const [invoiceId, setInvoiceId] = useState(null);
+  const [tonUri, setTonUri] = useState(null);
   const [polling, setPolling] = useState(false);
   const pollingRef = useRef(null);
 
   const COOLDOWN_SECONDS = 2 * 60;
 
-  const computeCooldown = (last) => {
+  const computeCooldown = last => {
     if (!last) return 0;
     const elapsed = (Date.now() - new Date(last).getTime()) / 1000;
     return Math.max(0, COOLDOWN_SECONDS - Math.floor(elapsed));
   };
 
+  // Тикер кулдауна
   useEffect(() => {
     if (cooldown <= 0) return;
     const id = setInterval(() => {
-      setCooldown((prev) => {
+      setCooldown(prev => {
         if (prev <= 1) {
           clearInterval(id);
           return 0;
@@ -46,7 +48,7 @@ export default function Path() {
     return () => clearInterval(id);
   }, [cooldown]);
 
-  // Загрузка профиля + восстановление invoiceId
+  // Монтирование: грузим профиль и восстанавливаем invoiceId + tonUri
   useEffect(() => {
     const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {};
     const id = unsafe.user?.id;
@@ -62,12 +64,15 @@ export default function Path() {
       return;
     }
 
-    // Если остался незавершённый invoice
-    const saved = localStorage.getItem('invoiceId');
-    if (saved) {
-      setInvoiceId(saved);
+    // Восстанавливаем из localStorage
+    const savedId  = localStorage.getItem('invoiceId');
+    const savedUri = localStorage.getItem('tonUri');
+    if (savedId && savedUri) {
+      console.log('[Path] Restored invoice', savedId, savedUri);
+      setInvoiceId(savedId);
+      setTonUri(savedUri);
       setPolling(true);
-      pollingRef.current = setInterval(() => checkPaymentStatus(saved), 5000);
+      pollingRef.current = setInterval(() => checkPaymentStatus(savedId), 5000);
     }
 
     const loadProfile = async () => {
@@ -109,6 +114,7 @@ export default function Path() {
     return () => window.removeEventListener('focus', loadProfile);
   }, [navigate]);
 
+  // Шаг 1: создаём инвойс
   const handleBurn = async () => {
     setBurning(true);
     setError('');
@@ -136,19 +142,17 @@ export default function Path() {
         return;
       }
 
-      const id = data.invoiceId;
+      const id     = data.invoiceId;
+      const uri    = data.paymentUrl;
       setInvoiceId(id);
+      setTonUri(uri);
       localStorage.setItem('invoiceId', id);
+      localStorage.setItem('tonUri', uri);
 
-      // Deeplink TON
-      const amountTon = data.tonInvoice.amountNano / 1e9;
-      const comment   = encodeURIComponent(data.tonInvoice.comment);
-      const tonURI    = `ton://transfer/${data.tonInvoice.address}?amount=${amountTon}&text=${comment}`;
+      // Пытаемся открыть кошелёк TON
+      window.location.href = uri;
 
-      // Если схема ton://, сразу меняем window.location
-      window.location.href = tonURI;
-
-      // Запускаем polling по свежему ID
+      // Запускаем polling
       setPolling(true);
       pollingRef.current = setInterval(() => checkPaymentStatus(id), 5000);
     } catch (e) {
@@ -157,6 +161,7 @@ export default function Path() {
     }
   };
 
+  // Шаг 2: проверка статуса платежа
   const checkPaymentStatus = async (id) => {
     const token = localStorage.getItem('token');
     try {
@@ -186,6 +191,7 @@ export default function Path() {
         setPolling(false);
         setBurning(false);
         localStorage.removeItem('invoiceId');
+        localStorage.removeItem('tonUri');
 
         if (data.cursed) {
           const exp = new Date(data.curse_expires);
@@ -213,6 +219,7 @@ export default function Path() {
     return <div style={styles.center}>Loading...</div>;
   }
 
+  // Форматируем MM:SS
   const formatTime = (sec) => {
     const m = String(Math.floor(sec / 60)).padStart(2, '0');
     const s = String(sec % 60).padStart(2, '0');
@@ -239,6 +246,7 @@ export default function Path() {
           <p style={styles.status}>Ready to burn yourself.</p>
         )}
 
+        {/* Основная кнопка */}
         <button
           onClick={handleBurn}
           disabled={
@@ -271,6 +279,16 @@ export default function Path() {
             ? 'Waiting for payment…'
             : '🔥 Burn Yourself for 0.5 TON'}
         </button>
+
+        {/* Кнопка «Continue Payment», если есть неоконченный инвойс */}
+        {!burning && polling && tonUri && (
+          <button
+            onClick={() => window.location.href = tonUri}
+            style={styles.secondary}
+          >
+            Continue Payment
+          </button>
+        )}
 
         <button onClick={() => navigate('/profile')} style={styles.secondary}>
           Go to your personal account
@@ -327,12 +345,13 @@ const styles = {
     marginBottom: 12,
   },
   secondary: {
-    background: 'transparent',
+    padding: '10px 24px',
+    backgroundColor: 'transparent',
     border: '1px solid #d4af37',
-    padding: '8px 20px',
-    cursor: 'pointer',
+    borderRadius: 6,
     color: '#d4af37',
     fontSize: 14,
+    cursor: 'pointer',
     marginBottom: 12,
   },
   error: { color: '#FF6347', fontSize: 14, marginTop: 12 },
