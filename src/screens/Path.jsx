@@ -1,4 +1,3 @@
-// src/screens/Path.jsx
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -19,7 +18,6 @@ export default function Path() {
   const [newFragment, setNewFragment] = useState(null);
   const [cooldown, setCooldown] = useState(0);
 
-  // invoice
   const [invoiceId, setInvoiceId] = useState(null);
   const [polling, setPolling] = useState(false);
   const pollingRef = useRef(null);
@@ -32,7 +30,6 @@ export default function Path() {
     return Math.max(0, COOLDOWN_SECONDS - Math.floor(elapsed));
   };
 
-  // тикер кулдауна
   useEffect(() => {
     if (cooldown <= 0) return;
     const id = setInterval(() => {
@@ -47,23 +44,27 @@ export default function Path() {
     return () => clearInterval(id);
   }, [cooldown]);
 
-  // при монтировании: грузим профиль + восстанавливаем возможный invoice
   useEffect(() => {
     const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {};
     const id = unsafe.user?.id;
-    if (!id) return navigate('/init');
+    if (!id) {
+      navigate('/init');
+      return;
+    }
     setTgId(String(id));
 
     const token = localStorage.getItem('token');
-    if (!token) return navigate('/init');
+    if (!token) {
+      navigate('/init');
+      return;
+    }
 
-    // восстановление invoiceId из storage
-    const savedInvoice = localStorage.getItem('invoiceId');
-    if (savedInvoice) {
-      console.log('[Path] restored invoiceId from storage:', savedInvoice);
-      setInvoiceId(savedInvoice);
+    // Восстановим invoiceId, если возвращались из кошелька
+    const saved = localStorage.getItem('invoiceId');
+    if (saved) {
+      setInvoiceId(saved);
       setPolling(true);
-      pollingRef.current = setInterval(() => checkPaymentStatus(savedInvoice), 5000);
+      pollingRef.current = setInterval(() => checkPaymentStatus(saved), 5000);
     }
 
     const loadProfile = async () => {
@@ -71,7 +72,7 @@ export default function Path() {
       setError('');
       try {
         const res = await fetch(`${BACKEND_URL}/api/player/${id}`, {
-          headers: { 'Content-Type': 'application/json' }
+          headers: { 'Content-Type': 'application/json' },
         });
         if (!res.ok) throw new Error();
         const player = await res.json();
@@ -105,13 +106,10 @@ export default function Path() {
     return () => window.removeEventListener('focus', loadProfile);
   }, [navigate]);
 
-  // создаём invoice
   const handleBurn = async () => {
     setBurning(true);
     setError('');
     const token = localStorage.getItem('token');
-    console.log('[Path] POST /api/burn-invoice, tg_id=', tgId);
-
     try {
       const res = await fetch(`${BACKEND_URL}/api/burn-invoice`, {
         method: 'POST',
@@ -129,41 +127,32 @@ export default function Path() {
 
       const data = await res.json();
       if (!res.ok) {
-        console.error('[Path] burn-invoice error:', data);
         setError(data.error || '⚠️ Could not create invoice');
         setBurning(false);
         return;
       }
 
-      console.log('[Path] burn-invoice response:', data);
       const id = data.invoiceId;
       setInvoiceId(id);
       localStorage.setItem('invoiceId', id);
 
-      const amountTon = data.tonInvoice.amountNano / 1e9;
-      const comment = encodeURIComponent(data.tonInvoice.comment);
-      const tonURI = `ton://transfer/${data.tonInvoice.address}?amount=${amountTon}&text=${comment}`;
-
-      // открываем кошелёк через Telegram WebApp или через href
+      // Открываем десктоп-кошелёк или Telegram WebApp
+      const url = data.paymentUrl;
       if (window.Telegram?.WebApp?.openLink) {
-        window.Telegram.WebApp.openLink(tonURI);
+        window.Telegram.WebApp.openLink(url);
       } else {
-        window.location.href = tonURI;
+        window.location.href = url;
       }
 
-      // start polling
       setPolling(true);
       pollingRef.current = setInterval(() => checkPaymentStatus(id), 5000);
     } catch (e) {
-      console.error('[Path] burn-invoice exception:', e);
       setError(`⚠️ ${e.message}`);
       setBurning(false);
     }
   };
 
-  // проверка статуса
   const checkPaymentStatus = async id => {
-    console.log('[Path] checking status for', id);
     const token = localStorage.getItem('token');
     try {
       const res = await fetch(`${BACKEND_URL}/api/burn-status/${id}`, {
@@ -180,7 +169,6 @@ export default function Path() {
       }
 
       if (!res.ok) {
-        console.error('[Path] burn-status error:', data);
         setError(data.error || '⚠️ Error checking payment');
         clearInterval(pollingRef.current);
         setPolling(false);
@@ -188,7 +176,6 @@ export default function Path() {
         return;
       }
 
-      console.log('[Path] burn-status response:', data);
       if (data.paid) {
         clearInterval(pollingRef.current);
         setPolling(false);
@@ -210,7 +197,6 @@ export default function Path() {
         }
       }
     } catch (e) {
-      console.error('[Path] burn-status exception:', e);
       setError(`⚠️ ${e.message}`);
       clearInterval(pollingRef.current);
       setPolling(false);
