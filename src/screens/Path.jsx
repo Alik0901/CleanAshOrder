@@ -18,28 +18,24 @@ export default function Path() {
   const [newFragment, setNewFragment] = useState(null);
   const [cooldown, setCooldown] = useState(0);
 
-  // Для инвойса
+  // invoice
   const [invoiceId, setInvoiceId] = useState(null);
   const [paymentUrl, setPaymentUrl] = useState(null);
   const [polling, setPolling] = useState(false);
   const pollingRef = useRef(null);
 
   const COOLDOWN_SECONDS = 2 * 60;
-  const computeCooldown = last => {
-    if (!last) return 0;
-    return Math.max(0, COOLDOWN_SECONDS - Math.floor((Date.now() - new Date(last).getTime())/1000));
-  };
+  const computeCooldown = last =>
+    last ? Math.max(0, COOLDOWN_SECONDS - Math.floor((Date.now() - new Date(last).getTime()) / 1000)) : 0;
 
-  // Кулер для кулдауна
+  // кулдаун тикер
   useEffect(() => {
-    if (cooldown <= 0) return;
-    const id = setInterval(() => {
-      setCooldown(prev => (prev>1?prev-1:0));
-    }, 1000);
+    if (!cooldown) return;
+    const id = setInterval(() => setCooldown(prev => (prev > 1 ? prev - 1 : 0)), 1000);
     return () => clearInterval(id);
   }, [cooldown]);
 
-  // Монтирование
+  // монтирование: профиль + восстановить инвойс
   useEffect(() => {
     const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {};
     const id = unsafe.user?.id;
@@ -49,7 +45,7 @@ export default function Path() {
     const token = localStorage.getItem('token');
     if (!token) return navigate('/init');
 
-    // Восстановление invoice
+    // восстановить незавершённый инвойс
     const savedId  = localStorage.getItem('invoiceId');
     const savedUrl = localStorage.getItem('paymentUrl');
     if (savedId && savedUrl) {
@@ -67,17 +63,16 @@ export default function Path() {
           headers: { 'Content-Type': 'application/json' },
         });
         if (!res.ok) throw new Error();
-        const player = await res.json();
-        setFragments(player.fragments||[]);
-        setLastBurn(player.last_burn);
-
-        if (player.curse_expires && new Date(player.curse_expires)>new Date()) {
+        const p = await res.json();
+        setFragments(p.fragments || []);
+        setLastBurn(p.last_burn);
+        if (p.curse_expires && new Date(p.curse_expires) > new Date()) {
           setIsCursed(true);
-          setCurseExpires(player.curse_expires);
+          setCurseExpires(p.curse_expires);
         } else {
           setIsCursed(false);
           setCurseExpires(null);
-          setCooldown(computeCooldown(player.last_burn));
+          setCooldown(computeCooldown(p.last_burn));
         }
       } catch {
         navigate('/init');
@@ -91,28 +86,26 @@ export default function Path() {
     return () => window.removeEventListener('focus', loadProfile);
   }, [navigate]);
 
-  // Создание инвойса
+  // создаём invoice
   const handleBurn = async () => {
     setBurning(true);
     setError('');
     const token = localStorage.getItem('token');
-
     try {
       const res = await fetch(`${BACKEND_URL}/api/burn-invoice`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ tg_id: tgId })
+        body: JSON.stringify({ tg_id: tgId }),
       });
       const newAuth = res.headers.get('Authorization');
-      if (newAuth?.startsWith('Bearer ')) {
-        localStorage.setItem('token', newAuth.split(' ')[1]);
-      }
+      if (newAuth?.startsWith('Bearer ')) localStorage.setItem('token', newAuth.split(' ')[1]);
+
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error||'⚠️ Could not create invoice');
+        setError(data.error || '⚠️ Could not create invoice');
         setBurning(false);
         return;
       }
@@ -124,10 +117,9 @@ export default function Path() {
       localStorage.setItem('invoiceId', id);
       localStorage.setItem('paymentUrl', url);
 
-      // Открываем Tonhub-ссылку в WebView
+      // открываем Tonhub
       window.location.href = url;
 
-      // Запускаем polling
       setPolling(true);
       pollingRef.current = setInterval(() => checkPaymentStatus(id), 5000);
     } catch (e) {
@@ -136,28 +128,28 @@ export default function Path() {
     }
   };
 
-  // Проверка статуса
+  // проверяем статус
   const checkPaymentStatus = async id => {
     const token = localStorage.getItem('token');
     try {
       const res = await fetch(`${BACKEND_URL}/api/burn-status/${id}`, {
         headers: {
-          'Content-Type':'application/json',
-          'Authorization':`Bearer ${token}`
-        }
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
       });
       const newAuth = res.headers.get('Authorization');
-      if (newAuth?.startsWith('Bearer ')) {
-        localStorage.setItem('token', newAuth.split(' ')[1]);
-      }
+      if (newAuth?.startsWith('Bearer ')) localStorage.setItem('token', newAuth.split(' ')[1]);
+
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error||'⚠️ Error checking payment');
+        setError(data.error || '⚠️ Error checking payment');
         clearInterval(pollingRef.current);
         setPolling(false);
         setBurning(false);
         return;
       }
+
       if (data.paid) {
         clearInterval(pollingRef.current);
         setPolling(false);
@@ -196,7 +188,7 @@ export default function Path() {
 
   return (
     <div style={styles.container}>
-      <div style={styles.overlay}/>
+      <div style={styles.overlay} />
       <div style={styles.content}>
         <h2 style={styles.title}>The Path Begins</h2>
 
@@ -209,7 +201,6 @@ export default function Path() {
             : <p style={styles.status}>Ready to burn yourself.</p>
         }
 
-        {/* Главное действие */}
         <button
           onClick={handleBurn}
           disabled={burning||polling||(isCursed&&new Date(curseExpires)>new Date())||cooldown>0}
@@ -222,7 +213,6 @@ export default function Path() {
           {burning?'Creating invoice…':polling?'Waiting for payment…':'🔥 Burn Yourself for 0.5 TON'}
         </button>
 
-        {/* Кнопка повторного открытия платежа */}
         {!burning && polling && paymentUrl && (
           <button onClick={()=>window.location.href=paymentUrl} style={styles.secondary}>
             Continue Payment
@@ -248,6 +238,6 @@ const styles = {
   message: { fontSize:16,color:'#7CFC00',marginBottom:12 },
   status: { fontSize:16,marginBottom:12 },
   burnButton: { padding:'10px 24px',backgroundColor:'#d4af37',border:'none',borderRadius:6,color:'#000',fontSize:16,marginBottom:12 },
-  secondary: { padding:'10px 24px',backgroundColor:'transparent',border:'1px solid #d4af37',borderRadius:6,color:'#d4af37',fontSize:14,marginBottom:12,cursor:'pointer' },
+  secondary: { padding:'10px 24px',background:'transparent',border:'1px solid #d4af37',borderRadius:6,color:'#d4af37',fontSize:14,marginBottom:12,cursor:'pointer' },
   error: { color:'#FF6347',fontSize:14,marginTop:12 }
 };
