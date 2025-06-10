@@ -8,7 +8,7 @@ const BACKEND_URL =
 export default function Path() {
   const navigate = useNavigate();
 
-  // Профиль
+  // профиль
   const [tgId, setTgId]           = useState('');
   const [fragments, setFragments] = useState([]);
   const [lastBurn, setLastBurn]   = useState(null);
@@ -16,7 +16,7 @@ export default function Path() {
   const [curseExpires, setCurseExpires] = useState(null);
   const [cooldown, setCooldown]   = useState(0);
 
-  // Платёж
+  // платёж
   const [loading, setLoading]     = useState(true);
   const [burning, setBurning]     = useState(false);
   const [invoiceId, setInvoiceId] = useState(null);
@@ -28,7 +28,7 @@ export default function Path() {
   const pollingRef = useRef(null);
   const COOLDOWN_SECONDS = 2 * 60;
 
-  // Кулер кулдауна
+  // кулдаун
   const computeCooldown = last =>
     last ? Math.max(0, COOLDOWN_SECONDS - Math.floor((Date.now() - new Date(last).getTime()) / 1000)) : 0;
 
@@ -38,7 +38,7 @@ export default function Path() {
     return () => clearInterval(id);
   }, [cooldown]);
 
-  // Монтирование: загрузка профиля + восстановление незавершённого инвойса
+  // монтирование
   useEffect(() => {
     const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {};
     const id = unsafe.user?.id;
@@ -54,7 +54,7 @@ export default function Path() {
       return;
     }
 
-    // Восстановление инвойса
+    // восстановление незавершённого счёта
     const savedId  = localStorage.getItem('invoiceId');
     const savedUrl = localStorage.getItem('paymentUrl');
     if (savedId && savedUrl) {
@@ -64,7 +64,7 @@ export default function Path() {
       pollingRef.current = setInterval(() => checkPaymentStatus(savedId), 5000);
     }
 
-    // Загрузка профиля
+    // загрузка профиля
     const loadProfile = async () => {
       setLoading(true);
       setError('');
@@ -73,17 +73,17 @@ export default function Path() {
           headers: { 'Content-Type': 'application/json' }
         });
         if (!res.ok) throw new Error();
-        const player = await res.json();
-        setFragments(player.fragments || []);
-        setLastBurn(player.last_burn);
+        const data = await res.json();
+        setFragments(data.fragments || []);
+        setLastBurn(data.last_burn);
 
-        if (player.curse_expires && new Date(player.curse_expires) > new Date()) {
+        if (data.curse_expires && new Date(data.curse_expires) > new Date()) {
           setIsCursed(true);
-          setCurseExpires(player.curse_expires);
+          setCurseExpires(data.curse_expires);
         } else {
           setIsCursed(false);
           setCurseExpires(null);
-          setCooldown(computeCooldown(player.last_burn));
+          setCooldown(computeCooldown(data.last_burn));
         }
       } catch {
         navigate('/init');
@@ -97,7 +97,7 @@ export default function Path() {
     return () => window.removeEventListener('focus', loadProfile);
   }, [navigate]);
 
-  // Шаг 1: создаём инвойс
+  // создать инвойс
   const handleBurn = async () => {
     setBurning(true);
     setError('');
@@ -113,9 +113,8 @@ export default function Path() {
         body: JSON.stringify({ tg_id: tgId })
       });
       const auth = res.headers.get('Authorization');
-      if (auth?.startsWith('Bearer ')) {
-        localStorage.setItem('token', auth.split(' ')[1]);
-      }
+      if (auth?.startsWith('Bearer ')) localStorage.setItem('token', auth.split(' ')[1]);
+
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || '⚠️ Could not create invoice');
@@ -123,16 +122,16 @@ export default function Path() {
         return;
       }
 
-      // Запоминаем
+      // сохраняем
       setInvoiceId(data.invoiceId);
       setPaymentUrl(data.paymentUrl);
       localStorage.setItem('invoiceId', data.invoiceId);
       localStorage.setItem('paymentUrl', data.paymentUrl);
 
-      // Переходим на Tonhub
+      // открываем Tonhub
       window.location.href = data.paymentUrl;
 
-      // Запускаем polling
+      // polling
       setPolling(true);
       pollingRef.current = setInterval(() => checkPaymentStatus(data.invoiceId), 5000);
     } catch (e) {
@@ -141,7 +140,7 @@ export default function Path() {
     }
   };
 
-  // Шаг 2: проверка статуса
+  // проверить статус
   const checkPaymentStatus = async id => {
     const token = localStorage.getItem('token');
     try {
@@ -152,9 +151,8 @@ export default function Path() {
         }
       });
       const auth = res.headers.get('Authorization');
-      if (auth?.startsWith('Bearer ')) {
-        localStorage.setItem('token', auth.split(' ')[1]);
-      }
+      if (auth?.startsWith('Bearer ')) localStorage.setItem('token', auth.split(' ')[1]);
+
       const data = await res.json();
       if (!res.ok) {
         clearInterval(pollingRef.current);
@@ -208,9 +206,7 @@ export default function Path() {
       <div style={styles.content}>
         <h2 style={styles.title}>The Path Begins</h2>
 
-        {newFragment && (
-          <p style={styles.message}>🔥 You received fragment #{newFragment}!</p>
-        )}
+        {newFragment && <p style={styles.message}>🔥 You received fragment #{newFragment}!</p>}
 
         {isCursed ? (
           <p style={styles.status}>
