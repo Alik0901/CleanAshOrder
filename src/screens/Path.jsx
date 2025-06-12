@@ -9,7 +9,7 @@ const BACKEND_URL =
 export default function Path() {
   const navigate = useNavigate();
 
-  // ----- профиль -----
+  // профиль
   const [tgId, setTgId] = useState('');
   const [fragments, setFragments] = useState([]);
   const [lastBurn, setLastBurn] = useState(null);
@@ -17,7 +17,7 @@ export default function Path() {
   const [curseExpires, setCurseExpires] = useState(null);
   const [cooldown, setCooldown] = useState(0);
 
-  // ----- плательщик -----
+  // плательщик
   const [loading, setLoading] = useState(true);
   const [burning, setBurning] = useState(false);
   const [invoiceId, setInvoiceId] = useState(null);
@@ -35,7 +35,8 @@ export default function Path() {
     last
       ? Math.max(
           0,
-          COOLDOWN_SECONDS - Math.floor((Date.now() - new Date(last).getTime()) / 1000)
+          COOLDOWN_SECONDS -
+            Math.floor((Date.now() - new Date(last).getTime()) / 1000)
         )
       : 0;
 
@@ -48,17 +49,23 @@ export default function Path() {
     return () => clearInterval(id);
   }, [cooldown]);
 
-  // монтирование: читаем initData, токен, профиль и незаконченный платёж
+  // монтирование: читаем initData, токен, профиль и незавершённый платёж
   useEffect(() => {
     const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {};
     const id = unsafe.user?.id;
-    if (!id) return navigate('/init');
+    if (!id) {
+      navigate('/init');
+      return;
+    }
     setTgId(String(id));
 
     const token = localStorage.getItem('token');
-    if (!token) return navigate('/init');
+    if (!token) {
+      navigate('/init');
+      return;
+    }
 
-    // восстановить незавершённый счёт
+    // восстановление незавершённого счёта
     const savedId = localStorage.getItem('invoiceId');
     const savedUrl = localStorage.getItem('paymentUrl');
     const savedDeep = localStorage.getItem('tonDeepLink');
@@ -70,7 +77,7 @@ export default function Path() {
       pollingRef.current = setInterval(() => checkPaymentStatus(savedId), 5000);
     }
 
-    // загрузить профиль
+    // загрузка профиля
     async function loadProfile() {
       setLoading(true);
       setError('');
@@ -110,7 +117,7 @@ export default function Path() {
     return () => window.removeEventListener('focus', loadProfile);
   }, [navigate]);
 
-  // Шаг 1: POST /burn-invoice
+  // Шаг 1: создать счёт
   const handleBurn = async () => {
     setBurning(true);
     setError('');
@@ -127,7 +134,6 @@ export default function Path() {
       if (newAuth?.startsWith('Bearer ')) {
         localStorage.setItem('token', newAuth.split(' ')[1]);
       }
-
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || '⚠️ Could not create invoice');
@@ -142,37 +148,43 @@ export default function Path() {
           `?amount=${data.tonInvoice.amountNano}` +
           `&text=${encodeURIComponent(data.tonInvoice.comment)}`;
 
-      // 2) парсим и собираем правильный ton://
+      // 2) собираем deep-link вида ton://transfer/<address>?...
       const u = new URL(hubUrl);
-      const path = u.pathname.replace(/^\/+/, ''); // "transfer/XXX..."
+      const path = u.pathname.replace(/^\/+/, ''); // "transfer/XYZ"
       const deep = `ton://${path}${u.search}`;
 
       setInvoiceId(data.invoiceId);
       setPaymentUrl(hubUrl);
       setTonDeepLink(deep);
-
       localStorage.setItem('invoiceId', data.invoiceId);
       localStorage.setItem('paymentUrl', hubUrl);
       localStorage.setItem('tonDeepLink', deep);
 
-      // 3) сначала пробуем вызвать deep-link
-      window.location.href = deep;
+      // 3) сначала пробуем открыть внутри Telegram:
+      if (window.Telegram?.WebApp?.openLink) {
+        window.Telegram.WebApp.openLink(deep);
+      } else {
+        window.location.href = deep;
+      }
 
-      // 4) fallback через 1 сек на HTTP-URL
+      // 4) fallback через секунду на обычную ссылку:
       setTimeout(() => {
         window.location.href = hubUrl;
       }, 1000);
 
       // 5) запускаем polling
       setPolling(true);
-      pollingRef.current = setInterval(() => checkPaymentStatus(data.invoiceId), 5000);
+      pollingRef.current = setInterval(
+        () => checkPaymentStatus(data.invoiceId),
+        5000
+      );
     } catch (e) {
       setError(`⚠️ ${e.message}`);
       setBurning(false);
     }
   };
 
-  // Шаг 2: GET /burn-status/:invoiceId
+  // Шаг 2: проверка статуса
   const checkPaymentStatus = async id => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/burn-status/${id}`, {
@@ -185,7 +197,6 @@ export default function Path() {
       if (newAuth?.startsWith('Bearer ')) {
         localStorage.setItem('token', newAuth.split(' ')[1]);
       }
-
       const data = await res.json();
       if (!res.ok) {
         clearInterval(pollingRef.current);
@@ -194,7 +205,6 @@ export default function Path() {
         setError(data.error || '⚠️ Error checking payment');
         return;
       }
-
       if (data.paid) {
         clearInterval(pollingRef.current);
         setPolling(false);
@@ -205,9 +215,7 @@ export default function Path() {
 
         if (data.cursed) {
           setError(
-            `⚠️ You are cursed until ${new Date(
-              data.curse_expires
-            ).toLocaleString()}`
+            `⚠️ You are cursed until ${new Date(data.curse_expires).toLocaleString()}`
           );
           setIsCursed(true);
           setCurseExpires(data.curse_expires);
@@ -228,7 +236,9 @@ export default function Path() {
     }
   };
 
-  if (loading) return <div style={styles.center}>Loading…</div>;
+  if (loading) {
+    return <div style={styles.center}>Loading…</div>;
+  }
 
   const formatTime = sec => {
     const m = String(Math.floor(sec / 60)).padStart(2, '0');
@@ -291,10 +301,11 @@ export default function Path() {
 
         {!burning && polling && paymentUrl && (
           <button
-            onClick={() => {
-              // Continue payment
-              window.location.href = tonDeepLink || paymentUrl;
-            }}
+            onClick={() =>
+              window.Telegram?.WebApp?.openLink
+                ? window.Telegram.WebApp.openLink(tonDeepLink || paymentUrl)
+                : (window.location.href = tonDeepLink || paymentUrl)
+            }
             style={styles.secondary}
           >
             Continue Payment
