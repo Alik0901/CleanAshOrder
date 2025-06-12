@@ -1,36 +1,36 @@
 // src/screens/Path.jsx
-import React, { useEffect, useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 const BACKEND_URL =
   process.env.REACT_APP_BACKEND_URL ||
-  'https://ash-backend-production.up.railway.app';
+  'https://ash-backend-production.up.railway.app'
 
 export default function Path() {
-  const navigate = useNavigate();
+  const navigate = useNavigate()
 
-  // профиль
-  const [tgId, setTgId] = useState('');
-  const [fragments, setFragments] = useState([]);
-  const [lastBurn, setLastBurn] = useState(null);
-  const [isCursed, setIsCursed] = useState(false);
-  const [curseExpires, setCurseExpires] = useState(null);
-  const [cooldown, setCooldown] = useState(0);
+  // === профиль ===
+  const [tgId, setTgId] = useState('')
+  const [fragments, setFragments] = useState([])
+  const [lastBurn, setLastBurn] = useState(null)
+  const [isCursed, setIsCursed] = useState(false)
+  const [curseExpires, setCurseExpires] = useState(null)
+  const [cooldown, setCooldown] = useState(0)
 
-  // плательщик
-  const [loading, setLoading] = useState(true);
-  const [burning, setBurning] = useState(false);
-  const [invoiceId, setInvoiceId] = useState(null);
-  const [paymentUrl, setPaymentUrl] = useState('');
-  const [tonDeepLink, setTonDeepLink] = useState('');
-  const [polling, setPolling] = useState(false);
-  const [error, setError] = useState('');
-  const [newFragment, setNewFragment] = useState(null);
+  // === платёж ===
+  const [loading, setLoading] = useState(true)
+  const [burning, setBurning] = useState(false)
+  const [invoiceId, setInvoiceId] = useState(null)
+  const [paymentUrl, setPaymentUrl] = useState('')
+  const [tonDeepLink, setTonDeepLink] = useState('')
+  const [polling, setPolling] = useState(false)
+  const [error, setError] = useState('')
+  const [newFragment, setNewFragment] = useState(null)
 
-  const pollingRef = useRef(null);
-  const COOLDOWN_SECONDS = 2 * 60;
+  const pollingRef = useRef(null)
+  const COOLDOWN_SECONDS = 2 * 60
 
-  // высчитать кулдаун
+  // вычисляем кулдаун в секундах
   const computeCooldown = last =>
     last
       ? Math.max(
@@ -38,213 +38,211 @@ export default function Path() {
           COOLDOWN_SECONDS -
             Math.floor((Date.now() - new Date(last).getTime()) / 1000)
         )
-      : 0;
+      : 0
 
   // тикер кулдауна
   useEffect(() => {
-    if (cooldown <= 0) return;
+    if (cooldown <= 0) return
     const id = setInterval(() => {
-      setCooldown(prev => (prev > 1 ? prev - 1 : 0));
-    }, 1000);
-    return () => clearInterval(id);
-  }, [cooldown]);
+      setCooldown(prev => (prev > 1 ? prev - 1 : 0))
+    }, 1000)
+    return () => clearInterval(id)
+  }, [cooldown])
 
-  // монтирование: читаем initData, токен, профиль и незавершённый платёж
+  // монтирование: читаем tg_id, токен, профиль и незавершённый платёж
   useEffect(() => {
-    const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {};
-    const id = unsafe.user?.id;
+    const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {}
+    const id = unsafe.user?.id
     if (!id) {
-      navigate('/init');
-      return;
+      navigate('/init')
+      return
     }
-    setTgId(String(id));
+    setTgId(String(id))
 
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('token')
     if (!token) {
-      navigate('/init');
-      return;
+      navigate('/init')
+      return
     }
 
-    // восстановление незавершённого счёта
-    const savedId = localStorage.getItem('invoiceId');
-    const savedUrl = localStorage.getItem('paymentUrl');
-    const savedDeep = localStorage.getItem('tonDeepLink');
+    // если был незавершённый платёж — поднимем polling
+    const savedId = localStorage.getItem('invoiceId')
+    const savedUrl = localStorage.getItem('paymentUrl')
+    const savedDeep = localStorage.getItem('tonDeepLink')
     if (savedId && savedUrl && savedDeep) {
-      setInvoiceId(savedId);
-      setPaymentUrl(savedUrl);
-      setTonDeepLink(savedDeep);
-      setPolling(true);
-      pollingRef.current = setInterval(() => checkPaymentStatus(savedId), 5000);
+      setInvoiceId(savedId)
+      setPaymentUrl(savedUrl)
+      setTonDeepLink(savedDeep)
+      setPolling(true)
+      pollingRef.current = setInterval(() => checkPaymentStatus(savedId), 5000)
     }
 
     // загрузка профиля
     async function loadProfile() {
-      setLoading(true);
-      setError('');
+      setLoading(true)
+      setError('')
       try {
         const res = await fetch(`${BACKEND_URL}/api/player/${id}`, {
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
           },
-        });
-        const newAuth = res.headers.get('Authorization');
+        })
+        const newAuth = res.headers.get('Authorization')
         if (newAuth?.startsWith('Bearer ')) {
-          localStorage.setItem('token', newAuth.split(' ')[1]);
+          localStorage.setItem('token', newAuth.split(' ')[1])
         }
-        if (!res.ok) throw new Error();
-        const data = await res.json();
-        setFragments(data.fragments || []);
-        setLastBurn(data.last_burn);
-
+        if (!res.ok) throw new Error()
+        const data = await res.json()
+        setFragments(data.fragments || [])
+        setLastBurn(data.last_burn)
         if (data.curse_expires && new Date(data.curse_expires) > new Date()) {
-          setIsCursed(true);
-          setCurseExpires(data.curse_expires);
+          setIsCursed(true)
+          setCurseExpires(data.curse_expires)
         } else {
-          setIsCursed(false);
-          setCurseExpires(null);
-          setCooldown(computeCooldown(data.last_burn));
+          setIsCursed(false)
+          setCurseExpires(null)
+          setCooldown(computeCooldown(data.last_burn))
         }
       } catch {
-        navigate('/init');
+        navigate('/init')
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
     }
 
-    loadProfile();
-    window.addEventListener('focus', loadProfile);
-    return () => window.removeEventListener('focus', loadProfile);
-  }, [navigate]);
+    loadProfile()
+    window.addEventListener('focus', loadProfile)
+    return () => window.removeEventListener('focus', loadProfile)
+  }, [navigate])
 
-  // Шаг 1: создать счёт
+  // === Шаг 1. Создаём инвойс ===
   const handleBurn = async () => {
-    setBurning(true);
-    setError('');
+    setBurning(true)
+    setError('')
     try {
       const res = await fetch(`${BACKEND_URL}/api/burn-invoice`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
         },
         body: JSON.stringify({ tg_id: tgId }),
-      });
-      const newAuth = res.headers.get('Authorization');
+      })
+      const newAuth = res.headers.get('Authorization')
       if (newAuth?.startsWith('Bearer ')) {
-        localStorage.setItem('token', newAuth.split(' ')[1]);
+        localStorage.setItem('token', newAuth.split(' ')[1])
       }
-      const data = await res.json();
+      const data = await res.json()
       if (!res.ok) {
-        setError(data.error || '⚠️ Could not create invoice');
-        setBurning(false);
-        return;
+        setError(data.error || '⚠️ Could not create invoice')
+        setBurning(false)
+        return
       }
 
-      // 1) получаем HTTP-URL
-      const hubUrl =
-        data.paymentUrl ||
-        `https://tonhub.com/transfer/${data.tonInvoice.address}` +
-          `?amount=${data.tonInvoice.amountNano}` +
-          `&text=${encodeURIComponent(data.tonInvoice.comment)}`;
+      // 1) HTTP-url
+      const hubUrl = data.paymentUrl
 
-      // 2) собираем deep-link вида ton://transfer/<address>?...
-      const u = new URL(hubUrl);
-      const path = u.pathname.replace(/^\/+/, ''); // "transfer/XYZ"
-      const deep = `ton://${path}${u.search}`;
+      // 2) deep-link: ton://transfer/...?...
+      const u = new URL(hubUrl)
+      // u.pathname === "/transfer/...."
+      const path = u.pathname.replace(/^\//, '') // "transfer/..."
+      const deep = `ton://${path}${u.search}`
 
-      setInvoiceId(data.invoiceId);
-      setPaymentUrl(hubUrl);
-      setTonDeepLink(deep);
-      localStorage.setItem('invoiceId', data.invoiceId);
-      localStorage.setItem('paymentUrl', hubUrl);
-      localStorage.setItem('tonDeepLink', deep);
+      setInvoiceId(data.invoiceId)
+      setPaymentUrl(hubUrl)
+      setTonDeepLink(deep)
+      localStorage.setItem('invoiceId', data.invoiceId)
+      localStorage.setItem('paymentUrl', hubUrl)
+      localStorage.setItem('tonDeepLink', deep)
 
-      // 3) сначала пробуем открыть внутри Telegram:
+      // 3) пробуем открыть встроенный TON-кошелёк в Telegram WebView
       if (window.Telegram?.WebApp?.openLink) {
-        window.Telegram.WebApp.openLink(deep);
+        window.Telegram.WebApp.openLink(deep)
       } else {
-        window.location.href = deep;
+        window.location.href = deep
       }
 
-      // 4) fallback через секунду на обычную ссылку:
+      // 4) если не отработало — через 1 сек fallback на tonhub.com
       setTimeout(() => {
-        window.location.href = hubUrl;
-      }, 1000);
+        window.location.href = hubUrl
+      }, 1000)
 
-      // 5) запускаем polling
-      setPolling(true);
+      // 5) стартуем polling
+      setPolling(true)
       pollingRef.current = setInterval(
         () => checkPaymentStatus(data.invoiceId),
         5000
-      );
+      )
     } catch (e) {
-      setError(`⚠️ ${e.message}`);
-      setBurning(false);
+      setError(`⚠️ ${e.message}`)
+      setBurning(false)
     }
-  };
+  }
 
-  // Шаг 2: проверка статуса
+  // === Шаг 2. Проверяем статус ===
   const checkPaymentStatus = async id => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/burn-status/${id}`, {
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
         },
-      });
-      const newAuth = res.headers.get('Authorization');
+      })
+      const newAuth = res.headers.get('Authorization')
       if (newAuth?.startsWith('Bearer ')) {
-        localStorage.setItem('token', newAuth.split(' ')[1]);
+        localStorage.setItem('token', newAuth.split(' ')[1])
       }
-      const data = await res.json();
+      const data = await res.json()
       if (!res.ok) {
-        clearInterval(pollingRef.current);
-        setPolling(false);
-        setBurning(false);
-        setError(data.error || '⚠️ Error checking payment');
-        return;
+        clearInterval(pollingRef.current)
+        setPolling(false)
+        setBurning(false)
+        setError(data.error || '⚠️ Error checking payment')
+        return
       }
       if (data.paid) {
-        clearInterval(pollingRef.current);
-        setPolling(false);
-        setBurning(false);
-        localStorage.removeItem('invoiceId');
-        localStorage.removeItem('paymentUrl');
-        localStorage.removeItem('tonDeepLink');
+        clearInterval(pollingRef.current)
+        setPolling(false)
+        setBurning(false)
+        localStorage.removeItem('invoiceId')
+        localStorage.removeItem('paymentUrl')
+        localStorage.removeItem('tonDeepLink')
 
         if (data.cursed) {
           setError(
-            `⚠️ You are cursed until ${new Date(data.curse_expires).toLocaleString()}`
-          );
-          setIsCursed(true);
-          setCurseExpires(data.curse_expires);
+            `⚠️ You are cursed until ${new Date(
+              data.curse_expires
+            ).toLocaleString()}`
+          )
+          setIsCursed(true)
+          setCurseExpires(data.curse_expires)
         } else {
-          setNewFragment(data.newFragment);
-          setFragments(data.fragments);
-          setIsCursed(false);
-          setCurseExpires(null);
-          setLastBurn(data.lastBurn);
-          setCooldown(computeCooldown(data.lastBurn));
+          setNewFragment(data.newFragment)
+          setFragments(data.fragments)
+          setIsCursed(false)
+          setCurseExpires(null)
+          setLastBurn(data.lastBurn)
+          setCooldown(computeCooldown(data.lastBurn))
         }
       }
     } catch (e) {
-      setError(`⚠️ ${e.message}`);
-      clearInterval(pollingRef.current);
-      setPolling(false);
-      setBurning(false);
+      setError(`⚠️ ${e.message}`)
+      clearInterval(pollingRef.current)
+      setPolling(false)
+      setBurning(false)
     }
-  };
+  }
 
   if (loading) {
-    return <div style={styles.center}>Loading…</div>;
+    return <div style={styles.center}>Loading…</div>
   }
 
   const formatTime = sec => {
-    const m = String(Math.floor(sec / 60)).padStart(2, '0');
-    const s = String(sec % 60).padStart(2, '0');
-    return `${m}:${s}`;
-  };
+    const m = String(Math.floor(sec / 60)).padStart(2, '0')
+    const s = String(sec % 60).padStart(2, '0')
+    return `${m}:${s}`
+  }
 
   return (
     <div style={styles.container}>
@@ -319,7 +317,7 @@ export default function Path() {
         {error && <p style={styles.error}>{error}</p>}
       </div>
     </div>
-  );
+  )
 }
 
 const styles = {
@@ -337,11 +335,7 @@ const styles = {
     backgroundImage: 'url("/bg-path.webp")',
     backgroundSize: 'cover',
   },
-  overlay: {
-    position: 'absolute',
-    inset: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
+  overlay: { position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)' },
   content: {
     position: 'relative',
     zIndex: 2,
@@ -376,9 +370,5 @@ const styles = {
     marginBottom: 12,
     cursor: 'pointer',
   },
-  error: {
-    color: '#FF6347',
-    fontSize: 14,
-    marginTop: 12,
-  },
-};
+  error: { color: '#FF6347', fontSize: 14, marginTop: 12 },
+}
