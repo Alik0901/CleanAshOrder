@@ -21,8 +21,8 @@ export default function Path() {
   const [loading, setLoading] = useState(true)
   const [burning, setBurning] = useState(false)
   const [invoiceId, setInvoiceId] = useState(null)
-  const [paymentUrl, setPaymentUrl] = useState('')
-  const [tonDeepLink, setTonDeepLink] = useState('')
+  const [tonDeepLink, setTonDeepLink] = useState('')      // будет вида "ton://transfer/…"
+  const [hubLink, setHubLink] = useState('')             // "https://tonhub.com/transfer/…"
   const [polling, setPolling] = useState(false)
   const [error, setError] = useState('')
   const [newFragment, setNewFragment] = useState(null)
@@ -30,7 +30,7 @@ export default function Path() {
   const pollingRef = useRef(null)
   const COOLDOWN_SECONDS = 2 * 60
 
-  // вычисляем кулдаун в секундах
+  // считаем кулдаун
   const computeCooldown = last =>
     last
       ? Math.max(
@@ -49,7 +49,7 @@ export default function Path() {
     return () => clearInterval(id)
   }, [cooldown])
 
-  // монтирование: читаем tg_id, токен, профиль и незавершённый платёж
+  // монтирование: читаем initData, токен, профиль и незаконченный платёж
   useEffect(() => {
     const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {}
     const id = unsafe.user?.id
@@ -65,19 +65,22 @@ export default function Path() {
       return
     }
 
-    // если был незавершённый платёж — поднимем polling
-    const savedId = localStorage.getItem('invoiceId')
-    const savedUrl = localStorage.getItem('paymentUrl')
-    const savedDeep = localStorage.getItem('tonDeepLink')
-    if (savedId && savedUrl && savedDeep) {
-      setInvoiceId(savedId)
-      setPaymentUrl(savedUrl)
+    // если был незавершённый платёж — восстанавливаем ссылки и стартуем polling
+    const savedInvoice = localStorage.getItem('invoiceId')
+    const savedHub    = localStorage.getItem('hubLink')
+    const savedDeep   = localStorage.getItem('tonDeepLink')
+    if (savedInvoice && savedHub && savedDeep) {
+      setInvoiceId(savedInvoice)
+      setHubLink(savedHub)
       setTonDeepLink(savedDeep)
       setPolling(true)
-      pollingRef.current = setInterval(() => checkPaymentStatus(savedId), 5000)
+      pollingRef.current = setInterval(
+        () => checkPaymentStatus(savedInvoice),
+        5000
+      )
     }
 
-    // загрузка профиля
+    // загружаем профиль
     async function loadProfile() {
       setLoading(true)
       setError('')
@@ -140,35 +143,20 @@ export default function Path() {
         return
       }
 
-      // 1) HTTP-url
-      const hubUrl = data.paymentUrl
+      // hub-link и deep-link
+      const hub = data.paymentUrl
+      const u = new URL(hub)
+      const deep = `ton://${u.pathname.slice(1)}${u.search}`
 
-      // 2) deep-link: ton://transfer/...?...
-      const u = new URL(hubUrl)
-      // u.pathname === "/transfer/...."
-      const path = u.pathname.replace(/^\//, '') // "transfer/..."
-      const deep = `ton://${path}${u.search}`
-
+      // сохраняем в state + localStorage
       setInvoiceId(data.invoiceId)
-      setPaymentUrl(hubUrl)
+      setHubLink(hub)
       setTonDeepLink(deep)
       localStorage.setItem('invoiceId', data.invoiceId)
-      localStorage.setItem('paymentUrl', hubUrl)
+      localStorage.setItem('hubLink', hub)
       localStorage.setItem('tonDeepLink', deep)
 
-      // 3) пробуем открыть встроенный TON-кошелёк в Telegram WebView
-      if (window.Telegram?.WebApp?.openLink) {
-        window.Telegram.WebApp.openLink(deep)
-      } else {
-        window.location.href = deep
-      }
-
-      // 4) если не отработало — через 1 сек fallback на tonhub.com
-      setTimeout(() => {
-        window.location.href = hubUrl
-      }, 1000)
-
-      // 5) стартуем polling
+      // запускаем polling
       setPolling(true)
       pollingRef.current = setInterval(
         () => checkPaymentStatus(data.invoiceId),
@@ -180,7 +168,7 @@ export default function Path() {
     }
   }
 
-  // === Шаг 2. Проверяем статус ===
+  // === Шаг 2. Проверяем статус платёжа ===
   const checkPaymentStatus = async id => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/burn-status/${id}`, {
@@ -206,7 +194,7 @@ export default function Path() {
         setPolling(false)
         setBurning(false)
         localStorage.removeItem('invoiceId')
-        localStorage.removeItem('paymentUrl')
+        localStorage.removeItem('hubLink')
         localStorage.removeItem('tonDeepLink')
 
         if (data.cursed) {
@@ -297,17 +285,26 @@ export default function Path() {
             : '🔥 Burn Yourself for 0.5 TON'}
         </button>
 
-        {!burning && polling && paymentUrl && (
-          <button
-            onClick={() =>
-              window.Telegram?.WebApp?.openLink
-                ? window.Telegram.WebApp.openLink(tonDeepLink || paymentUrl)
-                : (window.location.href = tonDeepLink || paymentUrl)
-            }
-            style={styles.secondary}
-          >
-            Continue Payment
-          </button>
+        {/* ————— Если есть незавершённый платёж — показываем две ссылки ————— */}
+        {!burning && polling && tonDeepLink && (
+          <>
+            {/* 1) этот клик откроет встроенный Telegram-кошелёк, если он есть */}
+            <a
+              href={tonDeepLink}
+              style={styles.secondary}
+            >
+              Continue Payment in Telegram Wallet
+            </a>
+            {/* 2) а если нет — на Tonhub.com */}
+            <a
+              href={hubLink}
+              target="_blank"
+              rel="noreferrer"
+              style={styles.secondary}
+            >
+              Open in Tonhub
+            </a>
+          </>
         )}
 
         <button onClick={() => navigate('/profile')} style={styles.secondary}>
@@ -361,13 +358,15 @@ const styles = {
     marginBottom: 12,
   },
   secondary: {
+    display: 'inline-block',
+    marginBottom: 12,
     padding: '10px 24px',
     background: 'transparent',
     border: '1px solid #d4af37',
     borderRadius: 6,
     color: '#d4af37',
     fontSize: 14,
-    marginBottom: 12,
+    textDecoration: 'none',
     cursor: 'pointer',
   },
   error: { color: '#FF6347', fontSize: 14, marginTop: 12 },
