@@ -9,7 +9,7 @@ const BACKEND_URL =
 export default function Path() {
   const navigate = useNavigate()
 
-  // === профиль ===
+  // — профиль —
   const [tgId, setTgId] = useState('')
   const [fragments, setFragments] = useState([])
   const [lastBurn, setLastBurn] = useState(null)
@@ -17,12 +17,12 @@ export default function Path() {
   const [curseExpires, setCurseExpires] = useState(null)
   const [cooldown, setCooldown] = useState(0)
 
-  // === платёж ===
+  // — платёж —
   const [loading, setLoading] = useState(true)
   const [burning, setBurning] = useState(false)
   const [invoiceId, setInvoiceId] = useState(null)
-  const [tonDeepLink, setTonDeepLink] = useState('')      // будет вида "ton://transfer/…"
-  const [hubLink, setHubLink] = useState('')             // "https://tonhub.com/transfer/…"
+  const [tonDeepLink, setTonDeepLink] = useState('')
+  const [hubLink, setHubLink] = useState('')
   const [polling, setPolling] = useState(false)
   const [error, setError] = useState('')
   const [newFragment, setNewFragment] = useState(null)
@@ -30,7 +30,7 @@ export default function Path() {
   const pollingRef = useRef(null)
   const COOLDOWN_SECONDS = 2 * 60
 
-  // считаем кулдаун
+  // рассчитать кулдаун
   const computeCooldown = last =>
     last
       ? Math.max(
@@ -49,7 +49,7 @@ export default function Path() {
     return () => clearInterval(id)
   }, [cooldown])
 
-  // монтирование: читаем initData, токен, профиль и незаконченный платёж
+  // монтирование
   useEffect(() => {
     const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {}
     const id = unsafe.user?.id
@@ -65,10 +65,10 @@ export default function Path() {
       return
     }
 
-    // если был незавершённый платёж — восстанавливаем ссылки и стартуем polling
-    const savedInvoice = localStorage.getItem('invoiceId')
-    const savedHub    = localStorage.getItem('hubLink')
-    const savedDeep   = localStorage.getItem('tonDeepLink')
+    // восстановление незавершённого платежа
+    const savedInvoice  = localStorage.getItem('invoiceId')
+    const savedHub      = localStorage.getItem('hubLink')
+    const savedDeep     = localStorage.getItem('tonDeepLink')
     if (savedInvoice && savedHub && savedDeep) {
       setInvoiceId(savedInvoice)
       setHubLink(savedHub)
@@ -80,7 +80,7 @@ export default function Path() {
       )
     }
 
-    // загружаем профиль
+    // загрузка профиля
     async function loadProfile() {
       setLoading(true)
       setError('')
@@ -88,8 +88,8 @@ export default function Path() {
         const res = await fetch(`${BACKEND_URL}/api/player/${id}`, {
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
-          },
+            Authorization: `Bearer ${localStorage.getItem('token')}`
+          }
         })
         const newAuth = res.headers.get('Authorization')
         if (newAuth?.startsWith('Bearer ')) {
@@ -99,7 +99,10 @@ export default function Path() {
         const data = await res.json()
         setFragments(data.fragments || [])
         setLastBurn(data.last_burn)
-        if (data.curse_expires && new Date(data.curse_expires) > new Date()) {
+        if (
+          data.curse_expires &&
+          new Date(data.curse_expires) > new Date()
+        ) {
           setIsCursed(true)
           setCurseExpires(data.curse_expires)
         } else {
@@ -119,7 +122,7 @@ export default function Path() {
     return () => window.removeEventListener('focus', loadProfile)
   }, [navigate])
 
-  // === Шаг 1. Создаём инвойс ===
+  // Шаг 1: создаём инвойс
   const handleBurn = async () => {
     setBurning(true)
     setError('')
@@ -128,9 +131,9 @@ export default function Path() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          Authorization: `Bearer ${localStorage.getItem('token')}`
         },
-        body: JSON.stringify({ tg_id: tgId }),
+        body: JSON.stringify({ tg_id: tgId })
       })
       const newAuth = res.headers.get('Authorization')
       if (newAuth?.startsWith('Bearer ')) {
@@ -143,12 +146,12 @@ export default function Path() {
         return
       }
 
-      // hub-link и deep-link
+      // вытащить обе ссылки
       const hub = data.paymentUrl
-      const u = new URL(hub)
+      const u   = new URL(hub)
       const deep = `ton://${u.pathname.slice(1)}${u.search}`
 
-      // сохраняем в state + localStorage
+      // сохранить
       setInvoiceId(data.invoiceId)
       setHubLink(hub)
       setTonDeepLink(deep)
@@ -156,7 +159,10 @@ export default function Path() {
       localStorage.setItem('hubLink', hub)
       localStorage.setItem('tonDeepLink', deep)
 
-      // запускаем polling
+      // ✅ **очень важно** сбросить burning
+      setBurning(false)
+
+      // стартуем polling
       setPolling(true)
       pollingRef.current = setInterval(
         () => checkPaymentStatus(data.invoiceId),
@@ -168,14 +174,14 @@ export default function Path() {
     }
   }
 
-  // === Шаг 2. Проверяем статус платёжа ===
+  // Шаг 2: проверяем статус
   const checkPaymentStatus = async id => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/burn-status/${id}`, {
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-        },
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
       })
       const newAuth = res.headers.get('Authorization')
       if (newAuth?.startsWith('Bearer ')) {
@@ -198,11 +204,7 @@ export default function Path() {
         localStorage.removeItem('tonDeepLink')
 
         if (data.cursed) {
-          setError(
-            `⚠️ You are cursed until ${new Date(
-              data.curse_expires
-            ).toLocaleString()}`
-          )
+          setError(`⚠️ You are cursed until ${new Date(data.curse_expires).toLocaleString()}`)
           setIsCursed(true)
           setCurseExpires(data.curse_expires)
         } else {
@@ -215,16 +217,14 @@ export default function Path() {
         }
       }
     } catch (e) {
-      setError(`⚠️ ${e.message}`)
       clearInterval(pollingRef.current)
       setPolling(false)
       setBurning(false)
+      setError(`⚠️ ${e.message}`)
     }
   }
 
-  if (loading) {
-    return <div style={styles.center}>Loading…</div>
-  }
+  if (loading) return <div style={styles.center}>Loading…</div>
 
   const formatTime = sec => {
     const m = String(Math.floor(sec / 60)).padStart(2, '0')
@@ -255,27 +255,18 @@ export default function Path() {
         <button
           onClick={handleBurn}
           disabled={
-            burning ||
-            polling ||
-            (isCursed && new Date(curseExpires) > new Date()) ||
-            cooldown > 0
+            burning || polling || (isCursed && new Date(curseExpires) > new Date()) || cooldown > 0
           }
           style={{
             ...styles.burnButton,
             opacity:
-              burning ||
-              polling ||
-              (isCursed && new Date(curseExpires) > new Date()) ||
-              cooldown > 0
+              burning || polling || (isCursed && new Date(curseExpires) > new Date()) || cooldown > 0
                 ? 0.6
                 : 1,
             cursor:
-              burning ||
-              polling ||
-              (isCursed && new Date(curseExpires) > new Date()) ||
-              cooldown > 0
+              burning || polling || (isCursed && new Date(curseExpires) > new Date()) || cooldown > 0
                 ? 'not-allowed'
-                : 'pointer',
+                : 'pointer'
           }}
         >
           {burning
@@ -285,17 +276,12 @@ export default function Path() {
             : '🔥 Burn Yourself for 0.5 TON'}
         </button>
 
-        {/* ————— Если есть незавершённый платёж — показываем две ссылки ————— */}
+        {/* когда invoice создан и polling=true, показываем две ссылки */}
         {!burning && polling && tonDeepLink && (
           <>
-            {/* 1) этот клик откроет встроенный Telegram-кошелёк, если он есть */}
-            <a
-              href={tonDeepLink}
-              style={styles.secondary}
-            >
+            <a href={tonDeepLink} style={styles.secondary}>
               Continue Payment in Telegram Wallet
             </a>
-            {/* 2) а если нет — на Tonhub.com */}
             <a
               href={hubLink}
               target="_blank"
@@ -307,7 +293,10 @@ export default function Path() {
           </>
         )}
 
-        <button onClick={() => navigate('/profile')} style={styles.secondary}>
+        <button
+          onClick={() => navigate('/profile')}
+          style={styles.secondary}
+        >
           Go to your personal account
         </button>
 
@@ -324,13 +313,13 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     color: '#fff',
-    fontSize: 18,
+    fontSize: 18
   },
   container: {
     position: 'relative',
     height: '100vh',
     backgroundImage: 'url("/bg-path.webp")',
-    backgroundSize: 'cover',
+    backgroundSize: 'cover'
   },
   overlay: { position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)' },
   content: {
@@ -343,7 +332,7 @@ const styles = {
     height: '100%',
     color: '#d4af37',
     padding: '0 16px',
-    textAlign: 'center',
+    textAlign: 'center'
   },
   title: { fontSize: 28, marginBottom: 16 },
   message: { fontSize: 16, color: '#7CFC00', marginBottom: 12 },
@@ -355,7 +344,7 @@ const styles = {
     borderRadius: 6,
     color: '#000',
     fontSize: 16,
-    marginBottom: 12,
+    marginBottom: 12
   },
   secondary: {
     display: 'inline-block',
@@ -367,7 +356,7 @@ const styles = {
     color: '#d4af37',
     fontSize: 14,
     textDecoration: 'none',
-    cursor: 'pointer',
+    cursor: 'pointer'
   },
-  error: { color: '#FF6347', fontSize: 14, marginTop: 12 },
+  error: { color: '#FF6347', fontSize: 14, marginTop: 12 }
 }
