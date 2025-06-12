@@ -1,249 +1,218 @@
-import React, { useEffect, useState, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useEffect, useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const BACKEND_URL =
   process.env.REACT_APP_BACKEND_URL ||
-  'https://ash-backend-production.up.railway.app'
+  'https://ash-backend-production.up.railway.app';
 
 export default function Path() {
-  const navigate = useNavigate()
+  const navigate = useNavigate();
 
   // профиль
-  const [tgId, setTgId]           = useState('')
-  const [fragments, setFragments] = useState([])
-  const [lastBurn, setLastBurn]   = useState(null)
-  const [isCursed, setIsCursed]   = useState(false)
-  const [curseExpires, setCurseExpires] = useState(null)
-  const [cooldown, setCooldown]   = useState(0)
+  const [tgId, setTgId]           = useState('');
+  const [fragments, setFragments] = useState([]);
+  const [lastBurn, setLastBurn]   = useState(null);
+  const [isCursed, setIsCursed]   = useState(false);
+  const [curseExpires, setCurseExpires] = useState(null);
+  const [cooldown, setCooldown]   = useState(0);
 
-  // платеж
-  const [loading, setLoading]       = useState(true)
-  const [burning, setBurning]       = useState(false)
-  const [invoiceId, setInvoiceId]   = useState(null)
-  const [paymentLinks, setPaymentLinks] = useState({
-    tonDeepLink: '',
-    tonSpaceLink: '',
-    tonHubLink: ''
-  })
-  const [polling, setPolling]       = useState(false)
-  const [error, setError]           = useState('')
-  const [newFragment, setNewFragment] = useState(null)
+  // платёж
+  const [loading, setLoading]     = useState(true);
+  const [burning, setBurning]     = useState(false);
+  const [invoiceId, setInvoiceId] = useState(null);
+  const [urls, setUrls]           = useState({ tonDeepLink: '', tonHubLink: '' });
+  const [polling, setPolling]     = useState(false);
+  const [error, setError]         = useState('');
+  const [newFragment, setNewFragment] = useState(null);
 
-  const pollingRef = useRef(null)
-  const COOLDOWN_SECONDS = 2 * 60
+  const pollingRef = useRef(null);
+  const COOLDOWN_SECONDS = 2 * 60;
 
   // рассчитать кулдаун
   const computeCooldown = last =>
     last
-      ? Math.max(
-          0,
-          COOLDOWN_SECONDS -
-            Math.floor((Date.now() - new Date(last).getTime()) / 1000)
-        )
-      : 0
+      ? Math.max(0, COOLDOWN_SECONDS - Math.floor((Date.now() - new Date(last).getTime()) / 1000))
+      : 0;
 
   // тикер кулдауна
   useEffect(() => {
-    if (cooldown <= 0) return
+    if (cooldown <= 0) return;
     const id = setInterval(() => {
-      setCooldown(prev => (prev > 1 ? prev - 1 : 0))
-    }, 1000)
-    return () => clearInterval(id)
-  }, [cooldown])
+      setCooldown(prev => (prev > 1 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [cooldown]);
 
-  // открыть платёж (deeplink → ton.space → tonhub)
-  const openPayment = () => {
-    const { tonDeepLink, tonSpaceLink, tonHubLink } = paymentLinks
-    // 1) пробуем deeplink
-    window.location.href = tonDeepLink
-    // 2) fallback на web-версию Ton Space
-    setTimeout(() => {
-      window.location.href = tonSpaceLink
-    }, 1500)
-    // 3) backup на TonHub
-    setTimeout(() => {
-      window.location.href = tonHubLink
-    }, 3000)
-  }
-
-  // монтирование: читаем initData, токен, профиль и восстанавливаем незавершённый платёж
+  // монтирование
   useEffect(() => {
-    const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {}
-    const id = unsafe.user?.id
+    const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {};
+    const id = unsafe.user?.id;
     if (!id) {
-      navigate('/init')
-      return
+      navigate('/init');
+      return;
     }
-    setTgId(String(id))
+    setTgId(String(id));
 
-    const token = localStorage.getItem('token')
+    const token = localStorage.getItem('token');
     if (!token) {
-      navigate('/init')
-      return
+      navigate('/init');
+      return;
     }
 
-    // восстановим прошлый счёт, если он есть
-    const savedId    = localStorage.getItem('invoiceId')
-    const savedLinks = localStorage.getItem('paymentLinks')
-    if (savedId && savedLinks) {
-      setInvoiceId(savedId)
-      setPaymentLinks(JSON.parse(savedLinks))
-      setPolling(true)
-      pollingRef.current = setInterval(
-        () => checkPaymentStatus(savedId),
-        5000
-      )
+    // восстановить незавершённый платёж
+    const savedId   = localStorage.getItem('invoiceId');
+    const savedUrls = JSON.parse(localStorage.getItem('paymentUrls') || '{}');
+    if (savedId && savedUrls.tonDeepLink) {
+      setInvoiceId(savedId);
+      setUrls(savedUrls);
+      setPolling(true);
+      pollingRef.current = setInterval(() => checkPaymentStatus(savedId), 5000);
     }
 
-    // загрузка профиля
-    const loadProfile = async () => {
-      setLoading(true)
-      setError('')
+    // загрузить профиль
+    (async () => {
+      setLoading(true);
+      setError('');
       try {
-        const res = await fetch(`${BACKEND_URL}/api/player/${id}`, {
-          headers: { 'Content-Type': 'application/json' }
-        })
-        if (!res.ok) throw new Error()
-        const data = await res.json()
-        setFragments(data.fragments || [])
-        setLastBurn(data.last_burn)
-
-        if (
-          data.curse_expires &&
-          new Date(data.curse_expires) > new Date()
-        ) {
-          setIsCursed(true)
-          setCurseExpires(data.curse_expires)
+        const res = await fetch(`${BACKEND_URL}/api/player/${id}`);
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        setFragments(data.fragments || []);
+        setLastBurn(data.last_burn);
+        if (data.curse_expires && new Date(data.curse_expires) > new Date()) {
+          setIsCursed(true);
+          setCurseExpires(data.curse_expires);
         } else {
-          setIsCursed(false)
-          setCurseExpires(null)
-          setCooldown(computeCooldown(data.last_burn))
+          setIsCursed(false);
+          setCurseExpires(null);
+          setCooldown(computeCooldown(data.last_burn));
         }
       } catch {
-        navigate('/init')
+        navigate('/init');
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    })();
+  }, [navigate]);
 
-    loadProfile()
-    window.addEventListener('focus', loadProfile)
-    return () => window.removeEventListener('focus', loadProfile)
-  }, [navigate])
+  // открытие ссылки: сначала in-app, потом Tonhub
+  const openWithFallback = (deep, hub) => {
+    if (window.Telegram?.WebApp?.openLink) {
+      window.Telegram.WebApp.openLink(deep);
+      setTimeout(() => {
+        window.Telegram.WebApp.openLink(hub);
+      }, 1500);
+    } else {
+      window.location.href = deep;
+      setTimeout(() => {
+        window.location.href = hub;
+      }, 1500);
+    }
+  };
 
   // Шаг 1: создать инвойс
   const handleBurn = async () => {
-    setBurning(true)
-    setError('')
-    const token = localStorage.getItem('token')
+    setBurning(true);
+    setError('');
+    const token = localStorage.getItem('token');
 
     try {
       const res = await fetch(`${BACKEND_URL}/api/burn-invoice`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ tg_id: tgId })
-      })
-      const auth = res.headers.get('Authorization')
+      });
+      const auth = res.headers.get('Authorization');
       if (auth?.startsWith('Bearer ')) {
-        localStorage.setItem('token', auth.split(' ')[1])
+        localStorage.setItem('token', auth.split(' ')[1]);
       }
 
-      const data = await res.json()
+      const data = await res.json();
       if (!res.ok) {
-        setError(data.error || '⚠️ Could not create invoice')
-        setBurning(false)
-        return
+        setError(data.error || '⚠️ Could not create invoice');
+        setBurning(false);
+        return;
       }
 
-      // Сохраняем invoice и ссылки
-      setInvoiceId(data.invoiceId)
-      setPaymentLinks(data.links)
-      localStorage.setItem('invoiceId', data.invoiceId)
-      localStorage.setItem('paymentLinks', JSON.stringify(data.links))
+      setInvoiceId(data.invoiceId);
+      setUrls(data.paymentUrls);
+      localStorage.setItem('invoiceId', data.invoiceId);
+      localStorage.setItem('paymentUrls', JSON.stringify(data.paymentUrls));
 
-      // Сразу открываем платёж
-      openPayment()
+      openWithFallback(data.paymentUrls.tonDeepLink, data.paymentUrls.tonHubLink);
 
-      // Стартуем polling
-      setPolling(true)
-      pollingRef.current = setInterval(
-        () => checkPaymentStatus(data.invoiceId),
-        5000
-      )
+      setPolling(true);
+      pollingRef.current = setInterval(() => checkPaymentStatus(data.invoiceId), 5000);
     } catch (e) {
-      setError(`⚠️ ${e.message}`)
-      setBurning(false)
+      setError(`⚠️ ${e.message}`);
+      setBurning(false);
     }
-  }
+  };
 
   // Шаг 2: проверка статуса
   const checkPaymentStatus = async id => {
-    const token = localStorage.getItem('token')
+    const token = localStorage.getItem('token');
     try {
       const res = await fetch(`${BACKEND_URL}/api/burn-status/${id}`, {
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
+          'Authorization': `Bearer ${token}`
         }
-      })
-      const auth = res.headers.get('Authorization')
+      });
+      const auth = res.headers.get('Authorization');
       if (auth?.startsWith('Bearer ')) {
-        localStorage.setItem('token', auth.split(' ')[1])
+        localStorage.setItem('token', auth.split(' ')[1]);
       }
 
-      const data = await res.json()
+      const data = await res.json();
       if (!res.ok) {
-        clearInterval(pollingRef.current)
-        setPolling(false)
-        setBurning(false)
-        setError(data.error || '⚠️ Error checking payment')
-        return
+        clearInterval(pollingRef.current);
+        setPolling(false);
+        setBurning(false);
+        setError(data.error || '⚠️ Error checking payment');
+        return;
       }
 
       if (data.paid) {
-        clearInterval(pollingRef.current)
-        setPolling(false)
-        setBurning(false)
-        localStorage.removeItem('invoiceId')
-        localStorage.removeItem('paymentLinks')
+        clearInterval(pollingRef.current);
+        setPolling(false);
+        setBurning(false);
+        localStorage.removeItem('invoiceId');
+        localStorage.removeItem('paymentUrls');
 
         if (data.cursed) {
-          setError(
-            `⚠️ You are cursed until ${new Date(
-              data.curse_expires
-            ).toLocaleString()}`
-          )
-          setIsCursed(true)
-          setCurseExpires(data.curse_expires)
+          setError(`⚠️ You are cursed until ${new Date(data.curse_expires).toLocaleString()}`);
+          setIsCursed(true);
+          setCurseExpires(data.curse_expires);
         } else {
-          setNewFragment(data.newFragment)
-          setFragments(data.fragments)
-          setIsCursed(false)
-          setCurseExpires(null)
-          setLastBurn(data.lastBurn)
-          setCooldown(computeCooldown(data.lastBurn))
+          setNewFragment(data.newFragment);
+          setFragments(data.fragments);
+          setIsCursed(false);
+          setCurseExpires(null);
+          setLastBurn(data.lastBurn);
+          setCooldown(computeCooldown(data.lastBurn));
         }
       }
     } catch (e) {
-      setError(`⚠️ ${e.message}`)
-      clearInterval(pollingRef.current)
-      setPolling(false)
-      setBurning(false)
+      setError(`⚠️ ${e.message}`);
+      clearInterval(pollingRef.current);
+      setPolling(false);
+      setBurning(false);
     }
-  }
+  };
 
   if (loading) {
-    return <div style={styles.center}>Loading...</div>
+    return <div style={styles.center}>Loading...</div>;
   }
 
   const formatTime = sec => {
-    const m = String(Math.floor(sec / 60)).padStart(2, '0')
-    const s = String(sec % 60).padStart(2, '0')
-    return `${m}:${s}`
-  }
+    const m = String(Math.floor(sec / 60)).padStart(2, '0');
+    const s = String(sec % 60).padStart(2, '0');
+    return `${m}:${s}`;
+  };
 
   return (
     <div style={styles.container}>
@@ -252,20 +221,15 @@ export default function Path() {
         <h2 style={styles.title}>The Path Begins</h2>
 
         {newFragment && (
-          <p style={styles.message}>
-            🔥 You received fragment #{newFragment}!
-          </p>
+          <p style={styles.message}>🔥 You received fragment #{newFragment}!</p>
         )}
 
         {isCursed ? (
           <p style={styles.status}>
-            ⚠️ You are cursed until{' '}
-            {new Date(curseExpires).toLocaleString()}
+            ⚠️ You are cursed until {new Date(curseExpires).toLocaleString()}
           </p>
         ) : cooldown > 0 ? (
-          <p style={styles.status}>
-            ⏳ Next burn in {formatTime(cooldown)}
-          </p>
+          <p style={styles.status}>⏳ Next burn in {formatTime(cooldown)}</p>
         ) : (
           <p style={styles.status}>Ready to burn yourself.</p>
         )}
@@ -293,7 +257,7 @@ export default function Path() {
               (isCursed && new Date(curseExpires) > new Date()) ||
               cooldown > 0
                 ? 'not-allowed'
-                : 'pointer'
+                : 'pointer',
           }}
         >
           {burning
@@ -303,78 +267,36 @@ export default function Path() {
             : '🔥 Burn Yourself for 0.5 TON'}
         </button>
 
-        {!burning && polling && (
-          <button onClick={openPayment} style={styles.secondary}>
+        {!burning && polling && urls.tonDeepLink && (
+          <button
+            onClick={() =>
+              openWithFallback(urls.tonDeepLink, urls.tonHubLink)
+            }
+            style={styles.secondary}
+          >
             Continue Payment
           </button>
         )}
 
-        <button
-          onClick={() => navigate('/profile')}
-          style={styles.secondary}
-        >
+        <button onClick={() => navigate('/profile')} style={styles.secondary}>
           Go to your personal account
         </button>
 
         {error && <p style={styles.error}>{error}</p>}
       </div>
     </div>
-  )
+  );
 }
 
 const styles = {
-  center: {
-    display: 'flex',
-    height: '100vh',
-    alignItems: 'center',
-    justifyContent: 'center',
-    color: '#fff',
-    fontSize: 18
-  },
-  container: {
-    position: 'relative',
-    height: '100vh',
-    backgroundImage: 'url("/bg-path.webp")',
-    backgroundSize: 'cover'
-  },
-  overlay: {
-    position: 'absolute',
-    inset: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)'
-  },
-  content: {
-    position: 'relative',
-    zIndex: 2,
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: '100%',
-    color: '#d4af37',
-    padding: '0 16px',
-    textAlign: 'center'
-  },
-  title: { fontSize: 28, marginBottom: 16 },
-  message: { fontSize: 16, color: '#7CFC00', marginBottom: 12 },
-  status: { fontSize: 16, marginBottom: 12 },
-  burnButton: {
-    padding: '10px 24px',
-    backgroundColor: '#d4af37',
-    border: 'none',
-    borderRadius: 6,
-    color: '#000',
-    fontSize: 16,
-    marginBottom: 12
-  },
-  secondary: {
-    padding: '10px 24px',
-    background: 'transparent',
-    border: '1px solid #d4af37',
-    borderRadius: 6,
-    color: '#d4af37',
-    fontSize: 14,
-    marginBottom: 12,
-    cursor: 'pointer'
-  },
-  error: { color: '#FF6347', fontSize: 14, marginTop: 12 }
-}
+  center:   { display:'flex',height:'100vh',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:18 },
+  container:{ position:'relative',height:'100vh',backgroundImage:'url("/bg-path.webp")',backgroundSize:'cover' },
+  overlay:  { position:'absolute',inset:0,backgroundColor:'rgba(0,0,0,0.5)' },
+  content:  { position:'relative',zIndex:2,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',color:'#d4af37',padding:'0 16px',textAlign:'center' },
+  title:    { fontSize:28,marginBottom:16 },
+  message:  { fontSize:16,color:'#7CFC00',marginBottom:12 },
+  status:   { fontSize:16,marginBottom:12 },
+  burnButton:{ padding:'10px 24px',backgroundColor:'#d4af37',border:'none',borderRadius:6,color:'#000',fontSize:16,marginBottom:12 },
+  secondary:{ padding:'10px 24px',background:'transparent',border:'1px solid #d4af37',borderRadius:6,color:'#d4af37',fontSize:14,marginBottom:12,cursor:'pointer' },
+  error:    { color:'#FF6347',fontSize:14,marginTop:12 }
+};
