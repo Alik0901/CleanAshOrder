@@ -111,55 +111,59 @@ export default function Path() {
    * Шаг 1: Создать инвойс
    */
   const handleBurn = async () => {
-    setBurning(true);
-    setError('');
-    const token = localStorage.getItem('token');
+    setBurning(true)
+    setError('')
+    const token = localStorage.getItem('token')
+
     try {
       const res = await fetch(`${BACKEND_URL}/api/burn-invoice`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ tg_id: tgId }),
-      });
-      // обновляем токен
-      const newAuth = res.headers.get('Authorization');
+        body: JSON.stringify({ tg_id: tgId })
+      })
+      const newAuth = res.headers.get('Authorization')
       if (newAuth?.startsWith('Bearer ')) {
-        localStorage.setItem('token', newAuth.split(' ')[1]);
+        localStorage.setItem('token', newAuth.split(' ')[1])
       }
-      const data = await res.json();
+      const data = await res.json()
       if (!res.ok) {
-        setError(data.error || '⚠️ Could not create invoice');
-        setBurning(false);
-        return;
+        setError(data.error || '⚠️ Could not create invoice')
+        setBurning(false)
+        return
       }
 
       // сохраняем оба deeplink’а
-      setInvoiceId(data.invoiceId);
-      setPaymentUrl(data.paymentUrl);
-      setTonspaceUrl(data.tonspaceUrl);
-      localStorage.setItem('invoiceId', data.invoiceId);
-      localStorage.setItem('paymentUrl', data.paymentUrl);
-      localStorage.setItem('tonspaceUrl', data.tonspaceUrl);
+      setInvoiceId(data.invoiceId)
+      setPaymentUrl(data.paymentUrl)
+      setTonspaceUrl(data.tonspaceUrl)
+      localStorage.setItem('invoiceId', data.invoiceId)
+      localStorage.setItem('paymentUrl', data.paymentUrl)
+      localStorage.setItem('tonspaceUrl', data.tonspaceUrl)
 
-      // сразу пробуем открыть встроенный кошелёк
-      try {
-        Telegram.WebApp.openLink(data.tonspaceUrl);
-      } catch {
-        // fallback: WebView
-        window.location.assign(data.tonspaceUrl);
-      }
+     // вот это нам не помогает, потому что openLink не поддерживает ton://
+     try {
+       Telegram.WebApp.openLink(data.tonspaceUrl)
+     } catch {
+       window.location.assign(data.tonspaceUrl)
+     }
 
-      // стартуем polling
-      setPolling(true);
-      pollingRef.current = setInterval(() => checkPaymentStatus(data.invoiceId), 5000);
 
+      window.location.href = data.tonspaceUrl
+
+      // и только потом запускаем polling
+      setPolling(true)
+      pollingRef.current = setInterval(
+        () => checkPaymentStatus(data.invoiceId),
+        5000
+      )
     } catch (e) {
-      setError(`⚠️ ${e.message}`);
-      setBurning(false);
+      setError(`⚠️ ${e.message}`)
+      setBurning(false)
     }
-  };
+  }
 
   /**
    * Шаг 2: Проверка статуса
