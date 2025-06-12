@@ -16,71 +16,108 @@ export default function Path() {
   const [curseExpires, setCurseExpires] = useState(null)
   const [cooldown, setCooldown]   = useState(0)
 
-  // оплата
-  const [loading, setLoading]     = useState(true)
-  const [burning, setBurning]     = useState(false)
-  const [invoiceId, setInvoiceId] = useState(null)
-  const [links, setLinks] = useState({
+  // платеж
+  const [loading, setLoading]       = useState(true)
+  const [burning, setBurning]       = useState(false)
+  const [invoiceId, setInvoiceId]   = useState(null)
+  const [paymentLinks, setPaymentLinks] = useState({
     tonDeepLink: '',
     tonSpaceLink: '',
     tonHubLink: ''
   })
-  const [polling, setPolling]     = useState(false)
-  const [error, setError]         = useState('')
+  const [polling, setPolling]       = useState(false)
+  const [error, setError]           = useState('')
   const [newFragment, setNewFragment] = useState(null)
+
   const pollingRef = useRef(null)
+  const COOLDOWN_SECONDS = 2 * 60
 
-  const COOLDOWN = 2 * 60
-
-  const computeCooldown = ts =>
-    ts
-      ? Math.max(0, COOLDOWN - Math.floor((Date.now() - new Date(ts).getTime())/1000))
+  // рассчитать кулдаун
+  const computeCooldown = last =>
+    last
+      ? Math.max(
+          0,
+          COOLDOWN_SECONDS -
+            Math.floor((Date.now() - new Date(last).getTime()) / 1000)
+        )
       : 0
 
   // тикер кулдауна
   useEffect(() => {
-    if (!cooldown) return
-    const id = setInterval(() => setCooldown(c => (c>1?c-1:0)), 1000)
+    if (cooldown <= 0) return
+    const id = setInterval(() => {
+      setCooldown(prev => (prev > 1 ? prev - 1 : 0))
+    }, 1000)
     return () => clearInterval(id)
   }, [cooldown])
 
-  // монтирование
+  // открыть платёж (deeplink → ton.space → tonhub)
+  const openPayment = () => {
+    const { tonDeepLink, tonSpaceLink, tonHubLink } = paymentLinks
+    // 1) пробуем deeplink
+    window.location.href = tonDeepLink
+    // 2) fallback на web-версию Ton Space
+    setTimeout(() => {
+      window.location.href = tonSpaceLink
+    }, 1500)
+    // 3) backup на TonHub
+    setTimeout(() => {
+      window.location.href = tonHubLink
+    }, 3000)
+  }
+
+  // монтирование: читаем initData, токен, профиль и восстанавливаем незавершённый платёж
   useEffect(() => {
-    const unsafe = window.Telegram?.WebApp?.initDataUnsafe||{}
+    const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {}
     const id = unsafe.user?.id
-    if (!id) return navigate('/init')
+    if (!id) {
+      navigate('/init')
+      return
+    }
     setTgId(String(id))
 
     const token = localStorage.getItem('token')
-    if (!token) return navigate('/init')
+    if (!token) {
+      navigate('/init')
+      return
+    }
 
-    // восстановить незавершённый платёж
-    const savedInv  = localStorage.getItem('invoiceId')
-    const savedLinks= localStorage.getItem('links')
-    if (savedInv && savedLinks) {
-      setInvoiceId(savedInv)
-      setLinks(JSON.parse(savedLinks))
+    // восстановим прошлый счёт, если он есть
+    const savedId    = localStorage.getItem('invoiceId')
+    const savedLinks = localStorage.getItem('paymentLinks')
+    if (savedId && savedLinks) {
+      setInvoiceId(savedId)
+      setPaymentLinks(JSON.parse(savedLinks))
       setPolling(true)
-      pollingRef.current = setInterval(()=>checkStatus(savedInv), 5000)
+      pollingRef.current = setInterval(
+        () => checkPaymentStatus(savedId),
+        5000
+      )
     }
 
     // загрузка профиля
-    const load = async () => {
+    const loadProfile = async () => {
       setLoading(true)
       setError('')
       try {
-        const res = await fetch(`${BACKEND_URL}/api/player/${id}`)
+        const res = await fetch(`${BACKEND_URL}/api/player/${id}`, {
+          headers: { 'Content-Type': 'application/json' }
+        })
         if (!res.ok) throw new Error()
-        const p = await res.json()
-        setFragments(p.fragments||[])
-        setLastBurn(p.last_burn)
-        if (p.curse_expires && new Date(p.curse_expires)>new Date()) {
+        const data = await res.json()
+        setFragments(data.fragments || [])
+        setLastBurn(data.last_burn)
+
+        if (
+          data.curse_expires &&
+          new Date(data.curse_expires) > new Date()
+        ) {
           setIsCursed(true)
-          setCurseExpires(p.curse_expires)
+          setCurseExpires(data.curse_expires)
         } else {
           setIsCursed(false)
           setCurseExpires(null)
-          setCooldown(computeCooldown(p.last_burn))
+          setCooldown(computeCooldown(data.last_burn))
         }
       } catch {
         navigate('/init')
@@ -89,85 +126,96 @@ export default function Path() {
       }
     }
 
-    load()
-    window.addEventListener('focus', load)
-    return ()=>window.removeEventListener('focus', load)
+    loadProfile()
+    window.addEventListener('focus', loadProfile)
+    return () => window.removeEventListener('focus', loadProfile)
   }, [navigate])
 
-  // шаг 1: create invoice
+  // Шаг 1: создать инвойс
   const handleBurn = async () => {
     setBurning(true)
     setError('')
+    const token = localStorage.getItem('token')
+
     try {
       const res = await fetch(`${BACKEND_URL}/api/burn-invoice`, {
-        method:'POST',
-        headers:{
-          'Content-Type':'application/json',
-          'Authorization':`Bearer ${localStorage.getItem('token')}`
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
         },
-        body:JSON.stringify({ tg_id: tgId })
+        body: JSON.stringify({ tg_id: tgId })
       })
       const auth = res.headers.get('Authorization')
       if (auth?.startsWith('Bearer ')) {
         localStorage.setItem('token', auth.split(' ')[1])
       }
+
       const data = await res.json()
       if (!res.ok) {
-        setError(data.error)
+        setError(data.error || '⚠️ Could not create invoice')
         setBurning(false)
         return
       }
 
-      // сохраним и сразу откроем TonSpace → TonHub
+      // Сохраняем invoice и ссылки
       setInvoiceId(data.invoiceId)
-      setLinks(data.links)
+      setPaymentLinks(data.links)
       localStorage.setItem('invoiceId', data.invoiceId)
-      localStorage.setItem('links', JSON.stringify(data.links))
+      localStorage.setItem('paymentLinks', JSON.stringify(data.links))
 
-      // 1⃣ TonSpace
-      window.location.href = data.links.tonSpaceLink
-      // 2⃣ fallback на TonHub
-      setTimeout(()=>{ window.location.href = data.links.tonHubLink }, 1500)
+      // Сразу открываем платёж
+      openPayment()
 
-      // старт polling
+      // Стартуем polling
       setPolling(true)
-      pollingRef.current = setInterval(()=>checkStatus(data.invoiceId), 5000)
+      pollingRef.current = setInterval(
+        () => checkPaymentStatus(data.invoiceId),
+        5000
+      )
     } catch (e) {
-      setError(e.message)
+      setError(`⚠️ ${e.message}`)
       setBurning(false)
     }
   }
 
-  // шаг 2: check status
-  const checkStatus = async inv => {
+  // Шаг 2: проверка статуса
+  const checkPaymentStatus = async id => {
+    const token = localStorage.getItem('token')
     try {
-      const res = await fetch(`${BACKEND_URL}/api/burn-status/${inv}`, {
-        headers:{
-          'Content-Type':'application/json',
-          'Authorization':`Bearer ${localStorage.getItem('token')}`
+      const res = await fetch(`${BACKEND_URL}/api/burn-status/${id}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
         }
       })
       const auth = res.headers.get('Authorization')
       if (auth?.startsWith('Bearer ')) {
         localStorage.setItem('token', auth.split(' ')[1])
       }
+
       const data = await res.json()
       if (!res.ok) {
         clearInterval(pollingRef.current)
         setPolling(false)
         setBurning(false)
-        setError(data.error)
+        setError(data.error || '⚠️ Error checking payment')
         return
       }
+
       if (data.paid) {
         clearInterval(pollingRef.current)
         setPolling(false)
         setBurning(false)
         localStorage.removeItem('invoiceId')
-        localStorage.removeItem('links')
+        localStorage.removeItem('paymentLinks')
 
         if (data.cursed) {
-          setError(`⚠️ You are cursed until ${new Date(data.curse_expires).toLocaleString()}`)
+          setError(
+            `⚠️ You are cursed until ${new Date(
+              data.curse_expires
+            ).toLocaleString()}`
+          )
           setIsCursed(true)
           setCurseExpires(data.curse_expires)
         } else {
@@ -180,51 +228,70 @@ export default function Path() {
         }
       }
     } catch (e) {
+      setError(`⚠️ ${e.message}`)
       clearInterval(pollingRef.current)
-      setError(e.message)
       setPolling(false)
       setBurning(false)
     }
   }
 
-  if (loading) return <div style={styles.center}>Loading...</div>
+  if (loading) {
+    return <div style={styles.center}>Loading...</div>
+  }
 
-  const fmt = s=>{ const m=String(Math.floor(s/60)).padStart(2,'0');const ss=String(s%60).padStart(2,'0');return `${m}:${ss}` }
+  const formatTime = sec => {
+    const m = String(Math.floor(sec / 60)).padStart(2, '0')
+    const s = String(sec % 60).padStart(2, '0')
+    return `${m}:${s}`
+  }
 
   return (
     <div style={styles.container}>
-      <div style={styles.overlay}/>
+      <div style={styles.overlay} />
       <div style={styles.content}>
         <h2 style={styles.title}>The Path Begins</h2>
 
-        {newFragment && <p style={styles.message}>🔥 You received fragment #{newFragment}!</p>}
+        {newFragment && (
+          <p style={styles.message}>
+            🔥 You received fragment #{newFragment}!
+          </p>
+        )}
 
-        {isCursed
-          ? <p style={styles.status}>⚠️ You are cursed until {new Date(curseExpires).toLocaleString()}</p>
-          : cooldown>0
-            ? <p style={styles.status}>⏳ Next burn in {fmt(cooldown)}</p>
-            : <p style={styles.status}>Ready to burn yourself.</p>
-        }
+        {isCursed ? (
+          <p style={styles.status}>
+            ⚠️ You are cursed until{' '}
+            {new Date(curseExpires).toLocaleString()}
+          </p>
+        ) : cooldown > 0 ? (
+          <p style={styles.status}>
+            ⏳ Next burn in {formatTime(cooldown)}
+          </p>
+        ) : (
+          <p style={styles.status}>Ready to burn yourself.</p>
+        )}
 
         <button
           onClick={handleBurn}
           disabled={
-            burning||polling||
-            (isCursed&&new Date(curseExpires)>new Date())||
-            cooldown>0
+            burning ||
+            polling ||
+            (isCursed && new Date(curseExpires) > new Date()) ||
+            cooldown > 0
           }
           style={{
             ...styles.burnButton,
             opacity:
-              burning||polling||
-              (isCursed&&new Date(curseExpires)>new Date())||
-              cooldown>0
+              burning ||
+              polling ||
+              (isCursed && new Date(curseExpires) > new Date()) ||
+              cooldown > 0
                 ? 0.6
                 : 1,
             cursor:
-              burning||polling||
-              (isCursed&&new Date(curseExpires)>new Date())||
-              cooldown>0
+              burning ||
+              polling ||
+              (isCursed && new Date(curseExpires) > new Date()) ||
+              cooldown > 0
                 ? 'not-allowed'
                 : 'pointer'
           }}
@@ -232,23 +299,20 @@ export default function Path() {
           {burning
             ? 'Creating invoice…'
             : polling
-              ? 'Waiting for payment…'
-              : '🔥 Burn Yourself for 0.5 TON'}
+            ? 'Waiting for payment…'
+            : '🔥 Burn Yourself for 0.5 TON'}
         </button>
 
         {!burning && polling && (
-          <button
-            onClick={()=>{
-              window.location.href = links.tonSpaceLink
-              setTimeout(()=>window.location.href = links.tonHubLink,1500)
-            }}
-            style={styles.secondary}
-          >
+          <button onClick={openPayment} style={styles.secondary}>
             Continue Payment
           </button>
         )}
 
-        <button onClick={()=>navigate('/profile')} style={styles.secondary}>
+        <button
+          onClick={() => navigate('/profile')}
+          style={styles.secondary}
+        >
           Go to your personal account
         </button>
 
@@ -259,14 +323,58 @@ export default function Path() {
 }
 
 const styles = {
-  center:   {display:'flex',height:'100vh',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:18},
-  container:{position:'relative',height:'100vh',backgroundImage:'url("/bg-path.webp")',backgroundSize:'cover'},
-  overlay:  {position:'absolute',inset:0,backgroundColor:'rgba(0,0,0,0.5)'},
-  content:  {position:'relative',zIndex:2,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',color:'#d4af37',padding:'0 16px',textAlign:'center'},
-  title:    {fontSize:28,marginBottom:16},
-  message:  {fontSize:16,color:'#7CFC00',marginBottom:12},
-  status:   {fontSize:16,marginBottom:12},
-  burnButton:{padding:'10px 24px',backgroundColor:'#d4af37',border:'none',borderRadius:6,color:'#000',fontSize:16,marginBottom:12},
-  secondary:{padding:'10px 24px',background:'transparent',border:'1px solid #d4af37',borderRadius:6,color:'#d4af37',fontSize:14,marginBottom:12,cursor:'pointer'},
-  error:    {color:'#FF6347',fontSize:14,marginTop:12}
+  center: {
+    display: 'flex',
+    height: '100vh',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: '#fff',
+    fontSize: 18
+  },
+  container: {
+    position: 'relative',
+    height: '100vh',
+    backgroundImage: 'url("/bg-path.webp")',
+    backgroundSize: 'cover'
+  },
+  overlay: {
+    position: 'absolute',
+    inset: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)'
+  },
+  content: {
+    position: 'relative',
+    zIndex: 2,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: '100%',
+    color: '#d4af37',
+    padding: '0 16px',
+    textAlign: 'center'
+  },
+  title: { fontSize: 28, marginBottom: 16 },
+  message: { fontSize: 16, color: '#7CFC00', marginBottom: 12 },
+  status: { fontSize: 16, marginBottom: 12 },
+  burnButton: {
+    padding: '10px 24px',
+    backgroundColor: '#d4af37',
+    border: 'none',
+    borderRadius: 6,
+    color: '#000',
+    fontSize: 16,
+    marginBottom: 12
+  },
+  secondary: {
+    padding: '10px 24px',
+    background: 'transparent',
+    border: '1px solid #d4af37',
+    borderRadius: 6,
+    color: '#d4af37',
+    fontSize: 14,
+    marginBottom: 12,
+    cursor: 'pointer'
+  },
+  error: { color: '#FF6347', fontSize: 14, marginTop: 12 }
 }
