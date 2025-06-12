@@ -22,6 +22,7 @@ export default function Path() {
   const [burning, setBurning]     = useState(false);
   const [invoiceId, setInvoiceId] = useState(null);
   const [paymentUrl, setPaymentUrl] = useState('');
+  const [tonDeepLink, setTonDeepLink] = useState('');
   const [polling, setPolling]     = useState(false);
   const [error, setError]         = useState('');
   const [newFragment, setNewFragment] = useState(null);
@@ -32,9 +33,10 @@ export default function Path() {
   // рассчитываем оставшийся кулдаун
   const computeCooldown = last =>
     last
-      ? Math.max(0,
+      ? Math.max(
+          0,
           COOLDOWN_SECONDS -
-          Math.floor((Date.now() - new Date(last).getTime()) / 1000)
+            Math.floor((Date.now() - new Date(last).getTime()) / 1000)
         )
       : 0;
 
@@ -47,51 +49,44 @@ export default function Path() {
     return () => clearInterval(id);
   }, [cooldown]);
 
-  // монтирование: читаем initData, токен, профиль, восстанавливаем незавершённый платёж
+  // монтирование
   useEffect(() => {
     const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {};
     const id = unsafe.user?.id;
-    if (!id) {
-      navigate('/init');
-      return;
-    }
+    if (!id) return navigate('/init');
     setTgId(String(id));
 
     const token = localStorage.getItem('token');
-    if (!token) {
-      navigate('/init');
-      return;
-    }
+    if (!token) return navigate('/init');
 
-    // если был незавершённый платёж — восстанавливаем polling
+    // восстановим незавершённый платёж
     const savedId  = localStorage.getItem('invoiceId');
     const savedUrl = localStorage.getItem('paymentUrl');
-    if (savedId && savedUrl) {
+    const savedDeep = localStorage.getItem('tonDeepLink');
+    if (savedId && savedUrl && savedDeep) {
       setInvoiceId(savedId);
       setPaymentUrl(savedUrl);
+      setTonDeepLink(savedDeep);
       setPolling(true);
       pollingRef.current = setInterval(() => checkPaymentStatus(savedId), 5000);
     }
 
     // загрузка профиля
-    const loadProfile = async () => {
+    (async function loadProfile() {
       setLoading(true);
       setError('');
       try {
         const res = await fetch(`${BACKEND_URL}/api/player/${id}`, {
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,         // <-- добавили токен
+            'Authorization': `Bearer ${token}`,    // <–– передаём токен
           },
         });
-        // если сервер вернул обновлённый токен — сохраняем
         const newAuth = res.headers.get('Authorization');
         if (newAuth?.startsWith('Bearer ')) {
           localStorage.setItem('token', newAuth.split(' ')[1]);
         }
-
         if (!res.ok) throw new Error();
-
         const data = await res.json();
         setFragments(data.fragments || []);
         setLastBurn(data.last_burn);
@@ -109,14 +104,13 @@ export default function Path() {
       } finally {
         setLoading(false);
       }
-    };
+    })();
 
-    loadProfile();
-    window.addEventListener('focus', loadProfile);
-    return () => window.removeEventListener('focus', loadProfile);
+    window.addEventListener('focus', () => loadProfile());
+    return () => window.removeEventListener('focus', () => loadProfile());
   }, [navigate]);
 
-  // создаём инвойс
+  // Шаг 1: создаём инвойс
   const handleBurn = async () => {
     setBurning(true);
     setError('');
@@ -144,20 +138,35 @@ export default function Path() {
         return;
       }
 
-      // сохраняем и открываем кошелёк
+      // разбираем ответ
+      // data.paymentUrl — это https://tonhub.com/transfer/...
+      // а deep-link в TonSpace будет вида ton://transfer/...
       setInvoiceId(data.invoiceId);
       setPaymentUrl(data.paymentUrl);
+
+      // строим тон Deep-Link из того же адреса/комментария
+      // (если ваш бэк отдаёт в JSON поля address/amountNano/comment — используйте их,
+      //  здесь мы просто берём paymentUrl и меняем его протокол)
+      const deep = data.paymentUrl.replace(/^https?:\/\//, 'ton://');
+      setTonDeepLink(deep);
+
       localStorage.setItem('invoiceId', data.invoiceId);
       localStorage.setItem('paymentUrl', data.paymentUrl);
+      localStorage.setItem('tonDeepLink', deep);
 
-      // попытаемся через Telegram WebApp открыть встроенный кошелёк:
+      // сначала пробуем Deep-Link в TonSpace
       if (window.Telegram?.WebApp?.openLink) {
-        window.Telegram.WebApp.openLink(data.paymentUrl);
-      } else {
-        window.location.href = data.paymentUrl;
+        window.Telegram.WebApp.openLink(deep);
       }
 
-      // стартуем polling
+      // через 1 сек — автоматом открываем запасной вариант TonHub
+      setTimeout(() => {
+        window.Telegram?.WebApp?.openLink
+          ? window.Telegram.WebApp.openLink(data.paymentUrl)
+          : (window.location.href = data.paymentUrl);
+      }, 1000);
+
+      // запускаем polling
       setPolling(true);
       pollingRef.current = setInterval(() => checkPaymentStatus(data.invoiceId), 5000);
     } catch (e) {
@@ -166,7 +175,7 @@ export default function Path() {
     }
   };
 
-  // проверяем статус платежа
+  // Шаг 2: проверяем статус платежа
   const checkPaymentStatus = async id => {
     const token = localStorage.getItem('token');
     try {
@@ -176,7 +185,6 @@ export default function Path() {
           'Authorization': `Bearer ${token}`,
         },
       });
-
       const newAuth = res.headers.get('Authorization');
       if (newAuth?.startsWith('Bearer ')) {
         localStorage.setItem('token', newAuth.split(' ')[1]);
@@ -197,6 +205,7 @@ export default function Path() {
         setBurning(false);
         localStorage.removeItem('invoiceId');
         localStorage.removeItem('paymentUrl');
+        localStorage.removeItem('tonDeepLink');
 
         if (data.cursed) {
           setError(`⚠️ You are cursed until ${new Date(data.curse_expires).toLocaleString()}`);
@@ -220,7 +229,7 @@ export default function Path() {
   };
 
   if (loading) {
-    return <div style={styles.center}>Loading...</div>;
+    return <div style={styles.center}>Loading…</div>;
   }
 
   const formatTime = sec => {
@@ -235,10 +244,14 @@ export default function Path() {
       <div style={styles.content}>
         <h2 style={styles.title}>The Path Begins</h2>
 
-        {newFragment && <p style={styles.message}>🔥 You received fragment #{newFragment}!</p>}
+        {newFragment && (
+          <p style={styles.message}>🔥 You received fragment #{newFragment}!</p>
+        )}
 
         {isCursed ? (
-          <p style={styles.status}>⚠️ You are cursed until {new Date(curseExpires).toLocaleString()}</p>
+          <p style={styles.status}>
+            ⚠️ You are cursed until {new Date(curseExpires).toLocaleString()}
+          </p>
         ) : cooldown > 0 ? (
           <p style={styles.status}>⏳ Next burn in {formatTime(cooldown)}</p>
         ) : (
@@ -247,19 +260,48 @@ export default function Path() {
 
         <button
           onClick={handleBurn}
-          disabled={burning || polling || (isCursed && new Date(curseExpires) > new Date()) || cooldown > 0}
+          disabled={
+            burning ||
+            polling ||
+            (isCursed && new Date(curseExpires) > new Date()) ||
+            cooldown > 0
+          }
           style={{
             ...styles.burnButton,
-            opacity: burning || polling || (isCursed && new Date(curseExpires) > new Date()) || cooldown > 0 ? 0.6 : 1,
-            cursor: burning || polling || (isCursed && new Date(curseExpires) > new Date()) || cooldown > 0 ? 'not-allowed' : 'pointer',
+            opacity:
+              burning ||
+              polling ||
+              (isCursed && new Date(curseExpires) > new Date()) ||
+              cooldown > 0
+                ? 0.6
+                : 1,
+            cursor:
+              burning ||
+              polling ||
+              (isCursed && new Date(curseExpires) > new Date()) ||
+              cooldown > 0
+                ? 'not-allowed'
+                : 'pointer',
           }}
         >
-          {burning ? 'Creating invoice…' : polling ? 'Waiting for payment…' : '🔥 Burn Yourself for 0.5 TON'}
+          {burning
+            ? 'Creating invoice…'
+            : polling
+            ? 'Waiting for payment…'
+            : '🔥 Burn Yourself for 0.5 TON'}
         </button>
 
         {!burning && polling && paymentUrl && (
-          <button onClick={() => window.Telegram?.WebApp?.openLink ? window.Telegram.WebApp.openLink(paymentUrl) : window.location.href = paymentUrl}
-                  style={styles.secondary}
+          <button
+            onClick={() => {
+              // если вдруг Deep-Link не сработал — открыть запасной вариант
+              if (tonDeepLink && window.Telegram?.WebApp?.openLink) {
+                window.Telegram.WebApp.openLink(tonDeepLink);
+              } else {
+                window.location.href = paymentUrl;
+              }
+            }}
+            style={styles.secondary}
           >
             Continue Payment
           </button>
