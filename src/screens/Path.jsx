@@ -16,11 +16,11 @@ export default function Path() {
   const [curseExpires, setCurseExpires] = useState(null);
   const [cooldown, setCooldown]   = useState(0);
 
-  // платёж
+  // платеж
   const [loading, setLoading]     = useState(true);
   const [burning, setBurning]     = useState(false);
   const [invoiceId, setInvoiceId] = useState(null);
-  const [urls, setUrls]           = useState({ tonDeepLink: '', tonHubLink: '' });
+  const [tonInvoice, setTonInvoice] = useState(null);
   const [polling, setPolling]     = useState(false);
   const [error, setError]         = useState('');
   const [newFragment, setNewFragment] = useState(null);
@@ -43,7 +43,21 @@ export default function Path() {
     return () => clearInterval(id);
   }, [cooldown]);
 
-  // монтирование
+  // попытка открыть ссылку либо через WebApp.openLink, либо через window.open
+  const openAnyLink = url => {
+    try {
+      if (window.Telegram?.WebApp?.openLink) {
+        window.Telegram.WebApp.openLink(url);
+      } else {
+        window.open(url, '_blank');
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  // восстановление и загрузка профиля
   useEffect(() => {
     const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {};
     const id = unsafe.user?.id;
@@ -59,26 +73,28 @@ export default function Path() {
       return;
     }
 
-    // восстановить незавершённый платёж
-    const savedId   = localStorage.getItem('invoiceId');
-    const savedUrls = JSON.parse(localStorage.getItem('paymentUrls') || '{}');
-    if (savedId && savedUrls.tonDeepLink) {
+    // если есть незавершённый счёт — восстанавливаем
+    const savedId  = localStorage.getItem('invoiceId');
+    const savedInv = JSON.parse(localStorage.getItem('tonInvoice') || 'null');
+    if (savedId && savedInv) {
       setInvoiceId(savedId);
-      setUrls(savedUrls);
+      setTonInvoice(savedInv);
       setPolling(true);
       pollingRef.current = setInterval(() => checkPaymentStatus(savedId), 5000);
     }
 
-    // загрузить профиль
-    (async () => {
+    const loadProfile = async () => {
       setLoading(true);
       setError('');
       try {
-        const res = await fetch(`${BACKEND_URL}/api/player/${id}`);
+        const res = await fetch(`${BACKEND_URL}/api/player/${id}`, {
+          headers: { 'Content-Type': 'application/json' }
+        });
         if (!res.ok) throw new Error();
         const data = await res.json();
         setFragments(data.fragments || []);
         setLastBurn(data.last_burn);
+
         if (data.curse_expires && new Date(data.curse_expires) > new Date()) {
           setIsCursed(true);
           setCurseExpires(data.curse_expires);
@@ -92,25 +108,14 @@ export default function Path() {
       } finally {
         setLoading(false);
       }
-    })();
+    };
+
+    loadProfile();
+    window.addEventListener('focus', loadProfile);
+    return () => window.removeEventListener('focus', loadProfile);
   }, [navigate]);
 
-  // открытие ссылки: сначала in-app, потом Tonhub
-  const openWithFallback = (deep, hub) => {
-    if (window.Telegram?.WebApp?.openLink) {
-      window.Telegram.WebApp.openLink(deep);
-      setTimeout(() => {
-        window.Telegram.WebApp.openLink(hub);
-      }, 1500);
-    } else {
-      window.location.href = deep;
-      setTimeout(() => {
-        window.location.href = hub;
-      }, 1500);
-    }
-  };
-
-  // Шаг 1: создать инвойс
+  // Шаг 1: создаём invoice на бэке и пытаемся открыть кошелёк
   const handleBurn = async () => {
     setBurning(true);
     setError('');
@@ -137,13 +142,30 @@ export default function Path() {
         return;
       }
 
+      // сохраняем invoice и данные для deeplink’ов
       setInvoiceId(data.invoiceId);
-      setUrls(data.paymentUrls);
+      setTonInvoice(data.tonInvoice);
       localStorage.setItem('invoiceId', data.invoiceId);
-      localStorage.setItem('paymentUrls', JSON.stringify(data.paymentUrls));
+      localStorage.setItem('tonInvoice', JSON.stringify(data.tonInvoice));
 
-      openWithFallback(data.paymentUrls.tonDeepLink, data.paymentUrls.tonHubLink);
+      // соберём список URL-ов: сначала Telegram-кошелёк, потом ton://, потом Tonhub
+      const { address, amountNano, comment } = data.tonInvoice;
+      const amountTon = (amountNano / 1e9).toString();
+      const links = [
+        // встроенный бот-кошелёк @wallet
+        `https://t.me/wallet?start=transfer/${address}/${amountTon}/${encodeURIComponent(comment)}`,
+        // стандартный deeplink
+        `ton://transfer/${address}?amount=${amountTon}&text=${encodeURIComponent(comment)}`,
+        // fallback на Tonhub
+        `https://tonhub.com/transfer/${address}?amount=${amountTon}&text=${encodeURIComponent(comment)}`
+      ];
 
+      // пробуем по порядку
+      for (const l of links) {
+        if (openAnyLink(l)) break;
+      }
+
+      // стартуем polling
       setPolling(true);
       pollingRef.current = setInterval(() => checkPaymentStatus(data.invoiceId), 5000);
     } catch (e) {
@@ -152,7 +174,7 @@ export default function Path() {
     }
   };
 
-  // Шаг 2: проверка статуса
+  // Шаг 2: проверяем статус
   const checkPaymentStatus = async id => {
     const token = localStorage.getItem('token');
     try {
@@ -181,7 +203,7 @@ export default function Path() {
         setPolling(false);
         setBurning(false);
         localStorage.removeItem('invoiceId');
-        localStorage.removeItem('paymentUrls');
+        localStorage.removeItem('tonInvoice');
 
         if (data.cursed) {
           setError(`⚠️ You are cursed until ${new Date(data.curse_expires).toLocaleString()}`);
@@ -220,9 +242,7 @@ export default function Path() {
       <div style={styles.content}>
         <h2 style={styles.title}>The Path Begins</h2>
 
-        {newFragment && (
-          <p style={styles.message}>🔥 You received fragment #{newFragment}!</p>
-        )}
+        {newFragment && <p style={styles.message}>🔥 You received fragment #{newFragment}!</p>}
 
         {isCursed ? (
           <p style={styles.status}>
@@ -267,11 +287,21 @@ export default function Path() {
             : '🔥 Burn Yourself for 0.5 TON'}
         </button>
 
-        {!burning && polling && urls.tonDeepLink && (
+        {!burning && polling && tonInvoice && (
           <button
-            onClick={() =>
-              openWithFallback(urls.tonDeepLink, urls.tonHubLink)
-            }
+            onClick={() => {
+              // повторная попытка открыть тот же набор ссылок
+              const { address, amountNano, comment } = tonInvoice;
+              const amountTon = (amountNano / 1e9).toString();
+              const links = [
+                `https://t.me/wallet?start=transfer/${address}/${amountTon}/${encodeURIComponent(comment)}`,
+                `ton://transfer/${address}?amount=${amountTon}&text=${encodeURIComponent(comment)}`,
+                `https://tonhub.com/transfer/${address}?amount=${amountTon}&text=${encodeURIComponent(comment)}`
+              ];
+              for (const l of links) {
+                if (openAnyLink(l)) break;
+              }
+            }}
             style={styles.secondary}
           >
             Continue Payment
@@ -296,7 +326,24 @@ const styles = {
   title:    { fontSize:28,marginBottom:16 },
   message:  { fontSize:16,color:'#7CFC00',marginBottom:12 },
   status:   { fontSize:16,marginBottom:12 },
-  burnButton:{ padding:'10px 24px',backgroundColor:'#d4af37',border:'none',borderRadius:6,color:'#000',fontSize:16,marginBottom:12 },
-  secondary:{ padding:'10px 24px',background:'transparent',border:'1px solid #d4af37',borderRadius:6,color:'#d4af37',fontSize:14,marginBottom:12,cursor:'pointer' },
+  burnButton:{
+    padding:'10px 24px',
+    backgroundColor:'#d4af37',
+    border:'none',
+    borderRadius:6,
+    color:'#000',
+    fontSize:16,
+    marginBottom:12
+  },
+  secondary:{
+    padding:'10px 24px',
+    background:'transparent',
+    border:'1px solid #d4af37',
+    borderRadius:6,
+    color:'#d4af37',
+    fontSize:14,
+    marginBottom:12,
+    cursor:'pointer'
+  },
   error:    { color:'#FF6347',fontSize:14,marginTop:12 }
 };
