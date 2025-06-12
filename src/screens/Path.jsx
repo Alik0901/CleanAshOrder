@@ -8,8 +8,6 @@ const BACKEND_URL =
 
 export default function Path() {
   const navigate = useNavigate()
-
-  // профиль
   const [tgId, setTgId] = useState('')
   const [fragments, setFragments] = useState([])
   const [lastBurn, setLastBurn] = useState(null)
@@ -17,25 +15,24 @@ export default function Path() {
   const [curseExpires, setCurseExpires] = useState(null)
   const [cooldown, setCooldown] = useState(0)
 
-  // платёж
   const [loading, setLoading] = useState(true)
   const [burning, setBurning] = useState(false)
   const [invoiceId, setInvoiceId] = useState(null)
-  const [tonDeepLink, setTonDeepLink] = useState('')
+  const [deepLink, setDeepLink] = useState('')
   const [hubLink, setHubLink] = useState('')
   const [polling, setPolling] = useState(false)
   const [error, setError] = useState('')
   const [newFragment, setNewFragment] = useState(null)
 
   const pollingRef = useRef(null)
-  const COOLDOWN_SECONDS = 2 * 60
+  const COOLDOWN = 2 * 60
 
-  // рассчитать кулдаун
-  const computeCooldown = last =>
+  // вычисляем остаток кулдауна
+  const computeCD = last =>
     last
       ? Math.max(
           0,
-          COOLDOWN_SECONDS -
+          COOLDOWN -
             Math.floor((Date.now() - new Date(last).getTime()) / 1000)
         )
       : 0
@@ -49,80 +46,66 @@ export default function Path() {
     return () => clearInterval(id)
   }, [cooldown])
 
-  // mount: получаем initData, токен, профиль и восстанавливаем незавершённый платёж
+  // mount: читаем initData, токен, профиль и незавершённый счёт
   useEffect(() => {
-    const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {}
-    const id = unsafe.user?.id
-    if (!id) {
-      navigate('/init')
-      return
-    }
+    const initData = window.Telegram?.WebApp?.initDataUnsafe || {}
+    const id = initData.user?.id
+    if (!id) return navigate('/init')
     setTgId(String(id))
 
-    const token = localStorage.getItem('token')
-    if (!token) {
-      navigate('/init')
-      return
-    }
+    if (!localStorage.getItem('token')) return navigate('/init')
 
-    // восстановление незавершённого счёта
-    const savedInv = localStorage.getItem('invoiceId')
-    const savedHub = localStorage.getItem('hubLink')
-    const savedDeep = localStorage.getItem('tonDeepLink')
-    if (savedInv && savedHub && savedDeep) {
-      setInvoiceId(savedInv)
-      setHubLink(savedHub)
-      setTonDeepLink(savedDeep)
+    // восстанавливаем старый
+    const oldInv = localStorage.getItem('invoiceId')
+    const oldDeep = localStorage.getItem('deepLink')
+    const oldHub = localStorage.getItem('hubLink')
+    if (oldInv && oldDeep && oldHub) {
+      setInvoiceId(oldInv)
+      setDeepLink(oldDeep)
+      setHubLink(oldHub)
       setPolling(true)
-      pollingRef.current = setInterval(
-        () => checkPaymentStatus(savedInv),
-        5000
-      )
+      pollingRef.current = setInterval(() => checkStatus(oldInv), 5000)
     }
 
-    // загрузка профиля
-    async function loadProfile() {
-      setLoading(true)
-      setError('')
-      try {
-        const res = await fetch(`${BACKEND_URL}/api/player/${id}`, {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${localStorage.getItem('token')}`
-          }
-        })
-        const newAuth = res.headers.get('Authorization')
-        if (newAuth?.startsWith('Bearer ')) {
-          localStorage.setItem('token', newAuth.split(' ')[1])
-        }
-        if (!res.ok) throw new Error()
-        const data = await res.json()
-        setFragments(data.fragments || [])
-        setLastBurn(data.last_burn)
-        if (
-          data.curse_expires &&
-          new Date(data.curse_expires) > new Date()
-        ) {
-          setIsCursed(true)
-          setCurseExpires(data.curse_expires)
-        } else {
-          setIsCursed(false)
-          setCurseExpires(null)
-          setCooldown(computeCooldown(data.last_burn))
-        }
-      } catch {
-        navigate('/init')
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    loadProfile()
-    window.addEventListener('focus', loadProfile)
-    return () => window.removeEventListener('focus', loadProfile)
+    // загружаем профиль
+    loadProfile(id)
+    window.addEventListener('focus', () => loadProfile(id))
+    return () => window.removeEventListener('focus', () => loadProfile(id))
   }, [navigate])
 
-  // Шаг 1: создать инвойс
+  // загрузка профиля
+  async function loadProfile(id) {
+    setLoading(true)
+    setError('')
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/player/${id}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      })
+      const na = res.headers.get('Authorization')
+      if (na?.startsWith('Bearer ')) localStorage.setItem('token', na.split(' ')[1])
+      if (!res.ok) throw new Error()
+      const u = await res.json()
+      setFragments(u.fragments || [])
+      setLastBurn(u.last_burn)
+      if (u.curse_expires && new Date(u.curse_expires) > new Date()) {
+        setIsCursed(true)
+        setCurseExpires(u.curse_expires)
+      } else {
+        setIsCursed(false)
+        setCurseExpires(null)
+        setCooldown(computeCD(u.last_burn))
+      }
+    } catch {
+      navigate('/init')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // создать инвойс
   const handleBurn = async () => {
     setBurning(true)
     setError('')
@@ -135,10 +118,8 @@ export default function Path() {
         },
         body: JSON.stringify({ tg_id: tgId })
       })
-      const newAuth = res.headers.get('Authorization')
-      if (newAuth?.startsWith('Bearer ')) {
-        localStorage.setItem('token', newAuth.split(' ')[1])
-      }
+      const na = res.headers.get('Authorization')
+      if (na?.startsWith('Bearer ')) localStorage.setItem('token', na.split(' ')[1])
       const data = await res.json()
       if (!res.ok) {
         setError(data.error || '⚠️ Could not create invoice')
@@ -146,36 +127,37 @@ export default function Path() {
         return
       }
 
-      // вытащить Tonspace-deep-link и Tonhub-fallback
+      // хаб-линк идёт от бэка (tonhub.com/…?amount=0.5…)
       const hub = data.paymentUrl
+
+      // строим deep для TON-клиента внутри Telegram
+      // у tonhub это https://tonhub.com/transfer/<addr>?amount=0.5&text=…
+      // у deep — просто протокол и та же часть после host
       const u = new URL(hub)
       const deep = `ton://${u.pathname.slice(1)}${u.search}`
 
-      // сохранить
+      // сохраняем
       setInvoiceId(data.invoiceId)
+      setDeepLink(deep)
       setHubLink(hub)
-      setTonDeepLink(deep)
       localStorage.setItem('invoiceId', data.invoiceId)
+      localStorage.setItem('deepLink', deep)
       localStorage.setItem('hubLink', hub)
-      localStorage.setItem('tonDeepLink', deep)
 
-      // **важно** сразу сбросить burning
+      // сбросим burning, чтобы появилась кнопка Continue…
       setBurning(false)
 
-      // Шаг 2: запускаем polling
+      // стартуем polling
       setPolling(true)
-      pollingRef.current = setInterval(
-        () => checkPaymentStatus(data.invoiceId),
-        5000
-      )
+      pollingRef.current = setInterval(() => checkStatus(data.invoiceId), 5000)
     } catch (e) {
       setError(`⚠️ ${e.message}`)
       setBurning(false)
     }
   }
 
-  // Шаг 2: проверка статуса
-  const checkPaymentStatus = async id => {
+  // проверка статуса
+  const checkStatus = async id => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/burn-status/${id}`, {
         headers: {
@@ -183,37 +165,28 @@ export default function Path() {
           Authorization: `Bearer ${localStorage.getItem('token')}`
         }
       })
-      const newAuth = res.headers.get('Authorization')
-      if (newAuth?.startsWith('Bearer ')) {
-        localStorage.setItem('token', newAuth.split(' ')[1])
-      }
-      const data = await res.json()
-      if (!res.ok) {
-        clearInterval(pollingRef.current)
-        setPolling(false)
-        setBurning(false)
-        setError(data.error || '⚠️ Error checking payment')
-        return
-      }
-      if (data.paid) {
+      const na = res.headers.get('Authorization')
+      if (na?.startsWith('Bearer ')) localStorage.setItem('token', na.split(' ')[1])
+      const d = await res.json()
+      if (!res.ok) throw new Error(d.error || 'status error')
+      if (d.paid) {
         clearInterval(pollingRef.current)
         setPolling(false)
         setBurning(false)
         localStorage.removeItem('invoiceId')
+        localStorage.removeItem('deepLink')
         localStorage.removeItem('hubLink')
-        localStorage.removeItem('tonDeepLink')
-
-        if (data.cursed) {
-          setError(`⚠️ You are cursed until ${new Date(data.curse_expires).toLocaleString()}`)
+        if (d.cursed) {
+          setError(`⚠️ You are cursed until ${new Date(d.curse_expires).toLocaleString()}`)
           setIsCursed(true)
-          setCurseExpires(data.curse_expires)
+          setCurseExpires(d.curse_expires)
         } else {
-          setNewFragment(data.newFragment)
-          setFragments(data.fragments)
+          setNewFragment(d.newFragment)
+          setFragments(d.fragments)
           setIsCursed(false)
           setCurseExpires(null)
-          setLastBurn(data.lastBurn)
-          setCooldown(computeCooldown(data.lastBurn))
+          setLastBurn(d.lastBurn)
+          setCooldown(computeCD(d.lastBurn))
         }
       }
     } catch (e) {
@@ -227,8 +200,7 @@ export default function Path() {
   if (loading) {
     return <div style={styles.center}>Loading…</div>
   }
-
-  const formatTime = sec => {
+  const ft = sec => {
     const m = String(Math.floor(sec / 60)).padStart(2, '0')
     const s = String(sec % 60).padStart(2, '0')
     return `${m}:${s}`
@@ -249,7 +221,7 @@ export default function Path() {
             ⚠️ You are cursed until {new Date(curseExpires).toLocaleString()}
           </p>
         ) : cooldown > 0 ? (
-          <p style={styles.status}>⏳ Next burn in {formatTime(cooldown)}</p>
+          <p style={styles.status}>⏳ Next burn in {ft(cooldown)}</p>
         ) : (
           <p style={styles.status}>Ready to burn yourself.</p>
         )}
@@ -287,11 +259,16 @@ export default function Path() {
             : '🔥 Burn Yourself for 0.5 TON'}
         </button>
 
-        {/* Как только invoice создан и polling=true — показываем две кнопки */}
-        {!burning && polling && tonDeepLink && (
+        {polling && deepLink && (
           <>
             <button
-              onClick={() => window.location.assign(tonDeepLink)}
+              onClick={() => {
+                try {
+                  window.Telegram.WebApp.openLink(deepLink)
+                } catch (_) {
+                  window.location.assign(deepLink)
+                }
+              }}
               style={styles.secondary}
             >
               Continue Payment in Telegram Wallet
