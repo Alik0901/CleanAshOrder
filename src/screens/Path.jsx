@@ -9,7 +9,7 @@ const BACKEND_URL =
 export default function Path() {
   const navigate = useNavigate()
 
-  // — профиль —
+  // профиль
   const [tgId, setTgId] = useState('')
   const [fragments, setFragments] = useState([])
   const [lastBurn, setLastBurn] = useState(null)
@@ -17,7 +17,7 @@ export default function Path() {
   const [curseExpires, setCurseExpires] = useState(null)
   const [cooldown, setCooldown] = useState(0)
 
-  // — платёж —
+  // платёж
   const [loading, setLoading] = useState(true)
   const [burning, setBurning] = useState(false)
   const [invoiceId, setInvoiceId] = useState(null)
@@ -49,7 +49,7 @@ export default function Path() {
     return () => clearInterval(id)
   }, [cooldown])
 
-  // монтирование
+  // mount: получаем initData, токен, профиль и восстанавливаем незавершённый платёж
   useEffect(() => {
     const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {}
     const id = unsafe.user?.id
@@ -65,17 +65,17 @@ export default function Path() {
       return
     }
 
-    // восстановление незавершённого платежа
-    const savedInvoice  = localStorage.getItem('invoiceId')
-    const savedHub      = localStorage.getItem('hubLink')
-    const savedDeep     = localStorage.getItem('tonDeepLink')
-    if (savedInvoice && savedHub && savedDeep) {
-      setInvoiceId(savedInvoice)
+    // восстановление незавершённого счёта
+    const savedInv = localStorage.getItem('invoiceId')
+    const savedHub = localStorage.getItem('hubLink')
+    const savedDeep = localStorage.getItem('tonDeepLink')
+    if (savedInv && savedHub && savedDeep) {
+      setInvoiceId(savedInv)
       setHubLink(savedHub)
       setTonDeepLink(savedDeep)
       setPolling(true)
       pollingRef.current = setInterval(
-        () => checkPaymentStatus(savedInvoice),
+        () => checkPaymentStatus(savedInv),
         5000
       )
     }
@@ -122,7 +122,7 @@ export default function Path() {
     return () => window.removeEventListener('focus', loadProfile)
   }, [navigate])
 
-  // Шаг 1: создаём инвойс
+  // Шаг 1: создать инвойс
   const handleBurn = async () => {
     setBurning(true)
     setError('')
@@ -146,9 +146,9 @@ export default function Path() {
         return
       }
 
-      // вытащить обе ссылки
+      // вытащить Tonspace-deep-link и Tonhub-fallback
       const hub = data.paymentUrl
-      const u   = new URL(hub)
+      const u = new URL(hub)
       const deep = `ton://${u.pathname.slice(1)}${u.search}`
 
       // сохранить
@@ -159,10 +159,10 @@ export default function Path() {
       localStorage.setItem('hubLink', hub)
       localStorage.setItem('tonDeepLink', deep)
 
-      // ✅ **очень важно** сбросить burning
+      // **важно** сразу сбросить burning
       setBurning(false)
 
-      // стартуем polling
+      // Шаг 2: запускаем polling
       setPolling(true)
       pollingRef.current = setInterval(
         () => checkPaymentStatus(data.invoiceId),
@@ -174,7 +174,7 @@ export default function Path() {
     }
   }
 
-  // Шаг 2: проверяем статус
+  // Шаг 2: проверка статуса
   const checkPaymentStatus = async id => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/burn-status/${id}`, {
@@ -224,7 +224,9 @@ export default function Path() {
     }
   }
 
-  if (loading) return <div style={styles.center}>Loading…</div>
+  if (loading) {
+    return <div style={styles.center}>Loading…</div>
+  }
 
   const formatTime = sec => {
     const m = String(Math.floor(sec / 60)).padStart(2, '0')
@@ -255,16 +257,25 @@ export default function Path() {
         <button
           onClick={handleBurn}
           disabled={
-            burning || polling || (isCursed && new Date(curseExpires) > new Date()) || cooldown > 0
+            burning ||
+            polling ||
+            (isCursed && new Date(curseExpires) > new Date()) ||
+            cooldown > 0
           }
           style={{
             ...styles.burnButton,
             opacity:
-              burning || polling || (isCursed && new Date(curseExpires) > new Date()) || cooldown > 0
+              burning ||
+              polling ||
+              (isCursed && new Date(curseExpires) > new Date()) ||
+              cooldown > 0
                 ? 0.6
                 : 1,
             cursor:
-              burning || polling || (isCursed && new Date(curseExpires) > new Date()) || cooldown > 0
+              burning ||
+              polling ||
+              (isCursed && new Date(curseExpires) > new Date()) ||
+              cooldown > 0
                 ? 'not-allowed'
                 : 'pointer'
           }}
@@ -276,20 +287,21 @@ export default function Path() {
             : '🔥 Burn Yourself for 0.5 TON'}
         </button>
 
-        {/* когда invoice создан и polling=true, показываем две ссылки */}
+        {/* Как только invoice создан и polling=true — показываем две кнопки */}
         {!burning && polling && tonDeepLink && (
           <>
-            <a href={tonDeepLink} style={styles.secondary}>
+            <button
+              onClick={() => window.location.assign(tonDeepLink)}
+              style={styles.secondary}
+            >
               Continue Payment in Telegram Wallet
-            </a>
-            <a
-              href={hubLink}
-              target="_blank"
-              rel="noreferrer"
+            </button>
+            <button
+              onClick={() => window.open(hubLink, '_blank')}
               style={styles.secondary}
             >
               Open in Tonhub
-            </a>
+            </button>
           </>
         )}
 
@@ -307,56 +319,14 @@ export default function Path() {
 }
 
 const styles = {
-  center: {
-    display: 'flex',
-    height: '100vh',
-    alignItems: 'center',
-    justifyContent: 'center',
-    color: '#fff',
-    fontSize: 18
-  },
-  container: {
-    position: 'relative',
-    height: '100vh',
-    backgroundImage: 'url("/bg-path.webp")',
-    backgroundSize: 'cover'
-  },
-  overlay: { position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)' },
-  content: {
-    position: 'relative',
-    zIndex: 2,
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: '100%',
-    color: '#d4af37',
-    padding: '0 16px',
-    textAlign: 'center'
-  },
-  title: { fontSize: 28, marginBottom: 16 },
-  message: { fontSize: 16, color: '#7CFC00', marginBottom: 12 },
-  status: { fontSize: 16, marginBottom: 12 },
-  burnButton: {
-    padding: '10px 24px',
-    backgroundColor: '#d4af37',
-    border: 'none',
-    borderRadius: 6,
-    color: '#000',
-    fontSize: 16,
-    marginBottom: 12
-  },
-  secondary: {
-    display: 'inline-block',
-    marginBottom: 12,
-    padding: '10px 24px',
-    background: 'transparent',
-    border: '1px solid #d4af37',
-    borderRadius: 6,
-    color: '#d4af37',
-    fontSize: 14,
-    textDecoration: 'none',
-    cursor: 'pointer'
-  },
-  error: { color: '#FF6347', fontSize: 14, marginTop: 12 }
+  center:   { display:'flex',height:'100vh',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:18 },
+  container:{ position:'relative',height:'100vh',backgroundImage:'url("/bg-path.webp")',backgroundSize:'cover' },
+  overlay:  { position:'absolute',inset:0,backgroundColor:'rgba(0,0,0,0.5)' },
+  content:  { position:'relative',zIndex:2,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',color:'#d4af37',padding:'0 16px',textAlign:'center' },
+  title:    { fontSize:28,marginBottom:16 },
+  message:  { fontSize:16,color:'#7CFC00',marginBottom:12 },
+  status:   { fontSize:16,marginBottom:12 },
+  burnButton:{ padding:'10px 24px',backgroundColor:'#d4af37',border:'none',borderRadius:6,color:'#000',fontSize:16,marginBottom:12 },
+  secondary:{ padding:'10px 24px',background:'transparent',border:'1px solid #d4af37',borderRadius:6,color:'#d4af37',fontSize:14,marginBottom:12,cursor:'pointer' },
+  error:    { color:'#FF6347',fontSize:14,marginTop:12 }
 }
