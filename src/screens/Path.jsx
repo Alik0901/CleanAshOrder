@@ -16,7 +16,7 @@ export default function Path() {
   const [curseExpires, setCurseExpires] = useState(null);
   const [cooldown, setCooldown]   = useState(0);
 
-  // платёж
+  // платеж
   const [loading, setLoading]     = useState(true);
   const [burning, setBurning]     = useState(false);
   const [invoiceId, setInvoiceId] = useState(null);
@@ -28,17 +28,22 @@ export default function Path() {
   const pollingRef = useRef(null);
   const COOLDOWN_SECONDS = 2 * 60;
 
-  // кулдаун
+  // рассчитать кулдаун
   const computeCooldown = last =>
-    last ? Math.max(0, COOLDOWN_SECONDS - Math.floor((Date.now() - new Date(last).getTime()) / 1000)) : 0;
+    last
+      ? Math.max(0, COOLDOWN_SECONDS - Math.floor((Date.now() - new Date(last).getTime()) / 1000))
+      : 0;
 
+  // тикер кулдауна
   useEffect(() => {
-    if (!cooldown) return;
-    const id = setInterval(() => setCooldown(prev => (prev > 1 ? prev - 1 : 0)), 1000);
+    if (cooldown <= 0) return;
+    const id = setInterval(() => {
+      setCooldown(prev => (prev > 1 ? prev - 1 : 0));
+    }, 1000);
     return () => clearInterval(id);
   }, [cooldown]);
 
-  // монтирование
+  // монтирование: читаем initData, токен, профиль и восстанавливаем незавершённый платёж
   useEffect(() => {
     const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {};
     const id = unsafe.user?.id;
@@ -54,7 +59,7 @@ export default function Path() {
       return;
     }
 
-    // восстановление счёта
+    // восстановим прошлый счёт, если не заплатили
     const savedId  = localStorage.getItem('invoiceId');
     const savedUrl = localStorage.getItem('paymentUrl');
     if (savedId && savedUrl) {
@@ -97,7 +102,7 @@ export default function Path() {
     return () => window.removeEventListener('focus', loadProfile);
   }, [navigate]);
 
-  // создание инвойса
+  // шаг 1: создать инвойс
   const handleBurn = async () => {
     setBurning(true);
     setError('');
@@ -110,12 +115,13 @@ export default function Path() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ tg_id })
+        body: JSON.stringify({ tg_id: tgId })
       });
       const auth = res.headers.get('Authorization');
       if (auth?.startsWith('Bearer ')) {
         localStorage.setItem('token', auth.split(' ')[1]);
       }
+
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || '⚠️ Could not create invoice');
@@ -123,16 +129,15 @@ export default function Path() {
         return;
       }
 
-      // сохраняем
+      // сохраним и откроем Tonhub
       setInvoiceId(data.invoiceId);
       setPaymentUrl(data.paymentUrl);
       localStorage.setItem('invoiceId', data.invoiceId);
       localStorage.setItem('paymentUrl', data.paymentUrl);
 
-      // редирект
       window.location.href = data.paymentUrl;
 
-      // polling
+      // стартуем polling
       setPolling(true);
       pollingRef.current = setInterval(() => checkPaymentStatus(data.invoiceId), 5000);
     } catch (e) {
@@ -141,7 +146,7 @@ export default function Path() {
     }
   };
 
-  // проверка статуса
+  // шаг 2: проверка статуса платежа
   const checkPaymentStatus = async id => {
     const token = localStorage.getItem('token');
     try {
@@ -155,6 +160,7 @@ export default function Path() {
       if (auth?.startsWith('Bearer ')) {
         localStorage.setItem('token', auth.split(' ')[1]);
       }
+
       const data = await res.json();
       if (!res.ok) {
         clearInterval(pollingRef.current);
@@ -163,6 +169,7 @@ export default function Path() {
         setError(data.error || '⚠️ Error checking payment');
         return;
       }
+
       if (data.paid) {
         clearInterval(pollingRef.current);
         setPolling(false);
@@ -207,7 +214,9 @@ export default function Path() {
       <div style={styles.content}>
         <h2 style={styles.title}>The Path Begins</h2>
 
-        {newFragment && <p style={styles.message}>🔥 You received fragment #{newFragment}!</p>}
+        {newFragment && (
+          <p style={styles.message}>🔥 You received fragment #{newFragment}!</p>
+        )}
 
         {isCursed ? (
           <p style={styles.status}>
@@ -224,7 +233,7 @@ export default function Path() {
           disabled={
             burning ||
             polling ||
-            (isCursed && new Date(curse_expires) > new Date()) ||
+            (isCursed && new Date(curseExpires) > new Date()) ||
             cooldown > 0
           }
           style={{
@@ -232,14 +241,14 @@ export default function Path() {
             opacity:
               burning ||
               polling ||
-              (isCursed && new Date(curse_expires) > new Date()) ||
+              (isCursed && new Date(curseExpires) > new Date()) ||
               cooldown > 0
                 ? 0.6
                 : 1,
             cursor:
               burning ||
               polling ||
-              (isCursed && new Date(curse_expires) > new Date()) ||
+              (isCursed && new Date(curseExpires) > new Date()) ||
               cooldown > 0
                 ? 'not-allowed'
                 : 'pointer',
