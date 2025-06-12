@@ -9,7 +9,7 @@ const BACKEND_URL =
 export default function Path() {
   const navigate = useNavigate();
 
-  // профиль
+  // ----- профиль -----
   const [tgId, setTgId] = useState('');
   const [fragments, setFragments] = useState([]);
   const [lastBurn, setLastBurn] = useState(null);
@@ -17,7 +17,7 @@ export default function Path() {
   const [curseExpires, setCurseExpires] = useState(null);
   const [cooldown, setCooldown] = useState(0);
 
-  // плательщик
+  // ----- плательщик -----
   const [loading, setLoading] = useState(true);
   const [burning, setBurning] = useState(false);
   const [invoiceId, setInvoiceId] = useState(null);
@@ -30,17 +30,16 @@ export default function Path() {
   const pollingRef = useRef(null);
   const COOLDOWN_SECONDS = 2 * 60;
 
-  // Рассчитать оставшийся кулдаун
+  // высчитать кулдаун
   const computeCooldown = last =>
     last
       ? Math.max(
           0,
-          COOLDOWN_SECONDS -
-            Math.floor((Date.now() - new Date(last).getTime()) / 1000)
+          COOLDOWN_SECONDS - Math.floor((Date.now() - new Date(last).getTime()) / 1000)
         )
       : 0;
 
-  // Тикер кулдауна
+  // тикер кулдауна
   useEffect(() => {
     if (cooldown <= 0) return;
     const id = setInterval(() => {
@@ -49,7 +48,7 @@ export default function Path() {
     return () => clearInterval(id);
   }, [cooldown]);
 
-  // Монтирование: читаем initData, token, профиль и восстанавливаем незавершённый платёж
+  // монтирование: читаем initData, токен, профиль и незаконченный платёж
   useEffect(() => {
     const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {};
     const id = unsafe.user?.id;
@@ -59,7 +58,7 @@ export default function Path() {
     const token = localStorage.getItem('token');
     if (!token) return navigate('/init');
 
-    // Восстановление незавершённого платежа
+    // восстановить незавершённый счёт
     const savedId = localStorage.getItem('invoiceId');
     const savedUrl = localStorage.getItem('paymentUrl');
     const savedDeep = localStorage.getItem('tonDeepLink');
@@ -71,7 +70,7 @@ export default function Path() {
       pollingRef.current = setInterval(() => checkPaymentStatus(savedId), 5000);
     }
 
-    // Загрузка профиля
+    // загрузить профиль
     async function loadProfile() {
       setLoading(true);
       setError('');
@@ -111,7 +110,7 @@ export default function Path() {
     return () => window.removeEventListener('focus', loadProfile);
   }, [navigate]);
 
-  // Шаг 1: создание инвойса
+  // Шаг 1: POST /burn-invoice
   const handleBurn = async () => {
     setBurning(true);
     setError('');
@@ -125,8 +124,9 @@ export default function Path() {
         body: JSON.stringify({ tg_id: tgId }),
       });
       const newAuth = res.headers.get('Authorization');
-      if (newAuth?.startsWith('Bearer '))
+      if (newAuth?.startsWith('Bearer ')) {
         localStorage.setItem('token', newAuth.split(' ')[1]);
+      }
 
       const data = await res.json();
       if (!res.ok) {
@@ -135,18 +135,17 @@ export default function Path() {
         return;
       }
 
-      // Получаем либо готовый paymentUrl, либо строим сами
+      // 1) получаем HTTP-URL
       const hubUrl =
         data.paymentUrl ||
         `https://tonhub.com/transfer/${data.tonInvoice.address}` +
           `?amount=${data.tonInvoice.amountNano}` +
           `&text=${encodeURIComponent(data.tonInvoice.comment)}`;
 
-      // Формируем deep-link
-      const deep =
-        typeof hubUrl === 'string'
-          ? hubUrl.replace(/^https?:\/\//, 'ton://')
-          : '';
+      // 2) парсим и собираем правильный ton://
+      const u = new URL(hubUrl);
+      const path = u.pathname.replace(/^\/+/, ''); // "transfer/XXX..."
+      const deep = `ton://${path}${u.search}`;
 
       setInvoiceId(data.invoiceId);
       setPaymentUrl(hubUrl);
@@ -156,21 +155,15 @@ export default function Path() {
       localStorage.setItem('paymentUrl', hubUrl);
       localStorage.setItem('tonDeepLink', deep);
 
-      // Сначала пытаемся открыть встроенный TonSpace
-      if (window.Telegram?.WebApp?.openLink && deep) {
-        window.Telegram.WebApp.openLink(deep);
-      }
+      // 3) сначала пробуем вызвать deep-link
+      window.location.href = deep;
 
-      // Через секунду — запасной вариант на TonHub
+      // 4) fallback через 1 сек на HTTP-URL
       setTimeout(() => {
-        if (window.Telegram?.WebApp?.openLink) {
-          window.Telegram.WebApp.openLink(hubUrl);
-        } else {
-          window.location.href = hubUrl;
-        }
+        window.location.href = hubUrl;
       }, 1000);
 
-      // Запуск polling
+      // 5) запускаем polling
       setPolling(true);
       pollingRef.current = setInterval(() => checkPaymentStatus(data.invoiceId), 5000);
     } catch (e) {
@@ -179,7 +172,7 @@ export default function Path() {
     }
   };
 
-  // Шаг 2: проверка статуса платежа
+  // Шаг 2: GET /burn-status/:invoiceId
   const checkPaymentStatus = async id => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/burn-status/${id}`, {
@@ -189,8 +182,9 @@ export default function Path() {
         },
       });
       const newAuth = res.headers.get('Authorization');
-      if (newAuth?.startsWith('Bearer '))
+      if (newAuth?.startsWith('Bearer ')) {
         localStorage.setItem('token', newAuth.split(' ')[1]);
+      }
 
       const data = await res.json();
       if (!res.ok) {
@@ -234,9 +228,7 @@ export default function Path() {
     }
   };
 
-  if (loading) {
-    return <div style={styles.center}>Loading…</div>;
-  }
+  if (loading) return <div style={styles.center}>Loading…</div>;
 
   const formatTime = sec => {
     const m = String(Math.floor(sec / 60)).padStart(2, '0');
@@ -300,12 +292,8 @@ export default function Path() {
         {!burning && polling && paymentUrl && (
           <button
             onClick={() => {
-              // Кнопка «Continue Payment»
-              if (tonDeepLink && window.Telegram?.WebApp?.openLink) {
-                window.Telegram.WebApp.openLink(tonDeepLink);
-              } else {
-                window.location.href = paymentUrl;
-              }
+              // Continue payment
+              window.location.href = tonDeepLink || paymentUrl;
             }}
             style={styles.secondary}
           >
