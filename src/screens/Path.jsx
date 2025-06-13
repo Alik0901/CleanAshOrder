@@ -1,3 +1,4 @@
+// src/screens/Path.jsx
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -8,7 +9,7 @@ const BACKEND_URL =
 export default function Path() {
   const navigate = useNavigate();
 
-  // Профиль
+  // — профиль —
   const [tgId, setTgId] = useState('');
   const [fragments, setFragments] = useState([]);
   const [lastBurn, setLastBurn] = useState(null);
@@ -16,12 +17,12 @@ export default function Path() {
   const [curseExpires, setCurseExpires] = useState(null);
   const [cooldown, setCooldown] = useState(0);
 
-  // Платёж
+  // — платёж —
   const [loading, setLoading] = useState(true);
   const [burning, setBurning] = useState(false);
   const [invoiceId, setInvoiceId] = useState(null);
-  const [paymentUrl, setPaymentUrl] = useState('');    // Tonhub HTTPS
-  const [tonspaceUrl, setTonspaceUrl] = useState('');  // ton://
+  const [paymentUrl, setPaymentUrl] = useState('');    // HTTPS-link для Tonhub
+  const [tonspaceUrl, setTonspaceUrl] = useState('');  // ton://-link для встроенного кошелька
   const [polling, setPolling] = useState(false);
   const [newFragment, setNewFragment] = useState(null);
   const [error, setError] = useState('');
@@ -29,23 +30,23 @@ export default function Path() {
   const pollingRef = useRef(null);
   const COOLDOWN_SECONDS = 2 * 60;
 
-  // Вычисляем остаток кулдауна
+  // вычисляем оставшийся кулдаун
   const computeCooldown = last => {
     if (!last) return 0;
     const elapsed = (Date.now() - new Date(last).getTime()) / 1000;
     return Math.max(0, COOLDOWN_SECONDS - Math.floor(elapsed));
   };
 
-  // Тикер кулдауна
+  // тикер кулдауна
   useEffect(() => {
     if (cooldown <= 0) return;
     const id = setInterval(() => {
-      setCooldown(prev => (prev > 1 ? prev - 1 : 0));
+      setCooldown(c => (c > 1 ? c - 1 : 0));
     }, 1000);
     return () => clearInterval(id);
   }, [cooldown]);
 
-  // Инициализация: Telegram, токен, восстановление платежа, загрузка профиля
+  // инициализация: Telegram, токен, восстановление незавершённого платёжа, загрузка профиля
   useEffect(() => {
     const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {};
     const id = unsafe.user?.id;
@@ -61,7 +62,7 @@ export default function Path() {
       return;
     }
 
-    // Восстанавливаем незавершённый платёж
+    // восстанавливаем незавершённый платёж
     const savedId  = localStorage.getItem('invoiceId');
     const savedHub = localStorage.getItem('paymentUrl');
     const savedTon = localStorage.getItem('tonspaceUrl');
@@ -70,10 +71,13 @@ export default function Path() {
       setPaymentUrl(savedHub);
       setTonspaceUrl(savedTon);
       setPolling(true);
-      pollingRef.current = setInterval(() => checkPaymentStatus(savedId), 5000);
+      pollingRef.current = setInterval(
+        () => checkPaymentStatus(savedId),
+        5000
+      );
     }
 
-    // Загрузка профиля
+    // загрузка профиля
     const loadProfile = async () => {
       setLoading(true);
       setError('');
@@ -105,7 +109,7 @@ export default function Path() {
     return () => window.removeEventListener('focus', loadProfile);
   }, [navigate]);
 
-  // Шаг 1: создание инвойса
+  // Шаг 1: создаём инвойс
   const handleBurn = async () => {
     setBurning(true);
     setError('');
@@ -131,31 +135,27 @@ export default function Path() {
       localStorage.setItem('paymentUrl', data.paymentUrl);
       localStorage.setItem('tonspaceUrl', data.tonspaceUrl);
 
-      // Редирект в Telegram Wallet
-      if (window.Telegram?.WebApp?.openLink) {
-        window.Telegram.WebApp.openLink(data.tonspaceUrl);
-      } else {
-        window.location.href = data.tonspaceUrl;
-      }
+      // редирект в встроенный кошелёк через обычную навигацию
+      window.location.href = data.tonspaceUrl;
 
-      // Старт polling
+      // старт пуллинга
       setPolling(true);
-      pollingRef.current = setInterval(() => checkPaymentStatus(data.invoiceId), 5000);
+      pollingRef.current = setInterval(
+        () => checkPaymentStatus(data.invoiceId),
+        5000
+      );
     } catch (e) {
       setError(e.message);
       setBurning(false);
     }
   };
 
-  // Шаг 2: проверка статуса платежа
+  // Шаг 2: опрашиваем статус
   const checkPaymentStatus = async id => {
     try {
       const token = localStorage.getItem('token');
       const res = await fetch(`${BACKEND_URL}/api/burn-status/${id}`, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: { 'Authorization': `Bearer ${token}` },
       });
       if (res.status === 404) {
         clearInterval(pollingRef.current);
@@ -216,7 +216,6 @@ export default function Path() {
       <div style={styles.overlay}/>
       <div style={styles.content}>
         <h2 style={styles.title}>The Path Begins</h2>
-
         {newFragment && (
           <p style={styles.message}>🔥 You received fragment #{newFragment}!</p>
         )}
@@ -247,32 +246,20 @@ export default function Path() {
             : '🔥 Burn Yourself for 0.5 TON'}
         </button>
 
-        {polling && tonspaceUrl && (
-          <button
-            onClick={() =>
-              window.Telegram.WebApp.openLink
-                ? window.Telegram.WebApp.openLink(tonspaceUrl)
-                : (window.location.href = tonspaceUrl)
-            }
-            style={styles.secondary}
-          >
-            Continue in Telegram Wallet
-          </button>
-        )}
-
         {polling && paymentUrl && (
           <button
-            onClick={() => window.open(paymentUrl, '_blank')}
+            onClick={() =>
+              window.Telegram?.WebApp?.openLink
+                ? window.Telegram.WebApp.openLink(paymentUrl)
+                : window.open(paymentUrl, '_blank')
+            }
             style={styles.secondary}
           >
             Open in Tonhub
           </button>
         )}
 
-        <button
-          onClick={() => navigate('/profile')}
-          style={styles.secondary}
-        >
+        <button onClick={() => navigate('/profile')} style={styles.secondary}>
           Go to your personal account
         </button>
 
