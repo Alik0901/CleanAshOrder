@@ -8,35 +8,35 @@ const BACKEND_URL =
 export default function Path() {
   const navigate = useNavigate();
 
-  // Профиль
-  const [tgId, setTgId]           = useState('');
+  // профиль
+  const [tgId, setTgId] = useState('');
   const [fragments, setFragments] = useState([]);
-  const [lastBurn, setLastBurn]   = useState(null);
-  const [isCursed, setIsCursed]   = useState(false);
+  const [lastBurn, setLastBurn] = useState(null);
+  const [isCursed, setIsCursed] = useState(false);
   const [curseExpires, setCurseExpires] = useState(null);
-  const [cooldown, setCooldown]   = useState(0);
+  const [cooldown, setCooldown] = useState(0);
 
-  // Платёж
-  const [loading, setLoading]     = useState(true);
-  const [burning, setBurning]     = useState(false);
+  // платеж
+  const [loading, setLoading] = useState(true);
+  const [burning, setBurning] = useState(false);
   const [invoiceId, setInvoiceId] = useState(null);
-  const [paymentUrl, setPaymentUrl]   = useState('');    // Tonhub HTTPS
-  const [tonspaceUrl, setTonspaceUrl] = useState('');    // ton://
-  const [polling, setPolling]     = useState(false);
-  const [error, setError]         = useState('');
+  const [paymentUrl, setPaymentUrl] = useState('');    // Tonhub HTTPS
+  const [tonspaceUrl, setTonspaceUrl] = useState('');  // ton://
+  const [polling, setPolling] = useState(false);
+  const [error, setError] = useState('');
   const [newFragment, setNewFragment] = useState(null);
 
   const pollingRef = useRef(null);
   const COOLDOWN_SECONDS = 2 * 60;
 
-  // Вычисляем остаток кулдауна
+  // рассчитываем кулдаун
   const computeCooldown = last => {
     if (!last) return 0;
     const elapsed = (Date.now() - new Date(last).getTime()) / 1000;
     return Math.max(0, COOLDOWN_SECONDS - Math.floor(elapsed));
   };
 
-  // Тикер кулдауна
+  // тикер кулдауна
   useEffect(() => {
     if (cooldown <= 0) return;
     const id = setInterval(() => {
@@ -45,23 +45,17 @@ export default function Path() {
     return () => clearInterval(id);
   }, [cooldown]);
 
-  // Монтирование: инициализация Telegram, токена, восстановление незавершённого платёжа, загрузка профиля
+  // init Telegram + загрузка профиля + восстановление незаверш. платежа
   useEffect(() => {
     const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {};
     const id = unsafe.user?.id;
-    if (!id) {
-      navigate('/init');
-      return;
-    }
+    if (!id) return navigate('/init');
     setTgId(String(id));
 
     const token = localStorage.getItem('token');
-    if (!token) {
-      navigate('/init');
-      return;
-    }
+    if (!token) return navigate('/init');
 
-    // Восстановим незавершённый платёж
+    // восстановим незавершённый платёж
     const savedId  = localStorage.getItem('invoiceId');
     const savedHub = localStorage.getItem('paymentUrl');
     const savedTon = localStorage.getItem('tonspaceUrl');
@@ -73,8 +67,8 @@ export default function Path() {
       pollingRef.current = setInterval(() => checkPaymentStatus(savedId), 5000);
     }
 
-    // Загрузим профиль
-    const loadProfile = async () => {
+    // загрузим профиль
+    (async function loadProfile() {
       setLoading(true);
       setError('');
       try {
@@ -98,14 +92,13 @@ export default function Path() {
       } finally {
         setLoading(false);
       }
-    };
+    })();
 
-    loadProfile();
     window.addEventListener('focus', loadProfile);
     return () => window.removeEventListener('focus', loadProfile);
   }, [navigate]);
 
-  // Шаг 1: создание инвойса
+  // Шаг 1: создаём инвойс
   const handleBurn = async () => {
     setBurning(true);
     setError('');
@@ -120,10 +113,13 @@ export default function Path() {
         },
         body: JSON.stringify({ tg_id: tgId }),
       });
+
+      // обновляем токен, если вернули новый
       const newAuth = res.headers.get('Authorization');
       if (newAuth?.startsWith('Bearer ')) {
         localStorage.setItem('token', newAuth.split(' ')[1]);
       }
+
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || '⚠️ Could not create invoice');
@@ -131,7 +127,7 @@ export default function Path() {
         return;
       }
 
-      // сохраняем оба deeplink’а
+      // сохраняем deeplink’ы
       setInvoiceId(data.invoiceId);
       setPaymentUrl(data.paymentUrl);
       setTonspaceUrl(data.tonspaceUrl);
@@ -139,14 +135,14 @@ export default function Path() {
       localStorage.setItem('paymentUrl', data.paymentUrl);
       localStorage.setItem('tonspaceUrl', data.tonspaceUrl);
 
-      // переходим по ton://, чтобы WebView Telegram открыл встроенный кошелек
+      // авто-редирект на встроенный кошелек Telegram
       if (window.Telegram?.WebApp?.openLink) {
         window.Telegram.WebApp.openLink(data.tonspaceUrl);
       } else {
         window.location.href = data.tonspaceUrl;
       }
 
-      // запускаем polling
+      // сразу запускаем polling
       setPolling(true);
       pollingRef.current = setInterval(
         () => checkPaymentStatus(data.invoiceId),
@@ -272,19 +268,19 @@ export default function Path() {
             : '🔥 Burn Yourself for 0.5 TON'}
         </button>
 
-        {/* Если мы в polling и у нас есть tonspaceUrl */}
+        {/* Как только инвойс создан, показываем обе кнопки */}
         {polling && tonspaceUrl && (
           <button
-            onClick={() => window.Telegram?.WebApp?.openLink
-                          ? window.Telegram.WebApp.openLink(tonspaceUrl)
-                          : window.location.href = tonspaceUrl}
+            onClick={() =>
+              window.Telegram?.WebApp?.openLink
+                ? window.Telegram.WebApp.openLink(tonspaceUrl)
+                : (window.location.href = tonspaceUrl)
+            }
             style={styles.secondary}
           >
             Continue in Telegram Wallet
           </button>
         )}
-
-        {/* Fallback — открыть в Tonhub */}
         {polling && paymentUrl && (
           <button
             onClick={() => window.open(paymentUrl, '_blank')}
