@@ -1,219 +1,155 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState, useRef, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 const BACKEND_URL =
   process.env.REACT_APP_BACKEND_URL ||
-  'https://ash-backend-production.up.railway.app';
+  'https://ash-backend-production.up.railway.app'
 
 export default function Path() {
-  const navigate = useNavigate();
+  const navigate = useNavigate()
 
   // профиль
-  const [tgId, setTgId] = useState('');
-  const [fragments, setFragments] = useState([]);
-  const [lastBurn, setLastBurn] = useState(null);
-  const [isCursed, setIsCursed] = useState(false);
-  const [curseExpires, setCurseExpires] = useState(null);
-  const [cooldown, setCooldown] = useState(0);
+  const [tgId, setTgId]           = useState('')
+  const [fragments, setFragments] = useState([])
+  const [lastBurn, setLastBurn]   = useState(null)
+  const [isCursed, setIsCursed]   = useState(false)
+  const [curseExpires, setCurseExpires] = useState(null)
+  const [cooldown, setCooldown]   = useState(0)
 
-  // платеж
-  const [loading, setLoading] = useState(true);
-  const [burning, setBurning] = useState(false);
-  const [invoiceId, setInvoiceId] = useState(null);
-  const [paymentUrl, setPaymentUrl] = useState('');    // Tonhub HTTPS
-  const [tonspaceUrl, setTonspaceUrl] = useState('');  // ton://
-  const [polling, setPolling] = useState(false);
-  const [error, setError] = useState('');
-  const [newFragment, setNewFragment] = useState(null);
+  // платёж
+  const [loading, setLoading]     = useState(true)
+  const [burning, setBurning]     = useState(false)
+  const [invoiceLink, setInvoiceLink] = useState('')  // нативный Telegram invoice link
+  const [error, setError]         = useState('')
+  const [newFragment, setNewFragment] = useState(null)
 
-  const pollingRef = useRef(null);
-  const COOLDOWN_SECONDS = 2 * 60;
+  const pollingRef = useRef(null)
+  const COOLDOWN_SECONDS = 2 * 60
 
-  // рассчитываем кулдаун
+  // вычисляем остаток кулдауна
   const computeCooldown = last => {
-    if (!last) return 0;
-    const elapsed = (Date.now() - new Date(last).getTime()) / 1000;
-    return Math.max(0, COOLDOWN_SECONDS - Math.floor(elapsed));
-  };
+    if (!last) return 0
+    const elapsed = (Date.now() - new Date(last).getTime()) / 1000
+    return Math.max(0, COOLDOWN_SECONDS - Math.floor(elapsed))
+  }
 
   // тикер кулдауна
   useEffect(() => {
-    if (cooldown <= 0) return;
+    if (cooldown <= 0) return
     const id = setInterval(() => {
-      setCooldown(prev => (prev > 1 ? prev - 1 : 0));
-    }, 1000);
-    return () => clearInterval(id);
-  }, [cooldown]);
+      setCooldown(c => (c > 1 ? c - 1 : 0))
+    }, 1000)
+    return () => clearInterval(id)
+  }, [cooldown])
 
-  // init Telegram + загрузка профиля + восстановление незаверш. платежа
+  // 1) вынесенная функция загрузки профиля
+  const loadProfile = useCallback(async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/player/${tgId}`, {
+        headers: { 'Content-Type': 'application/json' },
+      })
+      if (!res.ok) throw new Error()
+      const data = await res.json()
+      setFragments(data.fragments || [])
+      setLastBurn(data.last_burn)
+      if (data.curse_expires && new Date(data.curse_expires) > new Date()) {
+        setIsCursed(true)
+        setCurseExpires(data.curse_expires)
+      } else {
+        setIsCursed(false)
+        setCurseExpires(null)
+        setCooldown(computeCooldown(data.last_burn))
+      }
+    } catch {
+      navigate('/init')
+    } finally {
+      setLoading(false)
+    }
+  }, [tgId, navigate])
+
+  // 2) инициализация и первая загрузка
   useEffect(() => {
-    const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {};
-    const id = unsafe.user?.id;
-    if (!id) return navigate('/init');
-    setTgId(String(id));
+    const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {}
+    const userId = unsafe.user?.id
+    const token  = localStorage.getItem('token')
 
-    const token = localStorage.getItem('token');
-    if (!token) return navigate('/init');
+    if (!userId || !token) {
+      return navigate('/init')
+    }
+    setTgId(String(userId))
 
-    // восстановим незавершённый платёж
-    const savedId  = localStorage.getItem('invoiceId');
-    const savedHub = localStorage.getItem('paymentUrl');
-    const savedTon = localStorage.getItem('tonspaceUrl');
-    if (savedId && savedHub && savedTon) {
-      setInvoiceId(savedId);
-      setPaymentUrl(savedHub);
-      setTonspaceUrl(savedTon);
-      setPolling(true);
-      pollingRef.current = setInterval(() => checkPaymentStatus(savedId), 5000);
+    // если в localStorage остался незавершённый invoice
+    const savedLink = localStorage.getItem('invoiceLink')
+    if (savedLink) {
+      setInvoiceLink(savedLink)
     }
 
-    // загрузим профиль
-    (async function loadProfile() {
-      setLoading(true);
-      setError('');
-      try {
-        const res = await fetch(`${BACKEND_URL}/api/player/${id}`, {
-          headers: { 'Content-Type': 'application/json' },
-        });
-        if (!res.ok) throw new Error();
-        const data = await res.json();
-        setFragments(data.fragments || []);
-        setLastBurn(data.last_burn);
-        if (data.curse_expires && new Date(data.curse_expires) > new Date()) {
-          setIsCursed(true);
-          setCurseExpires(data.curse_expires);
-        } else {
-          setIsCursed(false);
-          setCurseExpires(null);
-          setCooldown(computeCooldown(data.last_burn));
-        }
-      } catch {
-        navigate('/init');
-      } finally {
-        setLoading(false);
-      }
-    })();
+    loadProfile()
+    window.addEventListener('focus', loadProfile)
+    return () => window.removeEventListener('focus', loadProfile)
+  }, [loadProfile, navigate])
 
-    window.addEventListener('focus', loadProfile);
-    return () => window.removeEventListener('focus', loadProfile);
-  }, [navigate]);
-
-  // Шаг 1: создаём инвойс
+  // 3) создание invoice через наш БЭК (который вызывает Bot API)
   const handleBurn = async () => {
-    setBurning(true);
-    setError('');
-    const token = localStorage.getItem('token');
-
+    setBurning(true)
+    setError('')
     try {
-      const res = await fetch(`${BACKEND_URL}/api/burn-invoice`, {
+      const token = localStorage.getItem('token')
+      const res = await fetch(`${BACKEND_URL}/api/create-invoice`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type':  'application/json',
           'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({ tg_id: tgId }),
-      });
-
-      // обновляем токен, если вернули новый
-      const newAuth = res.headers.get('Authorization');
-      if (newAuth?.startsWith('Bearer ')) {
-        localStorage.setItem('token', newAuth.split(' ')[1]);
-      }
-
-      const data = await res.json();
+      })
       if (!res.ok) {
-        setError(data.error || '⚠️ Could not create invoice');
-        setBurning(false);
-        return;
+        const err = await res.json()
+        throw new Error(err.error || 'Could not create invoice')
       }
+      const { invoiceLink: link } = await res.json()
+      setInvoiceLink(link)
+      localStorage.setItem('invoiceLink', link)
 
-      // сохраняем deeplink’ы
-      setInvoiceId(data.invoiceId);
-      setPaymentUrl(data.paymentUrl);
-      setTonspaceUrl(data.tonspaceUrl);
-      localStorage.setItem('invoiceId', data.invoiceId);
-      localStorage.setItem('paymentUrl', data.paymentUrl);
-      localStorage.setItem('tonspaceUrl', data.tonspaceUrl);
-
-      // авто-редирект на встроенный кошелек Telegram
-      if (window.Telegram?.WebApp?.openLink) {
-        window.Telegram.WebApp.openLink(data.tonspaceUrl);
+      // нативный Telegram Mini App платеж:
+      if (window.Telegram.WebApp.openInvoice) {
+        window.Telegram.WebApp.openInvoice(link)
       } else {
-        window.location.href = data.tonspaceUrl;
-      }
-
-      // сразу запускаем polling
-      setPolling(true);
-      pollingRef.current = setInterval(
-        () => checkPaymentStatus(data.invoiceId),
-        5000
-      );
-    } catch (e) {
-      setError(`⚠️ ${e.message}`);
-      setBurning(false);
-    }
-  };
-
-  // Шаг 2: проверка статуса
-  const checkPaymentStatus = async id => {
-    const token = localStorage.getItem('token');
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/burn-status/${id}`, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      const newAuth = res.headers.get('Authorization');
-      if (newAuth?.startsWith('Bearer ')) {
-        localStorage.setItem('token', newAuth.split(' ')[1]);
-      }
-      const data = await res.json();
-      if (!res.ok) {
-        clearInterval(pollingRef.current);
-        setPolling(false);
-        setBurning(false);
-        setError(data.error || '⚠️ Error checking payment');
-        return;
-      }
-      if (data.paid) {
-        clearInterval(pollingRef.current);
-        setPolling(false);
-        setBurning(false);
-        localStorage.removeItem('invoiceId');
-        localStorage.removeItem('paymentUrl');
-        localStorage.removeItem('tonspaceUrl');
-
-        if (data.cursed) {
-          setError(`⚠️ You are cursed until ${new Date(data.curse_expires).toLocaleString()}`);
-          setIsCursed(true);
-          setCurseExpires(data.curse_expires);
-        } else {
-          setNewFragment(data.newFragment);
-          setFragments(data.fragments);
-          setIsCursed(false);
-          setCurseExpires(null);
-          setLastBurn(data.lastBurn);
-          setCooldown(computeCooldown(data.lastBurn));
-        }
+        // fallback
+        window.location.href = link
       }
     } catch (e) {
-      clearInterval(pollingRef.current);
-      setPolling(false);
-      setBurning(false);
-      setError(`⚠️ ${e.message}`);
+      setError(e.message)
+      setBurning(false)
     }
-  };
+  }
+
+  // 4) ловим событие об успешной оплате
+  useEffect(() => {
+    const onSuccess = payload => {
+      // можно прочитать payload.successful_payment, payload.invoice_payload и т.д.
+      localStorage.removeItem('invoiceLink')
+      setInvoiceLink('')
+      setBurning(false)
+      loadProfile()
+    }
+    window.Telegram?.WebApp?.onEvent('payment_success', onSuccess)
+    return () => {
+      window.Telegram?.WebApp?.offEvent('payment_success', onSuccess)
+    }
+  }, [loadProfile])
 
   if (loading) {
-    return <div style={styles.center}>Loading...</div>;
+    return <div style={styles.center}>Loading...</div>
   }
 
   const formatTime = sec => {
-    const m = String(Math.floor(sec / 60)).padStart(2, '0');
-    const s = String(sec % 60).padStart(2, '0');
-    return `${m}:${s}`;
-  };
+    const m = String(Math.floor(sec / 60)).padStart(2, '0')
+    const s = String(sec % 60).padStart(2, '0')
+    return `${m}:${s}`
+  }
 
   return (
     <div style={styles.container}>
@@ -225,70 +161,31 @@ export default function Path() {
           <p style={styles.message}>🔥 You received fragment #{newFragment}!</p>
         )}
 
-        {isCursed ? (
-          <p style={styles.status}>
-            ⚠️ You are cursed until {new Date(curseExpires).toLocaleString()}
-          </p>
-        ) : cooldown > 0 ? (
-          <p style={styles.status}>⏳ Next burn in {formatTime(cooldown)}</p>
-        ) : (
-          <p style={styles.status}>Ready to burn yourself.</p>
-        )}
+        {isCursed
+          ? <p style={styles.status}>⚠️ You are cursed until {new Date(curseExpires).toLocaleString()}</p>
+          : cooldown > 0
+            ? <p style={styles.status}>⏳ Next burn in {formatTime(cooldown)}</p>
+            : <p style={styles.status}>Ready to burn yourself.</p>
+        }
 
         <button
           onClick={handleBurn}
-          disabled={
-            burning ||
-            polling ||
-            (isCursed && new Date(curseExpires) > new Date()) ||
-            cooldown > 0
-          }
+          disabled={burning || isCursed || cooldown > 0}
           style={{
             ...styles.burnButton,
-            opacity:
-              burning ||
-              polling ||
-              (isCursed && new Date(curseExpires) > new Date()) ||
-              cooldown > 0
-                ? 0.6
-                : 1,
-            cursor:
-              burning ||
-              polling ||
-              (isCursed && new Date(curseExpires) > new Date()) ||
-              cooldown > 0
-                ? 'not-allowed'
-                : 'pointer',
+            opacity: (burning||isCursed||cooldown>0) ? 0.6 : 1,
+            cursor:  (burning||isCursed||cooldown>0) ? 'not-allowed' : 'pointer'
           }}
         >
-          {burning
+          { burning
             ? 'Creating invoice…'
-            : polling
-            ? 'Waiting for payment…'
-            : '🔥 Burn Yourself for 0.5 TON'}
+            : invoiceLink
+              ? 'Waiting for payment…'
+              : '🔥 Burn Yourself for 0.5 TON'
+          }
         </button>
 
-        {/* Как только инвойс создан, показываем обе кнопки */}
-        {polling && tonspaceUrl && (
-          <button
-            onClick={() =>
-              window.Telegram?.WebApp?.openLink
-                ? window.Telegram.WebApp.openLink(tonspaceUrl)
-                : (window.location.href = tonspaceUrl)
-            }
-            style={styles.secondary}
-          >
-            Continue in Telegram Wallet
-          </button>
-        )}
-        {polling && paymentUrl && (
-          <button
-            onClick={() => window.open(paymentUrl, '_blank')}
-            style={styles.secondary}
-          >
-            Open in Tonhub
-          </button>
-        )}
+        {error && <p style={styles.error}>{error}</p>}
 
         <button
           onClick={() => navigate('/profile')}
@@ -296,11 +193,9 @@ export default function Path() {
         >
           Go to your personal account
         </button>
-
-        {error && <p style={styles.error}>{error}</p>}
       </div>
     </div>
-  );
+  )
 }
 
 const styles = {
@@ -314,4 +209,4 @@ const styles = {
   burnButton:{ padding:'10px 24px',backgroundColor:'#d4af37',border:'none',borderRadius:6,color:'#000',fontSize:16,marginBottom:12 },
   secondary: { padding:'10px 24px',background:'transparent',border:'1px solid #d4af37',borderRadius:6,color:'#d4af37',fontSize:14,marginBottom:12,cursor:'pointer' },
   error:     { color:'#FF6347',fontSize:14,marginTop:12 }
-};
+}
