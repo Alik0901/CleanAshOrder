@@ -8,7 +8,7 @@ const BACKEND_URL =
 export default function Path() {
   const navigate = useNavigate();
 
-  // ---------- ПРОФИЛЬ ----------
+  // Профиль
   const [tgId, setTgId] = useState('');
   const [fragments, setFragments] = useState([]);
   const [lastBurn, setLastBurn] = useState(null);
@@ -16,12 +16,12 @@ export default function Path() {
   const [curseExpires, setCurseExpires] = useState(null);
   const [cooldown, setCooldown] = useState(0);
 
-  // ---------- ПЛАТЁЖ ----------
+  // Платёж
   const [loading, setLoading] = useState(true);
   const [burning, setBurning] = useState(false);
   const [invoiceId, setInvoiceId] = useState(null);
-  const [paymentUrl, setPaymentUrl] = useState('');
-  const [tonspaceUrl, setTonspaceUrl] = useState('');
+  const [paymentUrl, setPaymentUrl] = useState('');    // Tonhub HTTPS
+  const [tonspaceUrl, setTonspaceUrl] = useState('');  // ton://
   const [polling, setPolling] = useState(false);
   const [newFragment, setNewFragment] = useState(null);
   const [error, setError] = useState('');
@@ -29,23 +29,23 @@ export default function Path() {
   const pollingRef = useRef(null);
   const COOLDOWN_SECONDS = 2 * 60;
 
-  // вычисление кулдауна
+  // Вычисляем остаток кулдауна
   const computeCooldown = last => {
     if (!last) return 0;
     const elapsed = (Date.now() - new Date(last).getTime()) / 1000;
     return Math.max(0, COOLDOWN_SECONDS - Math.floor(elapsed));
   };
 
-  // тикер кулдауна
+  // Тикер кулдауна
   useEffect(() => {
     if (cooldown <= 0) return;
     const id = setInterval(() => {
-      setCooldown(c => Math.max(0, c - 1));
+      setCooldown(prev => (prev > 1 ? prev - 1 : 0));
     }, 1000);
     return () => clearInterval(id);
   }, [cooldown]);
 
-  // монтирование: инициализация TG, токена, восстановление платежа, загрузка профиля
+  // Инициализация: Telegram, токен, восстановление платежа, загрузка профиля
   useEffect(() => {
     const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {};
     const id = unsafe.user?.id;
@@ -61,22 +61,19 @@ export default function Path() {
       return;
     }
 
-    // восстановим незавершёнку
-    const savedInvoice = localStorage.getItem('invoiceId');
-    const savedHub     = localStorage.getItem('paymentUrl');
-    const savedTon     = localStorage.getItem('tonspaceUrl');
-    if (savedInvoice && savedHub && savedTon) {
-      setInvoiceId(savedInvoice);
+    // Восстанавливаем незавершённый платёж
+    const savedId  = localStorage.getItem('invoiceId');
+    const savedHub = localStorage.getItem('paymentUrl');
+    const savedTon = localStorage.getItem('tonspaceUrl');
+    if (savedId && savedHub && savedTon) {
+      setInvoiceId(savedId);
       setPaymentUrl(savedHub);
       setTonspaceUrl(savedTon);
       setPolling(true);
-      pollingRef.current = setInterval(
-        () => checkBurnStatus(savedInvoice),
-        5000
-      );
+      pollingRef.current = setInterval(() => checkPaymentStatus(savedId), 5000);
     }
 
-    // загрузка профиля
+    // Загрузка профиля
     const loadProfile = async () => {
       setLoading(true);
       setError('');
@@ -108,7 +105,7 @@ export default function Path() {
     return () => window.removeEventListener('focus', loadProfile);
   }, [navigate]);
 
-  // ШАГ 1: создать инвойс
+  // Шаг 1: создание инвойса
   const handleBurn = async () => {
     setBurning(true);
     setError('');
@@ -118,7 +115,7 @@ export default function Path() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({ tg_id: tgId }),
       });
@@ -134,34 +131,33 @@ export default function Path() {
       localStorage.setItem('paymentUrl', data.paymentUrl);
       localStorage.setItem('tonspaceUrl', data.tonspaceUrl);
 
-      // редирект в встроенный кошелёк
+      // Редирект в Telegram Wallet
       if (window.Telegram?.WebApp?.openLink) {
         window.Telegram.WebApp.openLink(data.tonspaceUrl);
       } else {
         window.location.href = data.tonspaceUrl;
       }
 
-      // стартуем polling
+      // Старт polling
       setPolling(true);
-      pollingRef.current = setInterval(
-        () => checkBurnStatus(data.invoiceId),
-        5000
-      );
+      pollingRef.current = setInterval(() => checkPaymentStatus(data.invoiceId), 5000);
     } catch (e) {
       setError(e.message);
       setBurning(false);
     }
   };
 
-  // ШАГ 2: polling статуса оплаты
-  const checkBurnStatus = async id => {
+  // Шаг 2: проверка статуса платежа
+  const checkPaymentStatus = async id => {
     try {
       const token = localStorage.getItem('token');
       const res = await fetch(`${BACKEND_URL}/api/burn-status/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
       });
       if (res.status === 404) {
-        // инвойс не найден → прекращаем polling
         clearInterval(pollingRef.current);
         setPolling(false);
         setBurning(false);
@@ -173,7 +169,7 @@ export default function Path() {
         clearInterval(pollingRef.current);
         setPolling(false);
         setBurning(false);
-        setError(data.error || 'Error checking status');
+        setError(data.error || 'Error checking payment');
         return;
       }
       if (data.paid) {
@@ -185,16 +181,16 @@ export default function Path() {
         localStorage.removeItem('tonspaceUrl');
 
         if (data.cursed) {
-          setError(`You are cursed until ${new Date(data.curse_expires).toLocaleString()}`);
+          setError(`⚠️ You are cursed until ${new Date(data.curse_expires).toLocaleString()}`);
           setIsCursed(true);
           setCurseExpires(data.curse_expires);
         } else {
           setNewFragment(data.newFragment);
           setFragments(data.fragments);
           setLastBurn(data.lastBurn);
+          setCooldown(computeCooldown(data.lastBurn));
           setIsCursed(false);
           setCurseExpires(null);
-          setCooldown(computeCooldown(data.lastBurn));
         }
       }
     } catch (e) {
@@ -217,7 +213,7 @@ export default function Path() {
 
   return (
     <div style={styles.container}>
-      <div style={styles.overlay} />
+      <div style={styles.overlay}/>
       <div style={styles.content}>
         <h2 style={styles.title}>The Path Begins</h2>
 
@@ -265,12 +261,18 @@ export default function Path() {
         )}
 
         {polling && paymentUrl && (
-          <button onClick={() => window.open(paymentUrl, '_blank')} style={styles.secondary}>
+          <button
+            onClick={() => window.open(paymentUrl, '_blank')}
+            style={styles.secondary}
+          >
             Open in Tonhub
           </button>
         )}
 
-        <button onClick={() => navigate('/profile')} style={styles.secondary}>
+        <button
+          onClick={() => navigate('/profile')}
+          style={styles.secondary}
+        >
           Go to your personal account
         </button>
 
