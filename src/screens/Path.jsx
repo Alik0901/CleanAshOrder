@@ -9,27 +9,27 @@ export default function Path() {
   const navigate = useNavigate();
 
   // Профиль
-  const [tgId, setTgId] = useState('');
+  const [tgId, setTgId]           = useState('');
   const [fragments, setFragments] = useState([]);
-  const [lastBurn, setLastBurn] = useState(null);
-  const [isCursed, setIsCursed] = useState(false);
+  const [lastBurn, setLastBurn]   = useState(null);
+  const [isCursed, setIsCursed]   = useState(false);
   const [curseExpires, setCurseExpires] = useState(null);
-  const [cooldown, setCooldown] = useState(0);
+  const [cooldown, setCooldown]   = useState(0);
 
-  // Оплата
-  const [loading, setLoading] = useState(true);
-  const [burning, setBurning] = useState(false);
+  // Платёж
+  const [loading, setLoading]     = useState(true);
+  const [burning, setBurning]     = useState(false);
   const [invoiceId, setInvoiceId] = useState(null);
-  const [paymentUrl, setPaymentUrl] = useState('');    // Tonhub HTTPS
-  const [tonspaceUrl, setTonspaceUrl] = useState('');  // ton://
-  const [polling, setPolling] = useState(false);
-  const [error, setError] = useState('');
+  const [paymentUrl, setPaymentUrl]   = useState('');    // Tonhub HTTPS
+  const [tonspaceUrl, setTonspaceUrl] = useState('');    // ton://
+  const [polling, setPolling]     = useState(false);
+  const [error, setError]         = useState('');
   const [newFragment, setNewFragment] = useState(null);
 
   const pollingRef = useRef(null);
   const COOLDOWN_SECONDS = 2 * 60;
 
-  // Вычисление оставшегося кулдауна
+  // Вычисляем остаток кулдауна
   const computeCooldown = last => {
     if (!last) return 0;
     const elapsed = (Date.now() - new Date(last).getTime()) / 1000;
@@ -45,7 +45,7 @@ export default function Path() {
     return () => clearInterval(id);
   }, [cooldown]);
 
-  // Монтирование: initData, токен, восстановление незавершённого счёта, загрузка профиля
+  // Монтирование: инициализация Telegram, токена, восстановление незавершённого платёжа, загрузка профиля
   useEffect(() => {
     const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {};
     const id = unsafe.user?.id;
@@ -61,7 +61,7 @@ export default function Path() {
       return;
     }
 
-    // Восстанавливаем незавершённый платёж
+    // Восстановим незавершённый платёж
     const savedId  = localStorage.getItem('invoiceId');
     const savedHub = localStorage.getItem('paymentUrl');
     const savedTon = localStorage.getItem('tonspaceUrl');
@@ -73,7 +73,7 @@ export default function Path() {
       pollingRef.current = setInterval(() => checkPaymentStatus(savedId), 5000);
     }
 
-    // Загрузка профиля
+    // Загрузим профиль
     const loadProfile = async () => {
       setLoading(true);
       setError('');
@@ -105,9 +105,7 @@ export default function Path() {
     return () => window.removeEventListener('focus', loadProfile);
   }, [navigate]);
 
-  /**
-   * Шаг 1: создать инвойс
-   */
+  // Шаг 1: создание инвойса
   const handleBurn = async () => {
     setBurning(true);
     setError('');
@@ -133,7 +131,7 @@ export default function Path() {
         return;
       }
 
-      // Сохраняем оба deeplink’а
+      // сохраняем оба deeplink’а
       setInvoiceId(data.invoiceId);
       setPaymentUrl(data.paymentUrl);
       setTonspaceUrl(data.tonspaceUrl);
@@ -141,14 +139,14 @@ export default function Path() {
       localStorage.setItem('paymentUrl', data.paymentUrl);
       localStorage.setItem('tonspaceUrl', data.tonspaceUrl);
 
-      // Переходим на ton:// — WebView Telegram откроет встроенный кошелёк
-      try {
+      // переходим по ton://, чтобы WebView Telegram открыл встроенный кошелек
+      if (window.Telegram?.WebApp?.openLink) {
         window.Telegram.WebApp.openLink(data.tonspaceUrl);
-      } catch {
+      } else {
         window.location.href = data.tonspaceUrl;
       }
 
-      // Запускаем polling
+      // запускаем polling
       setPolling(true);
       pollingRef.current = setInterval(
         () => checkPaymentStatus(data.invoiceId),
@@ -160,9 +158,7 @@ export default function Path() {
     }
   };
 
-  /**
-   * Шаг 2: проверка статуса платежа
-   */
+  // Шаг 2: проверка статуса
   const checkPaymentStatus = async id => {
     const token = localStorage.getItem('token');
     try {
@@ -225,7 +221,7 @@ export default function Path() {
 
   return (
     <div style={styles.container}>
-      <div style={styles.overlay} />
+      <div style={styles.overlay}/>
       <div style={styles.content}>
         <h2 style={styles.title}>The Path Begins</h2>
 
@@ -276,23 +272,19 @@ export default function Path() {
             : '🔥 Burn Yourself for 0.5 TON'}
         </button>
 
-        {/* Кнопка «Continue in Telegram Wallet» */}
+        {/* Если мы в polling и у нас есть tonspaceUrl */}
         {polling && tonspaceUrl && (
           <button
-            onClick={() => {
-              try {
-                window.Telegram.WebApp.openLink(tonspaceUrl);
-              } catch {
-                window.location.href = tonspaceUrl;
-              }
-            }}
+            onClick={() => window.Telegram?.WebApp?.openLink
+                          ? window.Telegram.WebApp.openLink(tonspaceUrl)
+                          : window.location.href = tonspaceUrl}
             style={styles.secondary}
           >
-            Continue Payment in Telegram Wallet
+            Continue in Telegram Wallet
           </button>
         )}
 
-        {/* Кнопка «Open in Tonhub» */}
+        {/* Fallback — открыть в Tonhub */}
         {polling && paymentUrl && (
           <button
             onClick={() => window.open(paymentUrl, '_blank')}
