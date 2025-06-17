@@ -7,9 +7,9 @@ const BACKEND_URL =
   'https://ash-backend-production.up.railway.app';
 
 // ⬅️ маленькая помощь для локального /debug
-if (location.search.includes('debug=1')) {
-  import('/logger.js');
-}
+//if (location.search.includes('debug=1')) {
+ // import('/logger.js');
+//}
 
 export default function Path() {
   const nav = useNavigate();
