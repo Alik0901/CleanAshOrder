@@ -112,10 +112,12 @@ export default function Path() {
       localStorage.setItem('tonspaceUrl', data.tonspaceUrl);
 
       /* --- главное изменение: открываем ton:// через openTelegramLink --- */
-      if (window.Telegram?.WebApp?.openTelegramLink) {
-        window.Telegram.WebApp.openTelegramLink(data.tonspaceUrl);
-      } else {
-        window.location.href = data.tonspaceUrl; // desktop-preview fallback
+        if (window.Telegram?.WebApp?.openLink) {
+      // встроенный Ton Space / Ton Keeper внутри Telegram
+        window.Telegram.WebApp.openLink(data.tonspaceUrl, { target : '_self' });
+        } else {
+      // desktop preview или старый клиент – обычный редирект
+   window.location.href = data.tonspaceUrl;
       }
 
       // старт опроса
