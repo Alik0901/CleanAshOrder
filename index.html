@@ -11,29 +11,36 @@
     <script type="module" src="/src/main.jsx"></script>
     <script>
 (() => {
-  const box = Object.assign(document.createElement('pre'), {
-    id:   'tg-log',
-    style:`position:fixed;bottom:0;left:0;right:0;
-           max-height:40%;overflow:auto;
-           margin:0;padding:4px 6px;
-           font:12px/1.35 monospace;white-space:pre-wrap;
-           color:#0f0;background:rgba(0,0,0,.9);z-index:9999`
-  });
-  document.body.append(box);
+  /* ----------  css & helpers  ---------- */
+  const css = `
+  #tg-log{position:fixed;left:5%;width:90%;max-height:30%;
+          bottom:0;margin:0;padding:4px 6px;font:11px/1.35 monospace;
+          white-space:pre-wrap;color:#0f0;background:rgba(0,0,0,.9);
+          z-index:9999;overflow:auto;border-radius:4px}
+  #tg-log-close{position:absolute;right:6px;top:2px;font:700 14px sans-serif;
+                color:#f33;cursor:pointer}`;
+  const style = Object.assign(document.createElement('style'), {textContent:css});
+  document.head.append(style);
 
-  const show = (type, ...a) => {
-    box.textContent += `[${type}] ${a.map(v=>typeof v==='object'
-      ? JSON.stringify(v) : v).join(' ')}\n`;
-  };
+  /* ----------  log box  ---------- */
+  const box  = Object.assign(document.createElement('pre'), { id:'tg-log' });
+  const btn  = Object.assign(document.createElement('span'),
+                 { id:'tg-log-close', textContent:'×',
+                   onclick:()=> box.style.display =
+                     (box.style.display!=='none') ? 'none' : 'block' });
+  box.append(btn); document.body.append(box);
+
+  const show = (type, ...a) =>
+    box.textContent += `[${type}] `+
+      a.map(v=> typeof v==='object' ? JSON.stringify(v) : v).join(' ') + '\n';
 
   ['log','warn','error'].forEach(k=>{
-    const orig = console[k];                     // сохраняем оригинал
+    const orig = console[k];
     console[k] = (...a)=>{ show(k, ...a); orig(...a); };
   });
-
-  window.addEventListener('error',   e => show('onError',   e.message));
+  window.addEventListener('error',   e=> show('errorEvt', e.message));
   window.addEventListener('unhandledrejection',
-                          e => show('reject', e.reason?.message||e.reason));
+                          e=> show('reject', e.reason?.message||e.reason));
 })();
 </script>
   </body>

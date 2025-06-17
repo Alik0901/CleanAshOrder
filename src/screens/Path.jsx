@@ -3,224 +3,208 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const BACKEND_URL =
-  process.env.REACT_APP_BACKEND_URL ||
+  import.meta.env.VITE_BACKEND_URL ||
   'https://ash-backend-production.up.railway.app';
 
+const COOLDOWN_SECONDS = 2 * 60;               // 2 мин
+
 export default function Path() {
-  const navigate = useNavigate();
+  const nav = useNavigate();
 
-  // ------- профиль -------
-  const [tgId, setTgId]               = useState('');
-  const [fragments, setFragments]     = useState([]);
-  const [lastBurn, setLastBurn]       = useState(null);
-  const [isCursed, setIsCursed]       = useState(false);
-  const [curseExpires, setCurseExp]   = useState(null);
-  const [cooldown, setCooldown]       = useState(0);
+  /* ----------  state  ---------- */
+  const [tgId,setTgId]           = useState('');
+  const [fragments,setFragments] = useState([]);
+  const [lastBurn,setLastBurn]   = useState(null);
+  const [cooldown,setCooldown]   = useState(0);
+  const [isCursed,setIsCursed]   = useState(false);
+  const [curseTo,setCurseTo]     = useState(null);
 
-  // ------- платёж -------
-  const [loading,   setLoading]       = useState(true);
-  const [burning,   setBurning]       = useState(false);
-  const [invoiceId, setInvoiceId]     = useState(null);
-  const [paymentUrl,  setPaymentUrl]  = useState('');   // https:// для Tonhub
-  const [tonspaceUrl, setTonspaceUrl] = useState('');   // ton:// для встроенного
-  const [polling,   setPolling]       = useState(false);
-  const [newFragment, setNewFrag]     = useState(null);
-  const [error,     setError]         = useState('');
+  const [loading,setLoading]     = useState(true);
+  const [burning,setBurning]     = useState(false);
+  const [polling,setPolling]     = useState(false);
 
-  const pollingRef        = useRef(null);
-  const COOLDOWN_SECONDS  = 2 * 60;
+  const [invoiceId,setInvoiceId] = useState(null);
+  const [hubUrl,setHubUrl]       = useState('');
+  const [tonUrl,setTonUrl]       = useState('');
+  const [newFrag,setNewFrag]     = useState(null);
+  const [err,setErr]             = useState('');
 
-  /* ---------- utils ---------- */
-  const computeCooldown = last => {
-    if (!last) return 0;
-    const elapsed = (Date.now() - new Date(last).getTime()) / 1000;
-    return Math.max(0, COOLDOWN_SECONDS - Math.floor(elapsed));
+  const pollRef = useRef(null);
+
+  /* ----------  helpers  ---------- */
+  const ms = d => new Date(d).getTime();
+  const restCool = last =>
+    Math.max(0, COOLDOWN_SECONDS - ~~((Date.now()-ms(last))/1000));
+
+  /** безопасный переход в Ton Space / fallback */
+  const openTonSpace = url => {
+    try {
+      if (window.Telegram?.WebApp?.openLink) {
+        console.log('👣 openLink _self', url);
+        window.Telegram.WebApp.openLink(url,{target:'_self'});
+      } else {
+        console.warn('🔎 openLink absent, href fallback');
+        window.location.href = url;
+      }
+    } catch(e) {
+      console.error('❌ openLink err', e);
+      window.location.href = url;
+    }
   };
 
-  /* ---------- таймер кулдауна ---------- */
-  useEffect(() => {
-    if (cooldown <= 0) return;
-    const t = setInterval(() => setCooldown(c => (c > 1 ? c - 1 : 0)), 1000);
-    return () => clearInterval(t);
-  }, [cooldown]);
+  /* ----------  countdown ticker  ---------- */
+  useEffect(()=>{
+    if(cooldown<=0) return;
+    const id = setInterval(()=> setCooldown(c=>c>1?c-1:0),1000);
+    return ()=> clearInterval(id);
+  },[cooldown]);
 
-  /* ---------- монтирование ---------- */
-  useEffect(() => {
-    const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {};
-    const id = unsafe.user?.id;
-    if (!id) { navigate('/init'); return; }
-    setTgId(String(id));
+  /* ----------  first mount  ---------- */
+  useEffect(()=>{
+    const u = window.Telegram?.WebApp?.initDataUnsafe?.user;
+    if(!u?.id){ nav('/init'); return; }
+    setTgId(String(u.id));
 
     const token = localStorage.getItem('token');
-    if (!token) { navigate('/init'); return; }
+    if(!token){ nav('/init'); return; }
 
-    // восстанавливаем платёж (если был)
-    const savedId  = localStorage.getItem('invoiceId');
-    const savedHub = localStorage.getItem('paymentUrl');
-    const savedTon = localStorage.getItem('tonspaceUrl');
-    if (savedId && savedHub && savedTon) {
-      setInvoiceId(savedId);
-      setPaymentUrl(savedHub);
-      setTonspaceUrl(savedTon);
+    /* восстановление незаконченного платежа */
+    const inv  = localStorage.getItem('invoiceId');
+    const hUrl = localStorage.getItem('hubUrl');
+    const tUrl = localStorage.getItem('tonUrl');
+    if(inv&&hUrl&&tUrl){
+      setInvoiceId(inv); setHubUrl(hUrl); setTonUrl(tUrl);
       setPolling(true);
-      pollingRef.current = setInterval(() => checkStatus(savedId), 5000);
+      pollRef.current = setInterval(()=> checkStatus(inv),5_000);
     }
-
-    // загружаем профиль
-    const loadProfile = async () => {
-      setLoading(true); setError('');
-      try {
-        const res = await fetch(`${BACKEND_URL}/api/player/${id}`);
-        if (!res.ok) throw new Error();
-        const d = await res.json();
-        setFragments(d.fragments || []);
-        setLastBurn(d.last_burn);
-        if (d.curse_expires && new Date(d.curse_expires) > new Date()) {
-          setIsCursed(true); setCurseExp(d.curse_expires);
-        } else {
-          setIsCursed(false); setCurseExp(null);
-          setCooldown(computeCooldown(d.last_burn));
-        }
-      } catch { navigate('/init'); }
-      finally { setLoading(false); }
-    };
 
     loadProfile();
     window.addEventListener('focus', loadProfile);
-    return () => window.removeEventListener('focus', loadProfile);
-  }, [navigate]);
+    return ()=> window.removeEventListener('focus', loadProfile);
 
-  /* ---------- создание инвойса ---------- */
-  const handleBurn = async () => {
-    setBurning(true); setError('');
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${BACKEND_URL}/api/burn-invoice`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ tg_id: tgId })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Could not create invoice');
-
-      // сохраняем
-      setInvoiceId(data.invoiceId);
-      setPaymentUrl(data.paymentUrl);
-      setTonspaceUrl(data.tonspaceUrl);
-      localStorage.setItem('invoiceId', data.invoiceId);
-      localStorage.setItem('paymentUrl', data.paymentUrl);
-      localStorage.setItem('tonspaceUrl', data.tonspaceUrl);
-
-      /* --- главное изменение: открываем ton:// через openTelegramLink --- */
-        if (window.Telegram?.WebApp?.openLink) {
-      // встроенный Ton Space / Ton Keeper внутри Telegram
-        window.Telegram.WebApp.openLink(data.tonspaceUrl, { target : '_self' });
+    async function loadProfile(){
+      setLoading(true); setErr('');
+      try{
+        const r = await fetch(`${BACKEND_URL}/api/player/${u.id}`);
+        if(!r.ok) throw new Error();
+        const d = await r.json();
+        setFragments(d.fragments||[]);
+        setLastBurn(d.last_burn);
+        setCooldown(restCool(d.last_burn));
+        if(d.curse_expires && ms(d.curse_expires) > Date.now()){
+          setIsCursed(true); setCurseTo(d.curse_expires);
         } else {
-      // desktop preview или старый клиент – обычный редирект
-   window.location.href = data.tonspaceUrl;
-      }
-
-      // старт опроса
-      setPolling(true);
-      pollingRef.current = setInterval(() => checkStatus(data.invoiceId), 5000);
-    } catch (e) {
-      setError(e.message); setBurning(false);
+          setIsCursed(false); setCurseTo(null);
+        }
+      }catch{ nav('/init'); }
+      finally{ setLoading(false); }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[]);
+
+  /* ----------  create invoice  ---------- */
+  const handleBurn = async()=>{
+    setBurning(true); setErr('');
+    try{
+      const token = localStorage.getItem('token');
+      const r = await fetch(`${BACKEND_URL}/api/burn-invoice`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json',
+                 Authorization:`Bearer ${token}`},
+        body:JSON.stringify({tg_id:tgId})
+      });
+      const d = await r.json();
+      if(!r.ok) throw new Error(d.error);
+      console.log('🧾 invoice', d);
+
+      localStorage.setItem('invoiceId', d.invoiceId);
+      localStorage.setItem('hubUrl',   d.paymentUrl);
+      localStorage.setItem('tonUrl',   d.tonspaceUrl);
+
+      setInvoiceId(d.invoiceId); setHubUrl(d.paymentUrl); setTonUrl(d.tonspaceUrl);
+
+      openTonSpace(d.tonspaceUrl);          // ⇢ встроенный кошелёк
+      setPolling(true);
+      pollRef.current = setInterval(()=> checkStatus(d.invoiceId),5_000);
+    }catch(e){ setErr(e.message); }
+    finally{ setBurning(false); }
   };
 
-  /* ---------- опрос статуса ---------- */
-  const checkStatus = async id => {
-    try {
+  /* ----------  poll status  ---------- */
+  const checkStatus = async id=>{
+    try{
       const token = localStorage.getItem('token');
-      const res = await fetch(`${BACKEND_URL}/api/burn-status/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Status check failed');
-
-      if (data.paid) {
-        clearInterval(pollingRef.current); setPolling(false); setBurning(false);
+      const r = await fetch(`${BACKEND_URL}/api/burn-status/${id}`,
+                            {headers:{Authorization:`Bearer ${token}`}});
+      const d = await r.json();
+      if(!r.ok){ throw new Error(d.error); }
+      if(d.paid){
+        clearInterval(pollRef.current); setPolling(false);
+        console.log('✅ paid', d);
         localStorage.removeItem('invoiceId');
-        localStorage.removeItem('paymentUrl');
-        localStorage.removeItem('tonspaceUrl');
-
-        if (data.cursed) {
-          setError(`⚠️ You are cursed until ${new Date(data.curse_expires).toLocaleString()}`);
-          setIsCursed(true); setCurseExp(data.curse_expires);
-        } else {
-          setNewFrag(data.newFragment);
-          setFragments(data.fragments);
-          setLastBurn(data.lastBurn);
-          setCooldown(computeCooldown(data.lastBurn));
+        localStorage.removeItem('hubUrl');
+        localStorage.removeItem('tonUrl');
+        if(d.cursed){
+          setErr(`⚠ Cursed till ${new Date(d.curse_expires).toLocaleString()}`);
+          setIsCursed(true); setCurseTo(d.curse_expires);
+        }else{
+          setNewFrag(d.newFragment);
+          setFragments(d.fragments);
+          setLastBurn(d.lastBurn);
+          setCooldown(restCool(d.lastBurn));
+          setIsCursed(false); setCurseTo(null);
         }
       }
-    } catch (e) {
-      clearInterval(pollingRef.current); setPolling(false); setBurning(false);
-      setError(e.message);
+    }catch(e){
+      clearInterval(pollRef.current); setPolling(false);
+      setErr(e.message);
     }
   };
 
-  if (loading) return <div style={styles.center}>Loading…</div>;
+  /* ----------  ui  ---------- */
+  if(loading) return <div style={s.center}>loading…</div>;
+  const time = s=>`${String(s/60|0).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
 
-  const fmt = s => `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+  return(
+    <div style={s.wrap}>
+      <div style={s.ov}/>
+      <div style={s.box}>
+        <h2 style={s.title}>The Path Begins</h2>
 
-  return (
-    <div style={styles.container}>
-      <div style={styles.overlay}/>
-      <div style={styles.content}>
-        <h2 style={styles.title}>The Path Begins</h2>
-
-        {newFragment && <p style={styles.message}>🔥 Fragment #{newFragment} obtained!</p>}
+        {newFrag && <p style={s.msg}>🔥 New fragment #{newFrag}</p>}
 
         {isCursed
-          ? <p style={styles.status}>⚠️ Cursed until {new Date(curseExpires).toLocaleString()}</p>
+          ? <p style={s.status}>⚠ Cursed till {new Date(curseTo).toLocaleString()}</p>
           : cooldown>0
-              ? <p style={styles.status}>⏳ Next burn in {fmt(cooldown)}</p>
-              : <p style={styles.status}>Ready to burn yourself.</p>}
+            ? <p style={s.status}>⏳ Next burn in {time(cooldown)}</p>
+            : <p style={s.status}>Ready to burn yourself.</p>}
 
-        <button
-          onClick={handleBurn}
-          disabled={burning||polling||isCursed||cooldown>0}
-          style={{
-            ...styles.burn,
-            opacity:(burning||polling||isCursed||cooldown>0)?.6:1,
-            cursor:(burning||polling||isCursed||cooldown>0)?'not-allowed':'pointer'
-          }}>
-          {burning ? 'Creating invoice…'
-                   : polling ? 'Waiting for payment…'
-                             : '🔥 Burn Yourself for 0.5 TON'}
+        <button style={{...s.main,opacity:(burning||polling||isCursed||cooldown)?.6:1}}
+                disabled={burning||polling||isCursed||cooldown}
+                onClick={handleBurn}>
+          {burning? 'Creating…' : polling? 'Waiting…' : '🔥 Burn Yourself for 0.5 TON'}
         </button>
 
-        {polling && paymentUrl &&
-          <button
-            onClick={() =>
-              window.Telegram?.WebApp?.openLink
-                ? window.Telegram.WebApp.openLink(paymentUrl)
-                : window.open(paymentUrl,'_blank')}
-            style={styles.secondary}>
-            Open in Tonhub
-          </button>}
-
-        <button onClick={()=>navigate('/profile')} style={styles.secondary}>
-          Go to your personal account
-        </button>
-
-        {error && <p style={styles.error}>{error}</p>}
+        {polling &&
+          <button style={s.sec} onClick={()=>openTonSpace(tonUrl)}>Open in Ton Wallet</button>}
+        <button style={s.sec} onClick={()=> nav('/profile')}>Go to your personal account</button>
+        {err && <p style={s.err}>{err}</p>}
       </div>
-    </div>
-  );
+    </div>);
 }
 
-/* ---- стили ---- */
-const styles={
-  center:{display:'flex',height:'100vh',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:18},
-  container:{position:'relative',height:'100vh',background:'url("/bg-path.webp") center/cover'},
-  overlay:{position:'absolute',inset:0,background:'rgba(0,0,0,.5)'},
-  content:{position:'relative',zIndex:2,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',color:'#d4af37',padding:16,textAlign:'center'},
-  title:{fontSize:28,marginBottom:16},
-  message:{fontSize:16,color:'#7cfc00',marginBottom:12},
-  status:{fontSize:16,marginBottom:12},
-  burn:{padding:'10px 24px',background:'#d4af37',border:0,borderRadius:6,color:'#000',fontSize:16,marginBottom:12},
-  secondary:{padding:'10px 24px',background:'transparent',border:'1px solid #d4af37',borderRadius:6,color:'#d4af37',fontSize:14,marginBottom:12},
-  error:{color:'#ff6347',fontSize:14,marginTop:12}
+/* ----------  styles  ---------- */
+const s = {
+  center:{display:'flex',height:'100vh',alignItems:'center',justifyContent:'center',color:'#fff'},
+  wrap  :{position:'relative',height:'100vh',background:'url(/bg-path.webp) center/cover'},
+  ov    :{position:'absolute',inset:0,background:'rgba(0,0,0,.55)'},
+  box   :{position:'relative',zIndex:1,height:'100%',display:'flex',flexDirection:'column',
+          justifyContent:'center',alignItems:'center',textAlign:'center',color:'#d4af37',padding:16},
+  title :{fontSize:28,marginBottom:16},
+  msg   :{color:'#7CFC00',marginBottom:12},
+  status:{marginBottom:12},
+  main  :{padding:'10px 24px',borderRadius:6,border:'none',background:'#d4af37',color:'#000',marginBottom:12},
+  sec   :{padding:'10px 24px',borderRadius:6,border:'1px solid #d4af37',background:'transparent',
+          color:'#d4af37',marginBottom:12,cursor:'pointer'},
+  err   :{color:'#f55',marginTop:12}
 };
