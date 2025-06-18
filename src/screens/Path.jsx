@@ -1,240 +1,295 @@
-/*  Path.jsx  ────────────────────────────────────────────────────────────────
- *  The Path Begins – with confirm-modal & fragment animation
- * ------------------------------------------------------------------------ */
-import React, { useEffect, useRef, useState } from 'react';
+/*  Path.jsx – “The Path Begins”  ------------------------------------------- */
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const BACKEND = import.meta.env.VITE_BACKEND_URL
-             ?? 'https://ash-backend-production.up.railway.app';
+/* ---------- config & helpers --------------------------------------------- */
 
-const TG        = window.Telegram?.WebApp;
+const BACKEND =
+  import.meta.env.VITE_BACKEND_URL ??
+  'https://ash-backend-production.up.railway.app';
+
 const DEV       = import.meta.env.DEV;
-const PLATFORM  = TG?.platform ?? 'unknown';
-const COOLDOWN  = 120;                                // sec
+const TG        = window.Telegram?.WebApp;
+const PLATFORM  = TG?.platform ?? 'unknown';               // android | ios …
 
-/* ---------- styles ---------- */
-const S = {
-  /* base */
-  page:{position:'relative',minHeight:'100vh',
-        background:'url("/bg-path.webp") center/cover',
-        display:'flex',justifyContent:'center',alignItems:'center',
-        padding:'32px 12px'},
-  card:{width:'100%',maxWidth:380,textAlign:'center',color:'#d4af37'},
-  h2  :{margin:'0 0 8px',fontSize:28,fontWeight:700},
-  sub :{margin:'0 0 24px',fontSize:16},
-  btn :{display:'block',width:'100%',padding:'12px',fontSize:16,
-        borderRadius:6,border:'none',margin:'12px 0',cursor:'pointer'},
-  prim:{background:'#d4af37',color:'#000'},
-  sec :{background:'transparent',border:'1px solid #d4af37',color:'#d4af37',
-        width:'100%',padding:'12px'},
-  stat:{fontSize:15,minHeight:22,margin:'12px 0'},
-  ok  :{color:'#6bcb77'}, bad:{color:'#ff6b6b'},
-
-  /* confirm modal */
-  ovl :{position:'fixed',inset:0,background:'rgba(0,0,0,.55)',
-        backdropFilter:'blur(4px)',display:'flex',justifyContent:'center',
-        alignItems:'center',zIndex:5},
-  modal:{background:'#1b1b1b',border:'1px solid #555',borderRadius:8,
-         padding:24,maxWidth:320,color:'#fff',textAlign:'center'},
-  mBtn :{width:'100%',padding:'10px',marginTop:12,fontSize:15,borderRadius:6,
-         cursor:'pointer'},
-
-  /* fragment animation */
-  frag:{position:'fixed',left:'50%',top:'50%',
-        width:120,height:120,marginLeft:-60,marginTop:-60,
-        borderRadius:60,background:'#d4af37',color:'#000',
-        display:'flex',justifyContent:'center',alignItems:'center',
-        fontSize:34,fontWeight:700,zIndex:4,
-        animation:'showFly 2.2s ease forwards'},
-  /* dev overlay */
-  dbg :{position:'fixed',insetInline:0,bottom:0,maxHeight:'40vh',
-        background:'#000c',color:'#5cff5c',fontSize:11,
-        overflowY:'auto',whiteSpace:'pre-line',padding:'4px 6px',zIndex:9999}
+/* номер → файл; добавляйте новые по мере необходимости */
+const FRAG_IMG = {
+  1: 'fragment_1_the_whisper.webp',
+  2: 'fragment_2_the_number.webp',
+  3: 'fragment_3_the_language.webp',
+  4: 'fragment_4_the_mirror.webp',
+  5: 'fragment_5_the_chain.webp',
+  6: 'fragment_6_the_hour.webp',
+  7: 'fragment_7_the_mark.webp',
+  8: 'fragment_8_the_gate.webp',
 };
 
-/* keyframes via <style> tag once */
-const style = document.createElement('style');
-style.textContent = `
-@keyframes showFly{
-  0%   {transform:scale(.2);opacity:0;}
-  20%  {transform:scale(1.05);opacity:1;}
-  35%  {transform:scale(1);}
-  75%  {transform:translateY(160px) scale(.4);opacity:.8;}
-  100% {transform:translateY(220px) scale(.15);opacity:0;}
-}`;
-document.head.append(style);
+/* ---------- inline styles ------------------------------------------------- */
 
-/* ---------- DEV overlay ---------- */
-function Debug(){const[log,set]=useState([]);
-  useEffect(()=>{const h=e=>set(l=>[...l,e]);
+const S = {
+  page : { position:'relative',minHeight:'100vh',
+           background:'url("/bg-path.webp") center/cover',
+           display:'flex',justifyContent:'center',alignItems:'center',
+           padding:'32px 12px' },
+  card : { width:'100%',maxWidth:380,textAlign:'center',color:'#d4af37' },
+  h2   : { margin:'0 0 8px',fontSize:28,fontWeight:700 },
+  sub  : { margin:'0 0 24px',fontSize:16 },
+
+  btn  : { display:'block',width:'100%',padding:'12px',fontSize:16,
+           borderRadius:6,border:'none',margin:'12px 0',cursor:'pointer',
+           transition:'opacity .2s' },
+  prim : { background:'#d4af37',color:'#000' },
+  sec  : { background:'transparent',border:'1px solid #d4af37',color:'#d4af37' },
+
+  stat : { fontSize:15,minHeight:22,margin:'12px 0' },
+  ok   : { color:'#6BCB77' },       bad:{ color:'#FF6B6B' },
+
+  /* modal */
+  modalWrap : { position:'fixed',inset:0,background:'#0008',
+                backdropFilter:'blur(6px)',display:'flex',
+                alignItems:'center',justifyContent:'center',zIndex:50 },
+  modal     : { maxWidth:320,background:'#181818',color:'#fff',
+                padding:'20px',borderRadius:8,textAlign:'center',
+                lineHeight:1.4,boxShadow:'0 0 16px #000' },
+  mBtn      : { marginTop:18,padding:'10px 16px',width:'100%',fontSize:15,
+                border:'none',borderRadius:6,cursor:'pointer' },
+
+  /* fragment animation */
+  frag : { position:'fixed',left:'50%',top:'50%',width:260,height:260,
+           transform:'translate(-50%,-50%)',zIndex:30,
+           animation:'showHide 1.3s forwards' },
+
+  /* dev overlay */
+  dbg  : { position:'fixed',left:0,right:0,bottom:0,maxHeight:'40vh',
+           background:'#000c',color:'#5CFF5C',fontSize:11,
+           overflowY:'auto',whiteSpace:'pre-wrap',padding:'4px 6px',
+           zIndex:9999 }
+};
+
+/* keyframes через «intrinsic CSS» */
+const styleTag = (
+  <style>{`
+    @keyframes showHide{
+      0%   {opacity:0;transform:translate(-50%,-50%) scale(.3);}
+      15%  {opacity:1;transform:translate(-50%,-50%) scale(1);}
+      60%  {opacity:1;transform:translate(-50%,-50%) scale(1);}
+      100% {opacity:0;transform:translate(-50%,300%) scale(.3);}
+    }
+  `}</style>
+);
+
+/* ---------- DEV overlay component --------------------------------------- */
+
+function Debug() {
+  const [log,setLog] = useState([]);
+  useEffect(()=>{
+    const h = (...a)=> setLog(l=>[...l,a.join(' ')]);
     TG?.onEvent?.('viewport_changed',h);
-    return()=>TG?.offEvent?.('viewport_changed',h);},[]);
+    return()=> TG?.offEvent?.('viewport_changed',h);
+  },[]);
   return <div style={S.dbg}>{log.join('\n')}</div>;
 }
 
-/* ======================================================================= */
+/* ---------- main component ---------------------------------------------- */
+
 export default function Path() {
   const nav = useNavigate();
-  const poll = useRef(null);
-  const accBtn = useRef(null);             // куда «улетает» фрагмент
 
-  /* state */
-  const [tgId,setTg]  = useState('');
-  const [last,setLast]= useState(null);
-  const [curse,setCur]= useState(null);
-  const [cd ,setCd]   = useState(0);
+  /* profile */
+  const [tgId,setTgId]       = useState('');
+  const [last,setLast]       = useState(null);
+  const [curse,setCurse]     = useState(null);
+  const [cd,setCd]           = useState(0);
 
-  const [busy,setBusy]= useState(false);
-  const [wait,setWait]= useState(false);
-  const [inv ,setInv] = useState(null);
-  const [hub ,setHub] = useState('');
-  const [ton ,setTon] = useState('');
-  const [msg ,setMsg] = useState('');
+  /* payment */
+  const [busy,setBusy]       = useState(false);
+  const [wait,setWait]       = useState(false);
+  const [inv,setInv]         = useState(null);
+  const [hub,setHub]         = useState('');
+  const [ton,setTon]         = useState('');
+  const [msg,setMsg]         = useState('');
 
-  const [ask,setAsk]  = useState(false);   // show confirm modal?
-  const [frag,setFrag]= useState(null);    // fragment number for animation
+  /* visual */
+  const [fragImg,setFragImg] = useState('');
+  const [showModal,setModal] = useState(false);
 
-  /* helpers */
-  const left = t=>Math.max(0,COOLDOWN - ((Date.now()-new Date(t))/1e3|0));
-  const fmt  = s=>`${String((s/60)|0).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+  const pollRef   = useRef(null);
+  const COOLDOWN  = 120;
 
-  const openExt = url => TG?.openLink?.(url,{try_instant_view:false})||window.open(url,'_blank');
-  const openOnce=(id,url)=>{const k=`wOpened-${id}`;if(sessionStorage[k])return;
-    sessionStorage[k]=1;openExt(url);};
+  /* ---------- utils ---------- */
 
-  /* mount */
+  const leftSec = t => Math.max(0,
+    COOLDOWN - Math.floor((Date.now()-new Date(t).getTime())/1000));
+  const fmt = s => `${String((s/60)|0).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+
+  const openExternal = url =>
+    TG?.openLink?.(url,{try_instant_view:false}) || window.open(url,'_blank');
+
+  const openWallet = () =>{
+    if (PLATFORM==='android' && ton) openExternal(ton);
+    else if (hub)                    openExternal(hub);
+  };
+
+  /* ---------- mount ------------------------------------------------------ */
+
   useEffect(()=>{
-    const u=TG?.initDataUnsafe?.user;
-    if(!u?.id){nav('/init');return;} setTg(String(u.id));
+    const u = TG?.initDataUnsafe?.user;
+    if (!u?.id){ nav('/init'); return; }
+    setTgId(String(u.id));
+    if (!localStorage.getItem('token')){ nav('/init'); return; }
 
-    const rec=localStorage.getItem('invoiceId');
-    if(rec){
-      setInv(rec);setHub(localStorage.getItem('paymentUrl')||'');
+    /* unfinished invoice */
+    const rec = localStorage.getItem('invoiceId');
+    if (rec){
+      setInv(rec);
+      setHub(localStorage.getItem('paymentUrl')||'');
       setTon(localStorage.getItem('tonspaceUrl')||'');
-      setWait(true);poll.current=setInterval(()=>check(rec),5_000);
+      setWait(true);
+      pollRef.current = setInterval(()=>check(rec),5_000);
     }
 
+    /* load player */
     (async()=>{
-      const r=await fetch(`${BACKEND}/api/player/${u.id}`);
-      const j=await r.json();
+      const r = await fetch(`${BACKEND}/api/player/${u.id}`);
+      const j = await r.json();
       setLast(j.last_burn);
-      if(j.curse_expires && Date.parse(j.curse_expires)>Date.now())
-        setCur(j.curse_expires);
-      setCd(left(j.last_burn));
+      if (j.curse_expires && new Date(j.curse_expires)>new Date())
+        setCurse(j.curse_expires);
+      setCd(leftSec(j.last_burn));
     })();
 
-    const t=setInterval(()=>setCd(s=>s>0?s-1:0),1000);
-    return()=>clearInterval(t);
+    const t = setInterval(()=>setCd(s=>s>0?s-1:0),1000);
+    return()=> clearInterval(t);
   },[nav]);
 
-  /* invoice */
-  const confirmThenBurn =()=> setAsk(true);
-  const burn = async()=>{
-    setAsk(false);setBusy(true);setMsg('');
+  /* ---------- invoice flow ---------------------------------------------- */
+
+  const confirmBurn = ()=> setModal(true);
+
+  const burn = async()=> {
+    setModal(false); setBusy(true); setMsg('');
     try{
-      const r=await fetch(`${BACKEND}/api/burn-invoice`,{
-        method:'POST',headers:{
+      const r = await fetch(`${BACKEND}/api/burn-invoice`,{
+        method:'POST',
+        headers:{
           'Content-Type':'application/json',
           Authorization:`Bearer ${localStorage.getItem('token')}`
-        },body:JSON.stringify({tg_id:tgId})
+        },
+        body: JSON.stringify({tg_id: tgId})
       });
-      const j=await r.json(); if(!r.ok)throw new Error(j.error);
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error);
 
-      setInv(j.invoiceId);setHub(j.paymentUrl);setTon(j.tonspaceUrl);
+      setInv(j.invoiceId); setHub(j.paymentUrl); setTon(j.tonspaceUrl);
       localStorage.setItem('invoiceId',j.invoiceId);
-      localStorage.setItem('paymentUrl',j.paymentUrl);
+      localStorage.setItem('paymentUrl', j.paymentUrl);
       localStorage.setItem('tonspaceUrl',j.tonspaceUrl);
 
-      openOnce(j.invoiceId, PLATFORM==='android'?j.tonspaceUrl:j.paymentUrl);
-      setBusy(false);setWait(true);
-      poll.current=setInterval(()=>check(j.invoiceId),5_000);
-    }catch(e){setMsg(e.message);setBusy(false);}
+      openWallet();                   // сразу
+      setBusy(false); setWait(true);
+      pollRef.current = setInterval(()=>check(j.invoiceId),5_000);
+    }catch(e){ setMsg(e.message); setBusy(false);}
   };
 
-  /* poll */
   const check = async id =>{
     try{
-      const r=await fetch(`${BACKEND}/api/burn-status/${id}`,{
+      const r = await fetch(`${BACKEND}/api/burn-status/${id}`,{
         headers:{Authorization:`Bearer ${localStorage.getItem('token')}`}
       });
-      const j=await r.json(); if(!r.ok)throw new Error(j.error);
-      if(j.paid){
-        clearInterval(poll.current);setWait(false);
-        localStorage.removeItem('invoiceId');localStorage.removeItem('paymentUrl');localStorage.removeItem('tonspaceUrl');
-        if(j.cursed){
-          setCur(j.curse_expires);
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error||'status err');
+      if (j.paid){
+        clearInterval(pollRef.current);
+        setWait(false); setBusy(false);
+        localStorage.removeItem('invoiceId');
+        localStorage.removeItem('paymentUrl');
+        localStorage.removeItem('tonspaceUrl');
+
+        if (j.cursed){
+          setCurse(j.curse_expires);
           setMsg(`⛔ Cursed until ${new Date(j.curse_expires).toLocaleString()}`);
         }else{
-          setFrag(j.newFragment);               // trigger animation
-          setTimeout(()=>setFrag(null),2200);   // remove after anim
-          setMsg('');
-          setLast(j.lastBurn);setCd(COOLDOWN);setCur(null);
+          setCurse(null); setLast(j.lastBurn); setCd(COOLDOWN);
+          const img = `/fragments/${FRAG_IMG[j.newFragment] ?? FRAG_IMG[1]}`;
+          setFragImg(img);          // запускаем анимацию
+          setTimeout(()=> setFragImg(''),1300);
+          setMsg(`🔥 Fragment #${j.newFragment} received!`);
         }
       }
-    }catch(e){ setMsg(e.message);clearInterval(poll.current);setWait(false);}
+    }catch(e){ setMsg(e.message); clearInterval(pollRef.current); setWait(false);}
   };
 
-  /* UI flags */
-  const disable = busy||wait||cd>0||curse;
-  const mainTxt = busy? 'Creating invoice…'
-               : wait? 'Waiting for payment…'
-               : '🔥 Burn Yourself for 0.5 TON';
+  /* ---------- render ----------------------------------------------------- */
+
+  const disabled = busy||wait||cd>0||Boolean(curse);
+  const mainTxt  = busy ? 'Creating invoice…'
+                 : wait ? 'Waiting for payment…'
+                        : '🔥 Burn Yourself for 0.5 TON';
 
   return (
-    <div style={S.page}>
-      {/* fragment animation */}
-      {frag && <div style={S.frag}>#{frag}</div>}
+    <>
+      {styleTag}
 
-      {/* confirm modal */}
-      {ask && (
-        <div style={S.ovl} onClick={()=>setAsk(false)}>
+      {/* modal warning ---------------------------------------------------- */}
+      {showModal && (
+        <div style={S.modalWrap} onClick={()=>setModal(false)}>
           <div style={S.modal} onClick={e=>e.stopPropagation()}>
-            <p style={{fontSize:15,marginBottom:20,lineHeight:1.4}}>
-              Send <b>exactly 0.5&nbsp;TON</b>.<br/>
-              Any other amount won’t be recognised<br/>
-              and <b>the funds will be lost.</b>
+            <h3 style={{margin:'0 0 10px'}}>⚠️ Important</h3>
+            <p style={{fontSize:14,opacity:.9}}>
+              Send <b>exactly&nbsp;0.5&nbsp;TON</b>.<br/>
+              Any other amount will <b>not be recognised</b><br/>
+              and <b>will be lost</b>.
             </p>
             <button style={{...S.mBtn,background:'#d4af37',color:'#000'}}
-                    onClick={burn}>I understand</button>
-            <button style={{...S.mBtn,background:'transparent',color:'#d4af37',
-                    border:'1px solid #d4af37'}}
-                    onClick={()=>setAsk(false)}>Cancel</button>
+                    onClick={burn}>I understand, continue</button>
+            <button style={{...S.mBtn,background:'#333',color:'#fff'}}
+                    onClick={()=>setModal(false)}>Cancel</button>
           </div>
         </div>
       )}
 
-      {/* main card */}
-      <div style={S.card}>
-        <h2 style={S.h2}>The Path Begins</h2>
-        <p style={S.sub}>Ready to burn yourself.</p>
+      {/* main page -------------------------------------------------------- */}
+      <div style={S.page}>
+        <div style={S.card}>
+          <h2 style={S.h2}>The Path Begins</h2>
+          <p style={S.sub}>Ready to burn yourself.</p>
 
-        {msg && <p style={{...S.stat,...(msg.startsWith('🔥')?S.ok:S.bad)}}>{msg}</p>}
-        {curse && !msg && <p style={S.stat}>⛔ Cursed until {new Date(curse).toLocaleString()}</p>}
-        {!curse && cd>0 && !msg && <p style={S.stat}>⏳ Next burn in {fmt(cd)}</p>}
+          {msg && <p style={{...S.stat, ...(msg.startsWith('🔥')?S.ok:S.bad)}}>{msg}</p>}
+          {curse && !msg && (
+            <p style={S.stat}>⛔ Cursed until {new Date(curse).toLocaleString()}</p>
+          )}
+          {!curse && cd>0 && !msg && (
+            <p style={S.stat}>⏳ Next burn in {fmt(cd)}</p>
+          )}
 
-        <button style={{...S.btn,...S.prim,opacity:disable?0.6:1}}
-                disabled={disable} onClick={confirmThenBurn}>{mainTxt}</button>
+          <button style={{...S.btn,...S.prim,opacity:disabled?0.6:1}}
+                  disabled={disabled} onClick={confirmBurn}>
+            {mainTxt}
+          </button>
 
-        {wait && (
-          <>
-            {PLATFORM==='android'&&ton&&(
-              <button style={{...S.btn,...S.sec}} onClick={openWallet}>
-                Continue in Telegram Wallet
+          {wait && (
+            <>
+              {PLATFORM==='android' && ton && (
+                <button style={{...S.btn,...S.sec}} onClick={openWallet}>
+                  Continue in Telegram Wallet
+                </button>
+              )}
+              <button style={{...S.btn,...S.sec}} onClick={()=>openExternal(hub)}>
+                Open in Tonhub
               </button>
-            )}
-            <button style={{...S.btn,...S.sec}} onClick={()=>openOnce(inv,hub)}>
-              Open in Tonhub
-            </button>
-          </>
-        )}
+            </>
+          )}
 
-        <button ref={accBtn} style={{...S.btn,...S.sec}}
-                onClick={()=>nav('/profile')}>
-          Go to your personal account
-        </button>
+          <button style={{...S.btn,...S.sec}} onClick={()=>nav('/profile')}>
+            Go to your personal account
+          </button>
+        </div>
       </div>
 
+      {/* fragment animation image */}
+      {fragImg && <img src={fragImg} alt="fragment" style={S.frag}/>}
+
       {DEV && location.search.includes('debug=1') && <Debug/>}
-    </div>
+    </>
   );
 }
