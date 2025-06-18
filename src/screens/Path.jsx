@@ -57,7 +57,7 @@ const S = {
   /* fragment animation */
   frag : { position:'fixed',left:'50%',top:'50%',width:260,height:260,
            transform:'translate(-50%,-50%)',zIndex:30,
-           animation:'showHide 1.3s forwards' },
+           animation:'showHide 2.3s forwards' },
 
   /* dev overlay */
   dbg  : { position:'fixed',left:0,right:0,bottom:0,maxHeight:'40vh',
