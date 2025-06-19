@@ -1,157 +1,160 @@
-/* src/screens/Init.jsx – финальная версия */
+/*  src/screens/Init.jsx  ----------------------------------------------------
+ *  Первый (одноразовый) экран регистрации.
+ *  • Без «лишнего» GET /player – теперь нет 404 в консоли.
+ *  • Авто-модалка с правилами игры показывается сразу (если игрок ещё не создан);
+ *    пока пользователь не нажмёт «I understand», форма заблокирована.
+ *  ----------------------------------------------------------------------- */
+
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const BACKEND = import.meta.env.VITE_BACKEND_URL ??
-                'https://ash-backend-production.up.railway.app';
-const RGX = /^[A-Za-z ]+$/;
+/* ─────────── конфиг ─────────── */
+const BACKEND =
+  import.meta.env.VITE_BACKEND_URL ??
+  'https://ash-backend-production.up.railway.app';
+
+const RGX_NAME = /^[A-Za-z ]+$/;
+
+/* ─────────── стили ─────────── */
+const CSS = {
+  page : {minHeight:'100vh',background:'url("/bg-init.webp") center/cover',
+          display:'flex',justifyContent:'center',alignItems:'center',
+          padding:16,fontFamily:'serif',color:'#f9d342'},
+  card : {width:'100%',maxWidth:380,background:'rgba(0,0,0,.72)',
+          padding:24,borderRadius:8,textAlign:'center'},
+  h1   : {margin:'0 0 14px',fontSize:26,color:'#d4af37'},
+  field: {width:'100%',padding:10,fontSize:16,borderRadius:4,
+          border:'1px solid #555',background:'#222',color:'#fff'},
+  btn  : {width:'100%',padding:12,fontSize:16,border:'none',
+          borderRadius:4,background:'#d4af37',color:'#000',
+          cursor:'pointer',marginTop:14,fontWeight:'bold'},
+  note : {marginTop:12,fontSize:14},
+  modalWrap:{position:'fixed',inset:0,background:'#000a',
+             backdropFilter:'blur(5px)',display:'flex',
+             justifyContent:'center',alignItems:'center',zIndex:50},
+  modal:{background:'#181818',color:'#fff',maxWidth:330,
+         padding:24,borderRadius:10,lineHeight:1.5,boxShadow:'0 0 18px #000'},
+  mBtn : {marginTop:18,padding:'10px 16px',width:'100%',fontSize:15,
+          border:'none',borderRadius:6,cursor:'pointer',
+          background:'#d4af37',color:'#000'}
+};
 
 export default function Init() {
   const nav      = useNavigate();
-  const inputRef = useRef(null);
+  const nameRef  = useRef(null);
 
-  /* basic state */
-  const [tgId, setTgId]   = useState('');
-  const [raw,  setRaw]    = useState('');
-  const [note, setNote]   = useState('Checking Telegram …');
-  const [busy, setBusy]   = useState(true);
+  /* telegram / jwt */
+  const [tgId,setTgId]       = useState('');
+  const [raw,setRaw]         = useState('');
 
-  /* form */
-  const [name, setName]   = useState('');
-  const okName            = RGX.test(name.trim()) && name.trim().length>0;
+  /* ui state */
+  const [name,setName]       = useState('');
+  const [status,setStatus]   = useState('Connecting …');
+  const [busy,setBusy]       = useState(true);
+  const [showInfo,setInfo]   = useState(false);
 
-  /* info-modal */
-  const [showInfo, setInfo] = useState(false);
+  const valid = RGX_NAME.test(name.trim());
 
-  /* ── 1. Telegram bootstrap ─────────────────────────────────────────── */
+  /* ── читаем Telegram initData ─────────────────── */
   useEffect(()=>{
-    const wa  = window.Telegram?.WebApp;
-    const uid = wa?.initDataUnsafe?.user?.id;
-    if(!wa){ setNote('Telegram WebApp unavailable'); return; }
-    if(!uid){ setNote('Unable to read Telegram ID'); return; }
-    setTgId(String(uid));            // триггерит следующий useEffect
-    setRaw(wa.initData || '');
+    const wa = window.Telegram?.WebApp;
+    const uid= wa?.initDataUnsafe?.user?.id;
+    if(!wa||!uid){
+      setStatus('Telegram Web App unavailable'); return;
+    }
+    setTgId(String(uid)); setRaw(wa.initData||'');
   },[]);
 
-  /* ── 2. backend check / registration flow ──────────────────────────── */
+  /* ── один-единственный POST /init ---------------- */
   useEffect(()=>{
     if(!tgId) return;
 
-    const INFO_KEY = `aoa_info_seen_${tgId}`;
-
     (async()=>{
       try{
-        const get = await fetch(`${BACKEND}/api/player/${tgId}`);
-        if(get.ok){                                     // игрок найден
-          const tokenRes = await fetch(`${BACKEND}/api/init`,{
-            method:'POST',headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({tg_id:tgId,name:'',initData:raw})
-          });
-          const j = await tokenRes.json();
-          if(j.token) localStorage.setItem('token', j.token);
+        const r = await fetch(`${BACKEND}/api/init`,{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ tg_id:tgId, name:'', initData:raw })
+        });
+        const j = await r.json();
+
+        if(r.ok && j.token){
+          /* игрок уже существует – переходим в профиль */
+          localStorage.setItem('token',j.token);
           nav('/profile'); return;
         }
-        /* 404 → новый пользователь */
-        if(!sessionStorage.getItem(INFO_KEY)) setInfo(true);
-        setBusy(false); setNote('Enter your name');
-      }catch{
-        setBusy(false); setNote('Network error – try again');
-      }
+        /* нового игрока нет → показываем rules-modal */
+        setInfo(true);
+        setStatus('Enter your name');
+      }catch{ setStatus('Network error'); }
+      setBusy(false);
     })();
   },[tgId,raw,nav]);
 
-  /* ── 3. submit -------------------------------------------------------- */
-  const submit = async e =>{
+  /* ── submit -------------------------------------- */
+  const onSubmit = async e=>{
     e.preventDefault();
-    if(busy||showInfo||!okName) return;
-    setBusy(true); setNote('Submitting …');
+    if(!valid || busy || showInfo) return;
+    setBusy(true); setStatus('Submitting …');
     try{
       const r = await fetch(`${BACKEND}/api/init`,{
         method:'POST',headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({tg_id:tgId,name:name.trim(),initData:raw})
+        body: JSON.stringify({ tg_id:tgId, name:name.trim(), initData:raw })
       });
       const j = await r.json();
       if(!r.ok) throw new Error(j.error||'init error');
-      localStorage.setItem('token', j.token);
+      localStorage.setItem('token',j.token);
       nav('/path');
-    }catch(e){ setNote(e.message); }
+    }catch(err){ setStatus(err.message||'Network error'); }
     setBusy(false);
   };
 
-  /* ── ui helpers ------------------------------------------------------- */
-  const INFO_KEY = `aoa_info_seen_${tgId}`;
-  const confirmInfo = ()=>{
-    sessionStorage.setItem(INFO_KEY,'1');
+  /* ── accept info modal ─────────── */
+  const acceptInfo = ()=>{
     setInfo(false);
-    setTimeout(()=>inputRef.current?.focus(),50);
+    setTimeout(()=>nameRef.current?.focus(),80);
   };
 
-  /* ── render ─────────────────────────────────────────────────────────── */
+  /* ── render ────────────────────── */
   return (
-    <div style={st.wrap}>
-      {/* info-modal */}
+    <>
+      {/* rules-modal (показывается один раз до ввода имени) */}
       {showInfo && (
-        <div style={st.mask}>
-          <div style={st.modal}>
-            <h3 style={st.h3}>Welcome, Seeker!</h3>
-            <p style={st.p}>
-              • Burn <b>exactly&nbsp;0.5&nbsp;TON</b> each rite (max 4&nbsp;TON).<br/>
-              • Collect <b>8 fragments</b>; mind 24-hour curses.<br/>
-              • Re-assemble the hidden phrase to mint the <b>final NFT</b>.<br/>
-              • First correct phrase crowns the <b>sole&nbsp;Winner</b>.<br/><br/>
-              Wrong amounts are lost forever.
+        <div style={CSS.modalWrap}>
+          <div style={CSS.modal}>
+            <h3 style={{margin:'0 0 12px',color:'#d4af37'}}>Welcome, Seeker!</h3>
+            <p style={{fontSize:14}}>
+              • Burn <b>exactly&nbsp;0.5&nbsp;TON</b> each rite
+              (<i>max 4 TON total</i>).<br/>
+              • Gather all <b>8 fragments</b>; some burns give a
+              <b> 24 h curse</b> instead.<br/>
+              • Re-assemble the hidden phrase to forge a <b>unique final NFT</b>.<br/>
+              • The first to submit the phrase becomes the sole Winner.<br/><br/>
+              Any other amount sent is lost forever.
             </p>
-            <button style={st.ok} onClick={confirmInfo}>I understand</button>
+            <button style={CSS.mBtn} onClick={acceptInfo}>I understand</button>
           </div>
         </div>
       )}
 
-      {/* registration card */}
-      <form style={st.card} onSubmit={submit}>
-        <h1 style={st.h1}>Enter&nbsp;the&nbsp;Ash</h1>
-        <p style={st.sm}>Telegram&nbsp;ID: {tgId}</p>
+      {/* main form */}
+      <div style={CSS.page}>
+        <form style={CSS.card} onSubmit={onSubmit}>
+          <h1 style={CSS.h1}>Enter the Ash</h1>
 
-        <input ref={inputRef}
-          style={{...st.inp,opacity:showInfo?.5:1}}
-          placeholder="Your name (A–Z only)"
-          value={name}
-          disabled={busy||showInfo}
-          onChange={e=>setName(e.target.value)}
-        />
+          <p style={{margin:'0 0 18px',fontSize:15}}>
+            Telegram&nbsp;ID:&nbsp;<b>{tgId||'…'}</b>
+          </p>
 
-        <button type="submit"
-          style={{...st.btn,opacity:(okName&&!busy&&!showInfo)?1:.45}}
-          disabled={!okName||busy||showInfo}>
-          Save and Continue
-        </button>
+          <input ref={nameRef} style={CSS.field} disabled={busy||showInfo}
+                 placeholder="Your name (A-Z only)"
+                 value={name} onChange={e=>setName(e.target.value)} />
 
-        {note && <p style={st.note}>{note}</p>}
-      </form>
-    </div>
+          <button style={{...CSS.btn,opacity:valid?1:.45}}
+                  disabled={!valid||busy||showInfo}>Save and Continue</button>
+
+          <p style={CSS.note}>{status}</p>
+        </form>
+      </div>
+    </>
   );
 }
-
-/* ── styles ───────────────────────────────────────────────────────────── */
-const st={
-  wrap:{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',
-        background:'url("/bg-init.webp") center/cover',padding:16,color:'#f9d342',
-        fontFamily:'serif'},
-  card:{background:'rgba(0,0,0,.72)',padding:24,borderRadius:8,
-        width:'100%',maxWidth:360,display:'flex',flexDirection:'column',gap:16,
-        textAlign:'center'},
-  h1:{margin:0,fontSize:26}, sm:{margin:0,fontSize:14,opacity:.85},
-  inp:{padding:12,fontSize:16,borderRadius:4,border:'1px solid #555',
-       background:'#222',color:'#fff',transition:'opacity .25s'},
-  btn:{padding:12,fontSize:16,borderRadius:4,border:'none',
-       background:'#f9d342',color:'#000',fontWeight:700,cursor:'pointer',
-       transition:'opacity .25s'},
-  note:{fontSize:13,marginTop:8},
-
-  mask:{position:'fixed',inset:0,background:'rgba(0,0,0,.82)',
-        backdropFilter:'blur(6px)',display:'flex',alignItems:'center',
-        justifyContent:'center',zIndex:100},
-  modal:{background:'#111',padding:24,borderRadius:8,maxWidth:330,lineHeight:1.42},
-  h3:{margin:'0 0 8px'}, p:{fontSize:14}, ok:{marginTop:12,padding:'10px 18px',
-      fontSize:15,border:'none',borderRadius:6,background:'#f9d342',color:'#000',
-      cursor:'pointer'}
-};
