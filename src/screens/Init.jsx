@@ -1,161 +1,157 @@
-/*  src/screens/Init.jsx  ----------------------------------------------------
- *  Регистрация нового игрока.
- *  • Если игрок в БД есть – мгновенно получаем JWT и прыгаем к /profile.
- *  • Если игрока нет – показываем информ-модалку ► после «I understand»
- *    открывается поле имени ► POST /init ► /path.
- *  • Нет «саморегистрации» до подтверждения правил.
- *  ----------------------------------------------------------------------- */
-
+/* src/screens/Init.jsx – финальная версия */
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-/* ---------- конфигурация ----------------------------------------------- */
-const BACKEND =
-  import.meta.env.VITE_BACKEND_URL ??
-  'https://ash-backend-production.up.railway.app';
+const BACKEND = import.meta.env.VITE_BACKEND_URL ??
+                'https://ash-backend-production.up.railway.app';
+const RGX = /^[A-Za-z ]+$/;
 
-const NAME_RE = /^[A-Za-z ]+$/;
-
-/* ---------- css-in-js --------------------------------------------------- */
-const C = {
-  page : {minHeight:'100vh',background:'url("/bg-init.webp") center/cover',
-          display:'flex',justifyContent:'center',alignItems:'center',
-          padding:16,color:'#f9d342',fontFamily:'serif'},
-  card : {width:'100%',maxWidth:380,background:'rgba(0,0,0,.72)',
-          padding:24,borderRadius:8,textAlign:'center'},
-  h1   : {margin:'0 0 14px',fontSize:26,color:'#d4af37'},
-  field: {width:'100%',padding:10,fontSize:16,borderRadius:4,
-          border:'1px solid #555',background:'#222',color:'#fff'},
-  btn  : {width:'100%',padding:12,fontSize:16,border:'none',borderRadius:4,
-          background:'#d4af37',color:'#000',cursor:'pointer',marginTop:14,
-          fontWeight:'bold',transition:'opacity .2s'},
-  note : {marginTop:12,fontSize:14,minHeight:20},
-
-  modalWrap:{position:'fixed',inset:0,background:'#000a',backdropFilter:'blur(5px)',
-             display:'flex',justifyContent:'center',alignItems:'center',zIndex:50},
-  modal:{background:'#181818',color:'#fff',maxWidth:330,padding:24,
-         borderRadius:10,lineHeight:1.5,boxShadow:'0 0 18px #000'},
-  mBtn : {...this?.btn, width:'100%',marginTop:18}
-};
-
-/* ---------- компонент --------------------------------------------------- */
 export default function Init() {
-  const nav = useNavigate();
-  const nameRef = useRef(null);
+  const nav      = useNavigate();
+  const inputRef = useRef(null);
 
-  /* telegram-данные */
-  const [tgId,setTgId]   = useState('');
-  const [raw,setRaw]     = useState('');
+  /* basic state */
+  const [tgId, setTgId]   = useState('');
+  const [raw,  setRaw]    = useState('');
+  const [note, setNote]   = useState('Checking Telegram …');
+  const [busy, setBusy]   = useState(true);
 
-  /* ui-состояния */
-  const [status,setStatus] = useState('Connecting …');
-  const [infoOpen,setInfo] = useState(false);      // информационная модалка
-  const [busy,setBusy]     = useState(true);       // сетевые ожидания
-  const [name,setName]     = useState('');
+  /* form */
+  const [name, setName]   = useState('');
+  const okName            = RGX.test(name.trim()) && name.trim().length>0;
 
-  const nameValid = NAME_RE.test(name.trim());
+  /* info-modal */
+  const [showInfo, setInfo] = useState(false);
 
-  /* ── 1. читаем initData / userId ─────────────────────────── */
+  /* ── 1. Telegram bootstrap ─────────────────────────────────────────── */
   useEffect(()=>{
-    const wa = window.Telegram?.WebApp;
-    const u  = wa?.initDataUnsafe?.user;
-    if(!u?.id){ setStatus('Telegram WebApp unavailable'); return; }
-    setTgId(String(u.id)); setRaw(wa.initData||'');
+    const wa  = window.Telegram?.WebApp;
+    const uid = wa?.initDataUnsafe?.user?.id;
+    if(!wa){ setNote('Telegram WebApp unavailable'); return; }
+    if(!uid){ setNote('Unable to read Telegram ID'); return; }
+    setTgId(String(uid));            // триггерит следующий useEffect
+    setRaw(wa.initData || '');
   },[]);
 
-  /* ── 2. проверяем, существует ли игрок ───────────────────── */
+  /* ── 2. backend check / registration flow ──────────────────────────── */
   useEffect(()=>{
     if(!tgId) return;
+
+    const INFO_KEY = `aoa_info_seen_${tgId}`;
+
     (async()=>{
       try{
-        const r = await fetch(`${BACKEND}/api/player/${tgId}`);
-        if(r.ok){
-          /* игрок есть → берём JWT через /init (name пустой) */
-          const j = await fetch(`${BACKEND}/api/init`,{
+        const get = await fetch(`${BACKEND}/api/player/${tgId}`);
+        if(get.ok){                                     // игрок найден
+          const tokenRes = await fetch(`${BACKEND}/api/init`,{
             method:'POST',headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ tg_id:tgId, name:'', initData:raw })
-          }).then(x=>x.json());
-          if(j.token) localStorage.setItem('token',j.token);
+            body: JSON.stringify({tg_id:tgId,name:'',initData:raw})
+          });
+          const j = await tokenRes.json();
+          if(j.token) localStorage.setItem('token', j.token);
           nav('/profile'); return;
         }
-        /* 404 → новый пользователь: показываем правила */
-        setInfo(true);
-        setStatus('Enter your name');
-      }catch{ setStatus('Network error'); }
-      setBusy(false);
+        /* 404 → новый пользователь */
+        if(!sessionStorage.getItem(INFO_KEY)) setInfo(true);
+        setBusy(false); setNote('Enter your name');
+      }catch{
+        setBusy(false); setNote('Network error – try again');
+      }
     })();
   },[tgId,raw,nav]);
 
-  /* ── 3. submit регистрации ──────────────────────────────── */
-  const submit = async e=>{
+  /* ── 3. submit -------------------------------------------------------- */
+  const submit = async e =>{
     e.preventDefault();
-    if(!nameValid||busy||infoOpen) return;
-    setBusy(true); setStatus('Submitting …');
+    if(busy||showInfo||!okName) return;
+    setBusy(true); setNote('Submitting …');
     try{
       const r = await fetch(`${BACKEND}/api/init`,{
         method:'POST',headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ tg_id:tgId, name:name.trim(), initData:raw })
+        body: JSON.stringify({tg_id:tgId,name:name.trim(),initData:raw})
       });
       const j = await r.json();
-      if(!r.ok) throw new Error(j.error||'Init error');
-      localStorage.setItem('token',j.token);
+      if(!r.ok) throw new Error(j.error||'init error');
+      localStorage.setItem('token', j.token);
       nav('/path');
-    }catch(err){ setStatus(err.message||'Network error'); }
+    }catch(e){ setNote(e.message); }
     setBusy(false);
   };
 
-  /* ── инфо-модалка закрылся ──────────────────────────────── */
-  const closeInfo = ()=>{
+  /* ── ui helpers ------------------------------------------------------- */
+  const INFO_KEY = `aoa_info_seen_${tgId}`;
+  const confirmInfo = ()=>{
+    sessionStorage.setItem(INFO_KEY,'1');
     setInfo(false);
-    setTimeout(()=>nameRef.current?.focus(),100);
+    setTimeout(()=>inputRef.current?.focus(),50);
   };
 
-  /* ── render ─────────────────────────────────────────────── */
+  /* ── render ─────────────────────────────────────────────────────────── */
   return (
-    <>
-      {/* modal with rules */}
-      {infoOpen && (
-        <div style={C.modalWrap}>
-          <div style={C.modal}>
-            <h3 style={{margin:'0 0 12px',color:'#d4af37'}}>Welcome, Seeker!</h3>
-            <p style={{fontSize:14}}>
-              • Burn <b>exactly&nbsp;0.5&nbsp;TON</b> each rite
-              (max 4&nbsp;TON total).<br/>
-              • Collect all <b>8&nbsp;fragments</b>; some burns give a
-              <b> 24&nbsp;h curse</b> instead.<br/>
-              • Re-assemble the hidden phrase to forge a
-              <b> unique final&nbsp;NFT</b>.<br/>
-              • The first to submit the phrase becomes the sole&nbsp;Winner.<br/><br/>
-              Any other amount sent is lost forever.
+    <div style={st.wrap}>
+      {/* info-modal */}
+      {showInfo && (
+        <div style={st.mask}>
+          <div style={st.modal}>
+            <h3 style={st.h3}>Welcome, Seeker!</h3>
+            <p style={st.p}>
+              • Burn <b>exactly&nbsp;0.5&nbsp;TON</b> each rite (max 4&nbsp;TON).<br/>
+              • Collect <b>8 fragments</b>; mind 24-hour curses.<br/>
+              • Re-assemble the hidden phrase to mint the <b>final NFT</b>.<br/>
+              • First correct phrase crowns the <b>sole&nbsp;Winner</b>.<br/><br/>
+              Wrong amounts are lost forever.
             </p>
-            <button style={C.mBtn} onClick={closeInfo}>I understand</button>
+            <button style={st.ok} onClick={confirmInfo}>I understand</button>
           </div>
         </div>
       )}
 
-      {/* form */}
-      <div style={C.page}>
-        <form style={C.card} onSubmit={submit}>
-          <h1 style={C.h1}>Enter&nbsp;the&nbsp;Ash</h1>
+      {/* registration card */}
+      <form style={st.card} onSubmit={submit}>
+        <h1 style={st.h1}>Enter&nbsp;the&nbsp;Ash</h1>
+        <p style={st.sm}>Telegram&nbsp;ID: {tgId}</p>
 
-          <p style={{margin:'0 0 18px',fontSize:15}}>
-            Telegram&nbsp;ID:&nbsp;<b>{tgId||'…'}</b>
-          </p>
+        <input ref={inputRef}
+          style={{...st.inp,opacity:showInfo?.5:1}}
+          placeholder="Your name (A–Z only)"
+          value={name}
+          disabled={busy||showInfo}
+          onChange={e=>setName(e.target.value)}
+        />
 
-          <input ref={nameRef} style={C.field}
-                 disabled={busy||infoOpen}
-                 value={name}
-                 onChange={e=>setName(e.target.value)}
-                 placeholder="Your name (A-Z only)"/>
+        <button type="submit"
+          style={{...st.btn,opacity:(okName&&!busy&&!showInfo)?1:.45}}
+          disabled={!okName||busy||showInfo}>
+          Save and Continue
+        </button>
 
-          <button style={{...C.btn,opacity:nameValid?1:.45}}
-                  disabled={!nameValid||busy||infoOpen}>
-            Save and Continue
-          </button>
-
-          <p style={C.note}>{status}</p>
-        </form>
-      </div>
-    </>
+        {note && <p style={st.note}>{note}</p>}
+      </form>
+    </div>
   );
 }
+
+/* ── styles ───────────────────────────────────────────────────────────── */
+const st={
+  wrap:{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',
+        background:'url("/bg-init.webp") center/cover',padding:16,color:'#f9d342',
+        fontFamily:'serif'},
+  card:{background:'rgba(0,0,0,.72)',padding:24,borderRadius:8,
+        width:'100%',maxWidth:360,display:'flex',flexDirection:'column',gap:16,
+        textAlign:'center'},
+  h1:{margin:0,fontSize:26}, sm:{margin:0,fontSize:14,opacity:.85},
+  inp:{padding:12,fontSize:16,borderRadius:4,border:'1px solid #555',
+       background:'#222',color:'#fff',transition:'opacity .25s'},
+  btn:{padding:12,fontSize:16,borderRadius:4,border:'none',
+       background:'#f9d342',color:'#000',fontWeight:700,cursor:'pointer',
+       transition:'opacity .25s'},
+  note:{fontSize:13,marginTop:8},
+
+  mask:{position:'fixed',inset:0,background:'rgba(0,0,0,.82)',
+        backdropFilter:'blur(6px)',display:'flex',alignItems:'center',
+        justifyContent:'center',zIndex:100},
+  modal:{background:'#111',padding:24,borderRadius:8,maxWidth:330,lineHeight:1.42},
+  h3:{margin:'0 0 8px'}, p:{fontSize:14}, ok:{marginTop:12,padding:'10px 18px',
+      fontSize:15,border:'none',borderRadius:6,background:'#f9d342',color:'#000',
+      cursor:'pointer'}
+};
