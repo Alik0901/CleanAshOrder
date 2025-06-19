@@ -12,7 +12,7 @@ const BACKEND =
   'https://ash-backend-production.up.railway.app';
 
 /* параметры для ссылки t.me */
-const BOT_USERNAME      = import.meta.env.VITE_BOT_USERNAME || 'AshOrderBot';
+const BOT_USERNAME      = import.meta.env.VITE_BOT_USERNAME || 'AshOrderWebBot';
 const WEBAPP_SHORT_NAME = import.meta.env.VITE_WEBAPP_SHORTNAME || 'ash';
 
 const SLUG = [
