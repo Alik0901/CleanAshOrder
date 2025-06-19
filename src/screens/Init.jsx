@@ -68,28 +68,33 @@ export default function Init() {
 
   /* 3. submit */
   const submit = async e => {
-    e.preventDefault();
-    if (busy || !okName) return;
+  e.preventDefault();
+  if (busy || !okName) return;
 
-    setBusy(true); setNote('Submitting …');
-    try {
-      const r = await fetch(`${BACKEND}/api/init`,{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({
-          tg_id       : tgId,
-          name        : name.trim(),
-          initData    : raw,
-          referrer_code: refCode.trim() || undefined   // ← передаём
-        })
-      });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.error || 'init error');
-      localStorage.setItem('token', j.token);
-      nav('/path');
-    } catch (err) { setNote(err.message); }
-    finally      { setBusy(false); }
-  };
+  setBusy(true); setNote('Submitting …');
+  try {
+    const r = await fetch(`${BACKEND}/api/init`, {
+      method :'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        tg_id        : tgId,
+        name         : name.trim(),
+        initData     : raw,
+        referrer_code: refCode.trim() || undefined
+      })
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || 'init error');
+
+    localStorage.setItem('token', j.token);
+    nav('/path');
+  } catch (err) {
+    /* оставляем форму открытой, показываем текст ошибки */
+    setNote(err.message);
+    localStorage.removeItem('token');
+  }
+  setBusy(false);
+};
 
   /* confirm info */
   const INFO_KEY = `aoa_info_seen_${tgId}`;
