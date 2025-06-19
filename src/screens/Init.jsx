@@ -95,11 +95,12 @@ export default function Init() {
           <div style={st.modal}>
             <h3 style={st.h3}>Welcome, Seeker!</h3>
             <p style={st.p}>
-              • Burn <b>exactly&nbsp;0.5&nbsp;TON</b> each rite (max 4&nbsp;TON).<br/>
-              • Collect <b>8 fragments</b>; mind 24-hour curses.<br/>
-              • Re-assemble the hidden phrase to mint the <b>final NFT</b>.<br/>
-              • First correct phrase crowns the <b>sole&nbsp;Winner</b>.<br/><br/>
-              Wrong amounts are lost forever.
+              • Burn <b>exactly 0.5 TON</b> every time (max 4 TON in total).<br/>
+              • Collect <b>8 Ash fragments</b> – expect <b>24 h curses</b>.<br/>
+              • Five real pieces &amp; four curses are dealt at random.<br/>
+              • Re-assemble the hidden phrase to forge a <b>unique final NFT</b>.<br/>
+              • First who submits the phrase becomes the <b>sole Winner</b>.<br/><br/>
+              Mis-payments are unrecoverable – double-check the amount.
             </p>
             <button style={st.ok} onClick={confirmInfo}>I understand</button>
           </div>
