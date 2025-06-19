@@ -1,313 +1,173 @@
+// src/screens/Profile.jsx
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const BACKEND_URL =
-  process.env.REACT_APP_BACKEND_URL ||
+const BACKEND =
+  import.meta.env.VITE_BACKEND_URL ||
   'https://ash-backend-production.up.railway.app';
 
 export default function Profile() {
-  const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [name, setName] = useState('');
-  const [totalUsers, setTotalUsers] = useState(0);
-  const [collectedFragments, setCollectedFragments] = useState([]);
-  const [selected, setSelected] = useState(null);
+  const nav = useNavigate();
 
-  useEffect(() => {
-    const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {};
-    const userId = unsafe.user?.id;
-    if (!userId) {
-      navigate('/init');
-      return;
-    }
+  /* ------------ ui / data state ------------ */
+  const [loading,setLoading]   = useState(true);
+  const [err,    setErr]       = useState('');
+  const [name,   setName]      = useState('');
+  const [frags,  setFrags]     = useState([]);
+  const [total,  setTotal]     = useState(0);
+  const [zoom,   setZoom]      = useState(null);    // enlarge fragment
 
-    const token = localStorage.getItem('token');
-    if (!token) {
-      navigate('/init');
-      return;
-    }
+  /* delete modal */
+  const [askDel, setAskDel]    = useState(false);
+  const [busy,   setBusy]      = useState(false);
+  const [delErr, setDelErr]    = useState('');
 
-    (async () => {
-      setLoading(true);
-      setError('');
-      try {
-        // 1) GET /api/player/:tg_id
-        const playerRes = await fetch(`${BACKEND_URL}/api/player/${userId}`, {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-        const newAuth = playerRes.headers.get('Authorization');
-        if (newAuth?.startsWith('Bearer ')) {
-          localStorage.setItem('token', newAuth.split(' ')[1]);
-        }
-        if (!playerRes.ok) throw new Error();
-        const player = await playerRes.json();
-        setName(player.name);
-        setCollectedFragments(player.fragments || []);
+  /* ------------ load profile ------------ */
+  useEffect(()=>{
+    const id  = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+    const tok = localStorage.getItem('token');
+    if(!id||!tok) return nav('/init');
 
-        // 2) GET /api/stats/total_users
-        const statsRes = await fetch(`${BACKEND_URL}/api/stats/total_users`, {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          },
-        });
-        const newAuth2 = statsRes.headers.get('Authorization');
-        if (newAuth2?.startsWith('Bearer ')) {
-          localStorage.setItem('token', newAuth2.split(' ')[1]);
-        }
-        if (statsRes.ok) {
-          const { value } = await statsRes.json();
-          setTotalUsers(value);
-        } else {
-          setTotalUsers(0);
-        }
-      } catch {
-        setError('Failed to load profile');
-      } finally {
-        setLoading(false);
-      }
-    })();
+    const fetchAll = async()=>{
+      try{
+        /* player */
+        const p = await fetch(`${BACKEND}/api/player/${id}`,{
+          headers:{Authorization:`Bearer ${tok}`}})
+          .then(r=>r.json());
+        setName(p.name); setFrags(p.fragments||[]);
 
-    const handleFocus = () => {
-      setLoading(true);
-      setError('');
-      (async () => {
-        const token = localStorage.getItem('token');
-        try {
-          const playerRes = await fetch(`${BACKEND_URL}/api/player/${userId}`, {
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`,
-            },
-          });
-          const newAuth = playerRes.headers.get('Authorization');
-          if (newAuth?.startsWith('Bearer ')) {
-            localStorage.setItem('token', newAuth.split(' ')[1]);
-          }
-          if (playerRes.ok) {
-            const player = await playerRes.json();
-            setName(player.name);
-            setCollectedFragments(player.fragments || []);
-          }
-          const statsRes = await fetch(`${BACKEND_URL}/api/stats/total_users`, {
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            },
-          });
-          const newAuth2 = statsRes.headers.get('Authorization');
-          if (newAuth2?.startsWith('Bearer ')) {
-            localStorage.setItem('token', newAuth2.split(' ')[1]);
-          }
-          if (statsRes.ok) {
-            const { value } = await statsRes.json();
-            setTotalUsers(value);
-          }
-        } catch {
-          setError('Failed to refresh data');
-        } finally {
-          setLoading(false);
-        }
-      })();
+        /* stats */
+        const s = await fetch(`${BACKEND}/api/stats/total_users`,{
+          headers:{Authorization:`Bearer ${localStorage.getItem('token')}`}})
+          .then(r=>r.json());
+        setTotal(s.value||0);
+      }catch(e){ setErr('Failed to load profile'); }
+      setLoading(false);
     };
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-  }, [navigate]);
+    fetchAll();
 
-  if (loading) {
-    return (
-      <div style={styles.page}>
-        <p style={styles.loading}>Loading profile...</p>
-      </div>
-    );
-  }
-  if (error) {
-    return (
-      <div style={styles.page}>
-        <p style={styles.error}>{error}</p>
-      </div>
-    );
-  }
+    /* refresh on focus */
+    const h = ()=> fetchAll();
+    window.addEventListener('focus',h);
+    return ()=> window.removeEventListener('focus',h);
+  },[nav]);
 
-  const slugs = [
-    'the_whisper',
-    'the_number',
-    'the_language',
-    'the_mirror',
-    'the_chain',
-    'the_hour',
-    'the_mark',
-    'the_gate',
-  ];
-  const rows = [
-    [1, 2, 3, 4],
-    [5, 6, 7, 8],
-  ];
+  /* ------------ delete profile ------------ */
+  const delProfile = async()=>{
+    setBusy(true); setDelErr('');
+    try{
+      const id  = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+      const r = await fetch(`${BACKEND}/api/player/${id}`,{
+        method:'DELETE',
+        headers:{Authorization:`Bearer ${localStorage.getItem('token')}`}});
+      if(!r.ok){
+        const j = await r.json();
+        throw new Error(j.error||'Error');
+      }
+      localStorage.clear();
+      nav('/');
+    }catch(e){
+      setDelErr(e.message); setBusy(false);
+    }
+  };
+
+  /* ------------ ui ------------ */
+  if(loading) return <div style={ST.page}><p style={{color:'#fff'}}>Loading…</p></div>;
+  if(err)     return <div style={ST.page}><p style={{color:'#f55'}}>{err}</p></div>;
+
+  const slugs=['the_whisper','the_number','the_language','the_mirror',
+               'the_chain','the_hour','the_mark','the_gate'];
 
   return (
-    <div style={styles.page}>
-      <div style={styles.card}>
-        <h2 style={styles.header}>{name}</h2>
-        <p style={styles.subtitle}>
-          Fragments: {collectedFragments.length} / 8
-        </p>
+    <div style={ST.page}>
+      <div style={ST.card}>
+        <h2 style={ST.h2}>{name}</h2>
+        <p style={ST.sub}>Fragments {frags.length}/8</p>
 
-        <div style={styles.grid}>
-          {rows.map((row, ri) => (
-            <div key={ri} style={styles.row}>
-              {row.map((id) => {
-                const owned = collectedFragments.includes(id);
-                const src = owned
-                  ? `/fragments/fragment_${id}_${slugs[id - 1]}.webp`
-                  : null;
-                return (
-                  <div
-                    key={id}
-                    style={styles.slot}
-                    onClick={() => owned && setSelected(id)}
-                  >
-                    {owned && (
-                      <img
-                        src={src}
-                        alt={`Fragment ${id}`}
-                        style={styles.fragmentImage}
-                      />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          ))}
+        <div style={ST.grid}>
+          {[1,2,3,4,5,6,7,8].map(id=>{
+            const own = frags.includes(id);
+            return (
+              <div key={id} style={ST.slot}
+                   onClick={()=> own && setZoom(id)}>
+                {own && (
+                  <img src={`/fragments/fragment_${id}_${slugs[id-1]}.webp`}
+                       alt="" style={ST.img}/>
+                )}
+              </div>
+            );
+          })}
         </div>
 
-        <p style={styles.counter}>
-          <em>Ash Seekers: {totalUsers.toLocaleString()}</em>
-        </p>
+        <p style={ST.count}><em>Ash Seekers: {total.toLocaleString()}</em></p>
 
-        <button style={styles.burnButton} onClick={() => navigate('/path')}>
-          🔥 Burn Again
-        </button>
-
-        {collectedFragments.length === 8 && (
-          <button
-            style={styles.finalButton}
-            onClick={() => navigate('/final')}
-          >
+        <button style={ST.btn} onClick={()=>nav('/path')}>🔥 Burn Again</button>
+        {frags.length===8 && (
+          <button style={ST.btn2} onClick={()=>nav('/final')}>
             🗝 Enter Final Phrase
           </button>
         )}
+
+        <button style={ST.del} onClick={()=>setAskDel(true)}>
+          Delete profile
+        </button>
       </div>
 
-      {selected !== null && (
-        <div style={styles.modal} onClick={() => setSelected(null)}>
-          <img
-            src={`/fragments/fragment_${selected}_${slugs[selected - 1]}.webp`}
-            alt="Enlarged fragment"
-            style={styles.modalImage}
-          />
+      {/* enlarge fragment */}
+      {zoom && (
+        <div style={ST.back} onClick={()=>setZoom(null)}>
+          <img src={`/fragments/fragment_${zoom}_${slugs[zoom-1]}.webp`}
+               alt="" style={ST.big}/>
+        </div>
+      )}
+
+      {/* confirm delete */}
+      {askDel && (
+        <div style={ST.back}>
+          <div style={ST.pop} onClick={e=>e.stopPropagation()}>
+            <p>Delete profile permanently?</p>
+            {delErr && <p style={{color:'#f55',fontSize:14}}>{delErr}</p>}
+            <button disabled={busy} style={ST.yes} onClick={delProfile}>
+              Yes, delete
+            </button>
+            <button disabled={busy} style={ST.no} onClick={()=>setAskDel(false)}>
+              Cancel
+            </button>
+          </div>
         </div>
       )}
     </div>
   );
 }
 
-const styles = {
-  page: {
-    position: 'relative',
-    minHeight: '100vh',
-    backgroundImage: 'url("/profile-bg.webp")',
-    backgroundSize: 'cover',
-    backgroundPosition: 'center',
-    fontFamily: 'serif',
-    color: '#d4af37',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: '16px',
-  },
-  loading: { fontSize: 18, color: '#fff' },
-  error: { fontSize: 16, color: '#f00' },
-  card: {
-    width: '100%',
-    maxWidth: '95vw',
-    padding: 16,
-    backgroundColor: 'transparent',
-    textAlign: 'center',
-  },
-  header: { fontSize: 24, margin: '0 0 8px' },
-  subtitle: { fontSize: 14, marginBottom: 16, opacity: 0.85 },
-  grid: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 8,
-    marginBottom: 16,
-  },
-  row: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    gap: 4,
-  },
-  slot: {
-    flex: '1 1 0',
-    aspectRatio: '1 / 1',
-    maxWidth: '22%',
-    backgroundColor: '#111',
-    border: '1px solid #d4af37',
-    borderRadius: 6,
-    overflow: 'hidden',
-    cursor: 'pointer',
-  },
-  fragmentImage: {
-    width: '100%',
-    height: '100%',
-    objectFit: 'cover',
-  },
-  counter: { fontSize: 14, color: '#ccc', marginBottom: 16 },
-  burnButton: {
-    display: 'block',
-    width: '100%',
-    marginTop: 8,
-    padding: '10px',
-    fontSize: 14,
-    backgroundColor: '#d4af37',
-    color: '#000',
-    border: 'none',
-    borderRadius: 4,
-    cursor: 'pointer',
-  },
-  finalButton: {
-    display: 'block',
-    width: '100%',
-    marginTop: 8,
-    padding: '10px',
-    fontSize: 16,
-    backgroundColor: '#d4af37',
-    color: '#000',
-    border: 'none',
-    borderRadius: 6,
-    cursor: 'pointer',
-  },
-  modal: {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    width: '100vw',
-    height: '100vh',
-    backgroundColor: 'rgba(0,0,0,0.8)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 9999,
-    cursor: 'pointer',
-  },
-  modalImage: {
-    maxWidth: '90%',
-    maxHeight: '90%',
-    objectFit: 'contain',
-    boxShadow: '0 0 20px rgba(0,0,0,0.5)',
-  },
+/* ---------- styles ---------- */
+const ST = {
+  page :{minHeight:'100vh',background:'url("/profile-bg.webp") center/cover',
+         display:'flex',justifyContent:'center',alignItems:'center',
+         fontFamily:'serif',color:'#d4af37',padding:16},
+  card :{width:'100%',maxWidth:420,textAlign:'center'},
+  h2   :{margin:'0 0 8px'},
+  sub  :{margin:'0 0 16px',opacity:.85,fontSize:14},
+  grid :{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:6,marginBottom:16},
+  slot :{background:'#111',border:'1px solid #d4af37',borderRadius:6,
+         aspectRatio:'1/1',overflow:'hidden',cursor:'pointer'},
+  img  :{width:'100%',height:'100%',objectFit:'cover'},
+  count:{fontSize:14,color:'#ccc',marginBottom:16},
+  btn  :{width:'100%',padding:10,marginBottom:8,
+         background:'#d4af37',color:'#000',border:'none',borderRadius:4,cursor:'pointer'},
+  btn2 :{width:'100%',padding:10,marginBottom:8,
+         background:'#d4af37',color:'#000',border:'none',borderRadius:6,cursor:'pointer'},
+  del  :{width:'100%',padding:10,marginTop:4,
+         background:'#822',color:'#fff',border:'none',borderRadius:4,cursor:'pointer'},
+
+  back :{position:'fixed',inset:0,background:'rgba(0,0,0,.85)',
+         display:'flex',justifyContent:'center',alignItems:'center',zIndex:100},
+  big  :{maxWidth:'90%',maxHeight:'90%',objectFit:'contain',
+         boxShadow:'0 0 20px rgba(0,0,0,.6)'},
+  pop  :{width:260,background:'#222',color:'#fff',padding:20,
+         borderRadius:8,textAlign:'center'},
+  yes  :{width:'100%',padding:10,margin:'6px 0',background:'#d4af37',
+         border:'none',borderRadius:4,cursor:'pointer'},
+  no   :{width:'100%',padding:10,background:'#666',
+         border:'none',borderRadius:4,cursor:'pointer'}
 };
