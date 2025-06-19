@@ -109,9 +109,7 @@ export default function Welcome() {
 const S = {
   bg      :{position:'relative',minHeight:'100vh',background:'url("/bg-welcome.webp") center/cover'},
   overlay :{position:'absolute',inset:0,background:'rgba(0,0,0,.6)',zIndex:1},
-  content :{position:'relative',zIndex:2,height:'100%',display:'flex',
-            flexDirection:'column',justifyContent:'center',alignItems:'center',
-            textAlign:'center',padding:20,color:'#d4af37',fontFamily:'serif'},
+  content :{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',width:'100%',maxWidth:420,display:'flex',flexDirection:'column',alignItems:'center',textAlign:'center',padding:20,color:'#d4af37',fontFamily:'serif',zIndex:2},
   title   :{fontSize:42,margin:0},
   subtitle:{fontSize:18,opacity:.8,margin:'8px 0 30px'},
   button  :{padding:'12px 28px',background:'#d4af37',color:'#000',border:'none',
