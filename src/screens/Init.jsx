@@ -95,12 +95,13 @@ export default function Init() {
           <div style={st.modal}>
             <h3 style={st.h3}>Welcome, Seeker!</h3>
             <p style={st.p}>
-              • Burn <b>exactly 0.5 TON</b> every time (max 4 TON in total).<br/>
-              • Collect <b>8 Ash fragments</b> – expect <b>24 h curses</b>.<br/>
-              • Five real pieces &amp; four curses are dealt at random.<br/>
-              • Re-assemble the hidden phrase to forge a <b>unique final NFT</b>.<br/>
-              • First who submits the phrase becomes the <b>sole Winner</b>.<br/><br/>
-              Mis-payments are unrecoverable – double-check the amount.
+              • Every <b>burn</b> costs <b>0.5&nbsp;TON</b> and forges either a fragment or a <b>24-hour curse</b>.<br/>
+              • You will <b>never spend more than 4&nbsp;TON</b> in total — eight burns is all it takes.<br/>
+              • Gather the <b>8 unique fragments</b> to reveal a hidden incantation.<br/>
+              • Enter that incantation to forge a <b>final NFT</b>; its look depends on your own path.<br/>
+              • The first to enter the phrase becomes the winner.<br/>
+              • Payments are <b>irreversible</b> — send exactly <b>0.5&nbsp;TON</b> each time.<br/><br/>
+              <i>Tread carefully, and may the ashes guide you.</i>
             </p>
             <button style={st.ok} onClick={confirmInfo}>I understand</button>
           </div>
