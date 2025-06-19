@@ -1,7 +1,9 @@
-/*  src/screens/Path.jsx – v5.1
-    — оригинальная вёрстка без урезаний
-    — auto-refresh JWT + повтор create-invoice при 401
-    — корректный вывод ошибок пользователю
+/*  src/screens/Path.jsx – v5.3  (полный, без сокращений)
+    ───────────────────────────────────────────────────────
+    • авто-refresh JWT при ошибке 401
+    • повторный create-invoice
+    • вывод ошибок и модалка «0.5 TON»
+    • разметка и стили точно как в первоначальной версии
 */
 
 import React, { useEffect, useRef, useState } from 'react';
@@ -28,8 +30,9 @@ const FRAG_IMG = {
   8: 'fragment_8_the_gate.webp',
 };
 
-/* ---------- styles (полный объект, без сокращений) ------------------ */
+/* ---------- стили (полный объект) ---------------------------------- */
 const S = {
+  /* page bg */
   page: {
     position: 'relative',
     minHeight: '100vh',
@@ -39,19 +42,21 @@ const S = {
     alignItems: 'center',
     padding: '32px 12px',
   },
+  /* main card */
   card: {
     width: '100%',
     maxWidth: 380,
     textAlign: 'center',
     color: '#d4af37',
   },
-  h2: { margin: 0, fontSize: 28, fontWeight: 700 },
+  h2:  { margin: 0, fontSize: 28, fontWeight: 700 },
   sub: { margin: '8px 0 24px', fontSize: 16 },
 
+  /* buttons */
   btn: {
     display: 'block',
     width: '100%',
-    padding: '12px',
+    padding: 12,
     fontSize: 16,
     borderRadius: 6,
     border: 'none',
@@ -62,10 +67,12 @@ const S = {
   prim: { background: '#d4af37', color: '#000' },
   sec:  { background: 'transparent', border: '1px solid #d4af37', color: '#d4af37' },
 
+  /* status text */
   stat: { fontSize: 15, minHeight: 22, margin: '12px 0' },
   ok:   { color: '#6BCB77' },
   bad:  { color: '#FF6B6B' },
 
+  /* modal */
   modalWrap: {
     position: 'fixed',
     inset: 0,
@@ -88,7 +95,7 @@ const S = {
   },
   mBtn: {
     marginTop: 16,
-    padding: '10px',
+    padding: 10,
     width: '100%',
     fontSize: 15,
     border: 'none',
@@ -96,6 +103,7 @@ const S = {
     cursor: 'pointer',
   },
 
+  /* fragment animation */
   frag: {
     position: 'fixed',
     left: '50%',
@@ -107,6 +115,7 @@ const S = {
     animation: 'fly 2.3s forwards',
   },
 
+  /* debug overlay */
   dbg: {
     position: 'fixed',
     left: 0,
@@ -123,14 +132,14 @@ const S = {
   },
 };
 
-/* keyframes (полностью) */
+/* keyframes */
 const styleTag = (
   <style>{`
     @keyframes fly{
       0%  {opacity:0;transform:translate(-50%,-50%) scale(.3);}
       15% {opacity:1;transform:translate(-50%,-50%) scale(1);}
       65% {opacity:1;transform:translate(-50%,-50%) scale(1);}
-      100%{opacity:0;transform:translate(-50%,280%)  scale(.3);}
+      100%{opacity:0;transform:translate(-50%,280%) scale(.3);}
     }
   `}</style>
 );
@@ -146,7 +155,7 @@ function Debug() {
   return <pre style={S.dbg}>{log.join('\n')}</pre>;
 }
 
-/* ---------- helpers ------------------------------------------------ */
+/* ---------- helpers ----------------------------------------------- */
 const saveToken = res => {
   const h = res.headers?.get('Authorization') || '';
   if (h.startsWith('Bearer ')) localStorage.setItem('token', h.slice(7));
@@ -174,32 +183,33 @@ export default function Path() {
   /* preload fragments once */
   useEffect(() => {
     Object.values(FRAG_IMG).forEach(f => {
-      const i = new Image();
-      i.src = `/fragments/${f}`;
+      const img = new Image();
+      img.src = `/fragments/${f}`;
     });
   }, []);
 
   /* ─── state ───────────────────────────────────────────────── */
-  const [tgId, setTgId]   = useState('');
-  const [raw,  setRaw ]   = useState('');
-  const [cd,   setCd  ]   = useState(0);
-  const [curse,setCur ]   = useState(null);
+  const [tgId,setTgId]   = useState('');
+  const [raw,setRaw]     = useState('');
+  const [cd,setCd]       = useState(0);
+  const [curse,setCur]   = useState(null);
 
-  const [busy,setBusy]    = useState(false);
-  const [wait,setWait]    = useState(false);
-  const [hub, setHub ]    = useState('');
-  const [ton, setTon ]    = useState('');
-  const [msg, setMsg ]    = useState('');
+  const [busy,setBusy]   = useState(false);
+  const [wait,setWait]   = useState(false);
+  const [hub,setHub]     = useState('');
+  const [ton,setTon]     = useState('');
+  const [msg,setMsg]     = useState('');
 
-  const [showModal,setModal]     = useState(false);
-  const [frag,setFrag]           = useState('');
+  const [showModal,setModal]   = useState(false);
+  const [frag,setFrag]         = useState('');
   const [fragLoaded,setFragLoaded]=useState(false);
 
   const COOLDOWN = 120;
   const secLeft = t => Math.max(0,
     COOLDOWN - Math.floor((Date.now() - new Date(t).getTime()) / 1000));
-  const fmt = s => `${String((s / 60) | 0).padStart(2,'0')}:${String(s % 60).padStart(2,'0')}`;
-  const open = url => TG?.openLink?.(url,{try_instant_view:false}) || window.open(url,'_blank');
+  const fmt = s => `${String((s/60)|0).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+  const open = url =>
+    TG?.openLink?.(url,{try_instant_view:false}) || window.open(url,'_blank');
 
   /* ─── mount ─────────────────────────────────────────────── */
   useEffect(() => {
@@ -208,9 +218,11 @@ export default function Path() {
     if (!u?.id) { nav('/init'); return; }
 
     setTgId(String(u.id));
-    setRaw(wa?.initData || '');
+    setRaw(TG?.initData || '');                // сырой подписанный payload
+
     if (!localStorage.getItem('token')) { nav('/init'); return; }
 
+    /* load cooldown / curse */
     (async () => {
       try {
         const r = await fetch(`${BACKEND}/api/player/${u.id}`);
@@ -218,14 +230,14 @@ export default function Path() {
         if (j.last_burn) setCd(secLeft(j.last_burn));
         if (j.curse_expires && new Date(j.curse_expires) > new Date())
           setCur(j.curse_expires);
-      } catch {/* ignore */}
+      } catch { /* ignore */ }
     })();
 
     const t = setInterval(() => setCd(s => (s > 0 ? s - 1 : 0)), 1000);
     return () => clearInterval(t);
   }, [nav]);
 
-  /* ─── create invoice ─────────────────────────────────────── */
+  /* ─── invoice ---------------------------------------------------- */
   const createInvoice = async (retry = false) => {
     try {
       const r = await fetch(`${BACKEND}/api/burn-invoice`, {
@@ -237,7 +249,6 @@ export default function Path() {
         body: JSON.stringify({ tg_id: tgId }),
       });
 
-      /* если токен протух — обновляем и пробуем ещё раз */
       if (r.status === 401 && !retry) {
         const ok = await refreshToken(tgId, raw);
         if (ok) return createInvoice(true);
@@ -269,7 +280,7 @@ export default function Path() {
     createInvoice();
   };
 
-  /* ─── polling ────────────────────────────────────────────── */
+  /* ─── polling ----------------------------------------------------- */
   const checkStatus = async id => {
     try {
       const r = await fetch(`${BACKEND}/api/burn-status/${id}`, {
