@@ -1,8 +1,4 @@
-/*  src/screens/Profile.jsx
-    ─────────────────────────────────────────────────────────────────
-    Профиль игрока + реферал-панель (только ссылка).
-    Кнопка «Burn Again» находится выше панели.
-*/
+/*  src/screens/Profile.jsx – только реф-код, кнопка Burn выше панели  */
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchReferral, claimReferral } from '../api/referral.js';
@@ -11,194 +7,142 @@ const BACKEND =
   import.meta.env.VITE_BACKEND_URL ??
   'https://ash-backend-production.up.railway.app';
 
-/* параметры для ссылки t.me */
-const BOT_USERNAME      = import.meta.env.VITE_BOT_USERNAME || 'AshOrderWebBot';
-const WEBAPP_SHORT_NAME = import.meta.env.VITE_WEBAPP_SHORTNAME || 'ash';
-
 const SLUG = [
-  'the_whisper', 'the_number', 'the_language', 'the_mirror',
-  'the_chain',   'the_hour',   'the_mark',     'the_gate'
+  'the_whisper','the_number','the_language','the_mirror',
+  'the_chain',  'the_hour',  'the_mark',   'the_gate'
 ];
 
 export default function Profile() {
   const nav = useNavigate();
 
-  /* profile */
-  const [loading, setLoad] = useState(true);
-  const [error,   setErr ] = useState('');
-  const [name,    setName] = useState('');
-  const [frags,   setFr  ] = useState([]);
-  const [total,   setTotal] = useState(0);
+  /* profile state */
+  const [loading,setLoad]=useState(true);
+  const [error,  setErr ]=useState('');
+  const [name,   setName]=useState('');
+  const [frags,  setFr  ]=useState([]);
+  const [total,  setTotal]=useState(0);
 
   /* referral */
-  const [refCode,   setCode] = useState('');
-  const [invited,   setInv ] = useState(0);
-  const [rewarded,  setRw  ] = useState(false);
-  const [claimBusy, setCB  ] = useState(false);
-  const [copiedLink, setCL ] = useState(false);
+  const [refCode, setCode] = useState('');
+  const [invited, setInv ] = useState(0);
+  const [rewarded,setRw  ] = useState(false);
+  const [claimBusy,setCB ] = useState(false);
+  const [copied, setCp]   = useState(false);
 
   /* delete */
-  const [ask,  setAsk]  = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [dErr, setDErr] = useState('');
+  const [ask,setAsk]=useState(false);
+  const [busy,setBusy]=useState(false);
+  const [dErr,setDErr]=useState('');
 
-  /* load profile + referral */
-  useEffect(() => {
-    const uid   = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
-    const token = localStorage.getItem('token');
-    if (!uid || !token) { nav('/init'); return; }
+  /* load */
+  useEffect(()=>{
+    const uid=window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+    const tok=localStorage.getItem('token');
+    if(!uid||!tok){ nav('/init'); return; }
 
-    const load = async () => {
-      try {
-        const p = await fetch(`${BACKEND}/api/player/${uid}`, {
-          headers: { Authorization: `Bearer ${token}` }
+    const load=async()=>{
+      try{
+        const p=await fetch(`${BACKEND}/api/player/${uid}`,{
+          headers:{Authorization:`Bearer ${tok}`}
         });
-        if (!p.ok) throw new Error();
-        const pj = await p.json();
-        setName(pj.name);
-        setFr(pj.fragments || []);
+        if(!p.ok) throw 0;
+        const pj=await p.json();
+        setName(pj.name); setFr(pj.fragments||[]);
 
-        const ref = await fetchReferral(uid, token);
-        setCode(ref.refCode);
-        setInv(ref.invitedCount);
-        setRw(ref.rewardIssued);
+        const ref=await fetchReferral(uid,tok);
+        setCode(ref.refCode); setInv(ref.invitedCount); setRw(ref.rewardIssued);
 
-        const s = await fetch(`${BACKEND}/api/stats/total_users`, {
-          headers: { Authorization: `Bearer ${token}` }
+        const s=await fetch(`${BACKEND}/api/stats/total_users`,{
+          headers:{Authorization:`Bearer ${tok}`}
         });
-        if (s.ok) setTotal((await s.json()).value || 0);
-      } catch { setErr('Failed to load'); }
+        if(s.ok) setTotal((await s.json()).value||0);
+      }catch{ setErr('Failed to load'); }
       setLoad(false);
     };
-
-    load();
-    window.addEventListener('focus', load);
-    return () => window.removeEventListener('focus', load);
-  }, [nav]);
+    load(); window.addEventListener('focus',load);
+    return()=>window.removeEventListener('focus',load);
+  },[nav]);
 
   /* helpers */
-  const copyLink = async text => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCL(true); setTimeout(() => setCL(false), 1500);
-    } catch {/* ignore */}
+  const copy=async ()=>{
+    try{ await navigator.clipboard.writeText(refCode);
+         setCp(true); setTimeout(()=>setCp(false),1500);}
+    catch{/* ignore */}
   };
-
-  const claim = async () => {
+  const claim=async()=>{
     setCB(true);
-    try {
-      const token = localStorage.getItem('token');
-      await claimReferral(token);
-      setRw(true);
-      alert('🎉 Free fragment received!');
-      window.location.reload();
-    } catch (e) { alert(e.message); }
-    finally { setCB(false); }
-  };
-
-  const delProfile = async () => {
-    setBusy(true); setDErr('');
-    try {
-      const uid = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
-      const tok = localStorage.getItem('token');
-      const r = await fetch(`${BACKEND}/api/player/${uid}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${tok}` }
-      });
-      if (!r.ok) throw new Error((await r.json()).error || 'Delete error');
-      localStorage.clear(); nav('/');
-    } catch (e) { setDErr(e.message); setBusy(false); }
+    try{ const tok=localStorage.getItem('token'); await claimReferral(tok);
+         setRw(true); alert('🎉 Free fragment received!'); window.location.reload();}
+    catch(e){ alert(e.message);} finally{ setCB(false);}
   };
 
   /* guards */
-  if (loading)
-    return <div style={S.page}><p style={S.load}>Loading…</p></div>;
-  if (error)
-    return <div style={S.page}><p style={S.err}>{error}</p></div>;
+  if(loading) return <div style={S.page}><p style={S.load}>Loading…</p></div>;
+  if(error)   return <div style={S.page}><p style={S.err}>{error}</p></div>;
 
-  const rows = [[1,2,3,4],[5,6,7,8]];
-  const progress  = Math.min(invited, 3);
-  const shareLink = `https://t.me/${BOT_USERNAME}/${WEBAPP_SHORT_NAME}?startapp=${encodeURIComponent(refCode)}`;
+  const rows=[[1,2,3,4],[5,6,7,8]];
+  const progress=Math.min(invited,3);
 
-  /* JSX */
-  return (
+  return(
     <div style={S.page}>
       <div style={S.card}>
         <h2 style={S.h}>{name}</h2>
         <p style={S.sub}>Fragments {frags.length}/8</p>
 
-        {rows.map((row,i)=>(
+        {rows.map((r,i)=>(
           <div key={i} style={S.row}>
-            {row.map(id=>(
+            {r.map(id=>(
               <div key={id} style={S.slot}>
-                {frags.includes(id) && (
-                  <img
-                    src={`/fragments/fragment_${id}_${SLUG[id-1]}.webp`}
-                    style={S.img}
-                  />
-                )}
+                {frags.includes(id)&&(
+                  <img src={`/fragments/fragment_${id}_${SLUG[id-1]}.webp`}
+                       style={S.img}/>)}
               </div>
             ))}
           </div>
         ))}
 
-        {/* кнопка burn выше панели */}
+        {/* Burn button (вверх) */}
         <button style={S.act} onClick={()=>nav('/path')}>🔥 Burn Again</button>
 
-        {/* ── REFERRAL PANEL ─────────────────────────────────────── */}
+        {/* REFERRAL BOX */}
         <div style={S.refBox}>
-          <p style={{fontSize:13,margin:'0 0 4px',opacity:.8}}>Share link</p>
+          <p style={S.refLabel}>Your referral code</p>
           <div style={S.copyRow}>
-            <input
-              style={S.refInput}
-              readOnly
-              value={shareLink}
-              onClick={() => copyLink(shareLink)}
-            />
-            <button style={S.copyBtn} onClick={() => copyLink(shareLink)}>
-              {copiedLink ? 'Copied' : 'Copy link'}
+            <input style={S.refInput} readOnly value={refCode} onClick={copy}/>
+            <button style={S.copyBtn} onClick={copy}>
+              {copied?'Copied':'Copy'}
             </button>
           </div>
 
           <p style={S.progress}>Invited {progress}/3</p>
 
-          {progress >= 3 && !rewarded && (
-            <button style={S.claim}
-                    disabled={claimBusy}
-                    onClick={claim}>
-              {claimBusy ? 'Processing…' : 'Claim free fragment'}
+          {(progress>=3&&!rewarded)&&(
+            <button style={S.claim} disabled={claimBusy} onClick={claim}>
+              {claimBusy?'Processing…':'Claim free fragment'}
             </button>
           )}
-
-          {rewarded && (
-            <p style={S.claimed}>Reward already claimed ✅</p>
-          )}
+          {rewarded&&<p style={S.claimed}>Reward already claimed ✅</p>}
         </div>
 
         <p style={S.count}>Ash Seekers: {total.toLocaleString()}</p>
 
-        {frags.length === 8 && (
+        {frags.length===8&&(
           <button style={{...S.act,marginTop:6,fontSize:16}}
-                  onClick={()=>nav('/final')}>
-            🗝 Enter Final Phrase
-          </button>
+                  onClick={()=>nav('/final')}>🗝 Enter Final Phrase</button>
         )}
 
-        <div style={{flexGrow:1}} />
+        <div style={{flexGrow:1}}/>
 
         <button style={S.del} onClick={()=>setAsk(true)}>Delete profile</button>
       </div>
 
-      {/* confirm delete */}
-      {ask && (
+      {ask&&(
         <div style={S.wrap}>
           <div style={S.box}>
-            <p style={{margin:'0 0 12px',fontSize:17}}>
-              Delete profile permanently?
-            </p>
-            {dErr && <p style={{color:'#f66',fontSize:14}}>{dErr}</p>}
+            <p style={{margin:'0 0 12px',fontSize:17}}>Delete profile permanently?</p>
+            {dErr&&<p style={{color:'#f66',fontSize:14}}>{dErr}</p>}
             <button style={S.ok} disabled={busy} onClick={delProfile}>
-              {busy ? 'Deleting…' : 'Yes, delete'}
+              {busy?'Deleting…':'Yes, delete'}
             </button>
             <button style={S.cancel} disabled={busy} onClick={()=>setAsk(false)}>
               Cancel
@@ -234,10 +178,6 @@ const S = {
   /* referral panel */
   refBox  : {background:'#0004',padding:14,borderRadius:8,margin:'20px 0'},
   copyRow : {display:'flex',marginTop:6,alignItems:'center',gap:6},
-  refInput: {flex:1,padding:'8px 10px',fontSize:14,borderRadius:4,
-             border:'1px solid #d4af37',background:'#111',color:'#d4af37'},
-  copyBtn : {padding:'8px 12px',fontSize:13,border:'none',borderRadius:4,
-             background:'#d4af37',color:'#000',cursor:'pointer'},
   progress: {fontSize:13,marginTop:8,opacity:.85},
   claim   : {marginTop:10,padding:10,width:'100%',fontSize:14,border:'none',
              borderRadius:6,background:'#6BCB77',color:'#000',cursor:'pointer'},

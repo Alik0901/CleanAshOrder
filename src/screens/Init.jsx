@@ -1,7 +1,5 @@
-/*  src/screens/Init.jsx
-    ─────────────────────────────────────────────────────────
-    Регистрация + передача реферального кода (?ref=XYZ).
-*/
+/*  src/screens/Init.jsx – регистрация + ручной ввод реф-кода
+    ----------------------------------------------------------- */
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -9,33 +7,29 @@ const BACKEND =
   import.meta.env.VITE_BACKEND_URL ??
   'https://ash-backend-production.up.railway.app';
 
-const RGX = /^[A-Za-z ]+$/;          // допустимые символы имени
+const RGX = /^[A-Za-z ]+$/;
 
 export default function Init() {
   const nav      = useNavigate();
   const inputRef = useRef(null);
 
-  /* базовые состояния */
+  /* base */
   const [tgId, setTgId] = useState('');
   const [raw,  setRaw]  = useState('');
   const [note, setNote] = useState('Checking Telegram …');
 
-  const [loading, setLoading] = useState(true);   // прячем форму до ответа бэка
-  const [busy,    setBusy]    = useState(false);  // блокируем во время submit
+  const [loading, setLoading] = useState(true);
+  const [busy,    setBusy]    = useState(false);
 
-  /* форма */
-  const [name, setName] = useState('');
-  const okName          = RGX.test(name.trim()) && name.trim().length > 0;
+  /* form */
+  const [name,      setName] = useState('');
+  const [refInput,  setRef ] = useState('');      // ⇠ новый инпут
+  const okName = RGX.test(name.trim()) && name.trim().length > 0;
 
-  /* приветственное модальное окно */
+  /* info modal */
   const [showInfo, setInfo] = useState(false);
 
-  /* ★ Читаем ?ref=XYZ при первом рендере */
-  const [refCode] = useState(
-    () => new URLSearchParams(window.location.search).get('ref') || ''
-  );
-
-  /* ── 1. Bootstrap через Telegram Web-App SDK ─────────────────────── */
+  /* 1. Telegram bootstrap */
   useEffect(() => {
     const wa  = window.Telegram?.WebApp;
     const uid = wa?.initDataUnsafe?.user?.id;
@@ -45,100 +39,75 @@ export default function Init() {
 
     setTgId(String(uid));
     setRaw(wa.initData || '');
-    // loading остаётся true — ждём backend-проверку
   }, []);
 
-  /* ── 2. Проверка игрока на сервере ───────────────────────────────── */
+  /* 2. backend check */
   useEffect(() => {
     if (!tgId) return;
-
     const INFO_KEY = `aoa_info_seen_${tgId}`;
 
     (async () => {
       try {
         const res = await fetch(`${BACKEND}/api/player/${tgId}`);
-
-        if (res.ok) {                       // игрок уже есть → выдаём свежий JWT
-          const tokenRes = await fetch(`${BACKEND}/api/init`, {
-            method : 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body   : JSON.stringify({ tg_id: tgId, name: '', initData: raw })
+        if (res.ok) {
+          const t = await fetch(`${BACKEND}/api/init`,{
+            method:'POST',headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ tg_id:tgId,name:'',initData:raw })
           });
-          const j = await tokenRes.json();
-          if (j.token) localStorage.setItem('token', j.token);
-          nav('/profile');
-          return;
+          const j = await t.json();
+          if (j.token) localStorage.setItem('token',j.token);
+          nav('/profile'); return;
         }
-
-        /* 404 → новый пользователь */
         if (!sessionStorage.getItem(INFO_KEY)) setInfo(true);
         setNote('Enter your name');
-      } catch {
-        setNote('Network error – try again');
-      } finally {
-        setLoading(false);
-      }
+      } catch { setNote('Network error – try again'); }
+      finally  { setLoading(false); }
     })();
-  }, [tgId, raw, nav]);
+  }, [tgId,raw,nav]);
 
-  /* ── 3. Submit формы ─────────────────────────────────────────────── */
+  /* 3. submit */
   const submit = async e => {
     e.preventDefault();
     if (busy || showInfo || !okName) return;
 
-    setBusy(true);
-    setNote('Submitting …');
-
+    setBusy(true); setNote('Submitting …');
     try {
       const r = await fetch(`${BACKEND}/api/init`, {
-        method : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body   : JSON.stringify({
-          tg_id        : tgId,
-          name         : name.trim(),
-          initData     : raw,
-          /* передаём код пригласившего, если был в URL */
-          referrer_code: refCode || undefined
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          tg_id: tgId,
+          name : name.trim(),
+          initData: raw,
+          referrer_code: refInput.trim() || undefined   // ⇠ передаём
         })
       });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || 'init error');
-
       localStorage.setItem('token', j.token);
       nav('/path');
-    } catch (err) {
-      setNote(err.message);
-    } finally {
-      setBusy(false);
-    }
+    } catch (err) { setNote(err.message); }
+    finally { setBusy(false); }
   };
 
-  /* ── helpers для модалки info ────────────────────────────────────── */
+  /* info confirm */
   const INFO_KEY = `aoa_info_seen_${tgId}`;
   const confirmInfo = () => {
-    sessionStorage.setItem(INFO_KEY, '1');
+    sessionStorage.setItem(INFO_KEY,'1');
     setInfo(false);
-    setTimeout(() => inputRef.current?.focus(), 50);
+    setTimeout(()=>inputRef.current?.focus(),50);
   };
 
-  /* ── JSX ─────────────────────────────────────────────────────────── */
+  /* JSX */
   return (
     <div style={st.wrap}>
-      {/* ── Модальное окно с правилами ─────────────────────────────── */}
+      {/* info modal */}
       {showInfo && (
         <div style={st.mask}>
           <div style={st.modal}>
             <h3 style={st.h3}>Welcome, Seeker!</h3>
             <p style={st.p}>
-              • Every <b>burn</b> costs <b>0.5&nbsp;TON</b> and forges either a fragment
-              or a <b>24-hour curse</b>.<br/>
-              • You will <b>never spend more than 4&nbsp;TON</b> in total — eight burns
-              is all it takes.<br/>
-              • Gather the <b>8 unique fragments</b> to reveal a hidden incantation.<br/>
-              • Enter that incantation to forge a <b>final NFT</b>; its look depends
-              on your own path.<br/>
-              • The first to enter the phrase becomes the winner.<br/>
-              • Payments are <b>irreversible</b> — send exactly <b>0.5&nbsp;TON</b> each time.<br/><br/>
+              • Every <b>burn</b> costs <b>0.5 TON</b> …<br/>
               <i>Tread carefully, and may the ashes guide you.</i>
             </p>
             <button style={st.ok} onClick={confirmInfo}>I understand</button>
@@ -146,26 +115,32 @@ export default function Init() {
         </div>
       )}
 
-      {/* ── Регистрационная карточка ───────────────────────────────── */}
       {!loading && (
         <form style={st.card} onSubmit={submit}>
           <h1 style={st.h1}>Enter&nbsp;the&nbsp;Ash</h1>
-          <p style={st.sm}>Telegram&nbsp;ID: {tgId}</p>
+          <p style={st.sm}>Telegram ID: {tgId}</p>
 
           <input
             ref={inputRef}
-            style={{ ...st.inp, opacity: showInfo ? 0.5 : 1 }}
+            style={st.inp}
             placeholder="Your name (A–Z only)"
             value={name}
-            disabled={busy || showInfo}
-            onChange={e => setName(e.target.value)}
+            disabled={busy}
+            onChange={e=>setName(e.target.value)}
+          />
+
+          <input
+            style={st.inp}
+            placeholder="Referral code (optional)"
+            value={refInput}
+            disabled={busy}
+            onChange={e=>setRef(e.target.value)}
           />
 
           <button
             type="submit"
-            style={{ ...st.btn, opacity: (okName && !busy && !showInfo) ? 1 : 0.45 }}
-            disabled={!okName || busy || showInfo}
-          >
+            style={{ ...st.btn, opacity:(okName&&!busy)?1:.45 }}
+            disabled={!okName||busy}>
             Save and Continue
           </button>
 
@@ -173,7 +148,6 @@ export default function Init() {
         </form>
       )}
 
-      {/* простой статус во время initial-loading */}
       {loading && <p style={st.note}>{note}</p>}
     </div>
   );
