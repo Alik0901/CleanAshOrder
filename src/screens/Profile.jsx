@@ -1,4 +1,4 @@
-/* src/screens/Profile.jsx – профиль игрока + панель рефералов */
+/* src/screens/Profile.jsx – профиль + реферал-панель с готовой ссылкой */
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchReferral, claimReferral } from '../api/referral.js';
@@ -7,22 +7,25 @@ const BACKEND =
   import.meta.env.VITE_BACKEND_URL ??
   'https://ash-backend-production.up.railway.app';
 
+/* путь фронта для формирования ссылки; можно задать через .env  */
+const PUBLIC_URL =
+  import.meta.env.VITE_APP_PUBLIC_URL || window.location.origin;
+
 const SLUG = [
   'the_whisper', 'the_number', 'the_language', 'the_mirror',
   'the_chain',   'the_hour',   'the_mark',     'the_gate'
 ];
 
+/* ────────────────────────────────────────────────────────────────────── */
 export default function Profile() {
   const nav = useNavigate();
 
-  /* общие состояния */
+  /* состояния профиля */
   const [loading, setLoad]   = useState(true);
   const [error,   setErr ]   = useState('');
-
-  /* профиль игрока */
-  const [name,  setName]  = useState('');
-  const [frags, setFr  ]  = useState([]);
-  const [total, setTotal] = useState(0);
+  const [name,    setName]   = useState('');
+  const [frags,   setFr  ]   = useState([]);
+  const [total,   setTotal]  = useState(0);
 
   /* рефералка */
   const [refCode,  setCode] = useState('');
@@ -30,13 +33,14 @@ export default function Profile() {
   const [rewarded, setRw  ] = useState(false);
   const [claimBusy, setCB] = useState(false);
   const [copied,   setCp  ] = useState(false);
+  const [copiedLink, setCL] = useState(false);
 
-  /* удаление */
+  /* удаление профиля */
   const [ask,  setAsk]  = useState(false);
   const [busy, setBusy] = useState(false);
   const [dErr, setDErr] = useState('');
 
-  /* ── загрузка данных ─────────────────────────────────────────────── */
+  /* ─── загрузка данных ─────────────────────────────────────────────── */
   useEffect(() => {
     const uid   = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
     const token = localStorage.getItem('token');
@@ -59,7 +63,7 @@ export default function Profile() {
         setInv(ref.invitedCount);
         setRw(ref.rewardIssued);
 
-        /* глобальная статистика (может упасть – игнорируем) */
+        /* глобальная статистика */
         const s = await fetch(`${BACKEND}/api/stats/total_users`, {
           headers: { Authorization: `Bearer ${token}` }
         });
@@ -75,16 +79,18 @@ export default function Profile() {
     return () => window.removeEventListener('focus', load);
   }, [nav]);
 
-  /* клипборд */
-  const copy = async () => {
+  /* ─── helpers ------------------------------------------------------- */
+  const copy = async text => {
     try {
-      await navigator.clipboard.writeText(refCode);
-      setCp(true);
-      setTimeout(() => setCp(false), 1500);
+      await navigator.clipboard.writeText(text);
+      if (text === refCode) {
+        setCp(true); setTimeout(() => setCp(false), 1500);
+      } else {
+        setCL(true); setTimeout(() => setCL(false), 1500);
+      }
     } catch {/* ignore */}
   };
 
-  /* claim бесплатного фрагмента */
   const claim = async () => {
     setCB(true);
     try {
@@ -100,7 +106,6 @@ export default function Profile() {
     }
   };
 
-  /* удаление профиля */
   const delProfile = async () => {
     setBusy(true); setDErr('');
     try {
@@ -119,7 +124,7 @@ export default function Profile() {
     } catch (e) { setDErr(e.message); setBusy(false); }
   };
 
-  /* ── guard screens ───────────────────────────────────────────────── */
+  /* ─── guards ─────────────────────────────────────────────────────── */
   if (loading)
     return <div style={S.page}><p style={S.load}>Loading…</p></div>;
   if (error)
@@ -127,15 +132,15 @@ export default function Profile() {
 
   const rows = [[1,2,3,4],[5,6,7,8]];
   const progress = Math.min(invited, 3);
+  const shareLink = `${PUBLIC_URL}/init?ref=${refCode}`;
 
-  /* ── JSX ─────────────────────────────────────────────────────────── */
+  /* ─── JSX ─────────────────────────────────────────────────────────── */
   return (
     <div style={S.page}>
       <div style={S.card}>
         <h2 style={S.h}>{name}</h2>
         <p style={S.sub}>Fragments {frags.length}/8</p>
 
-        {/* сетка фрагментов */}
         {rows.map((row,i)=>(
           <div key={i} style={S.row}>
             {row.map(id=>(
@@ -151,18 +156,33 @@ export default function Profile() {
           </div>
         ))}
 
-        {/* панель рефералов */}
+        {/* ─── REFERRAL PANEL ───────────────────────────────────────── */}
         <div style={S.refBox}>
+          {/* code */}
           <p style={S.refLabel}>Your referral code</p>
           <div style={S.copyRow}>
             <input
               style={S.refInput}
               readOnly
               value={refCode}
-              onClick={copy}
+              onClick={() => copy(refCode)}
             />
-            <button style={S.copyBtn} onClick={copy}>
+            <button style={S.copyBtn} onClick={() => copy(refCode)}>
               {copied ? 'Copied' : 'Copy'}
+            </button>
+          </div>
+
+          {/* link */}
+          <p style={{fontSize:13,margin:'10px 0 4px',opacity:.8}}>Share link</p>
+          <div style={S.copyRow}>
+            <input
+              style={S.refInput}
+              readOnly
+              value={shareLink}
+              onClick={() => copy(shareLink)}
+            />
+            <button style={S.copyBtn} onClick={() => copy(shareLink)}>
+              {copiedLink ? 'Copied' : 'Copy link'}
             </button>
           </div>
 
@@ -218,17 +238,15 @@ export default function Profile() {
   );
 }
 
-/* ── styles ─────────────────────────────────────────────────────────── */
+/* ─── styles ─────────────────────────────────────────────────────────── */
 const S = {
-  /* layout */
   page : {minHeight:'100vh',background:'url("/profile-bg.webp") center/cover',
           display:'flex',justifyContent:'center',alignItems:'center',
           padding:16,color:'#d4af37',fontFamily:'serif'},
   load : {fontSize:18},
   err  : {fontSize:16,color:'#f66'},
 
-  /* card */
-  card : {width:'100%',maxWidth:360,minHeight:500,
+  card : {width:'100%',maxWidth:360,minHeight:520,
           background:'rgba(0,0,0,.55)',padding:20,borderRadius:8,
           display:'flex',flexDirection:'column',alignItems:'stretch',
           textAlign:'center'},
@@ -236,7 +254,6 @@ const S = {
   h    : {margin:0,fontSize:26},
   sub  : {fontSize:14,margin:'6px 0 18px',opacity:.85},
 
-  /* fragments grid */
   row  : {display:'flex',gap:6,marginBottom:6},
   slot : {flex:'1 1 0',aspectRatio:'1/1',background:'#111',
           border:'1px solid #d4af37',borderRadius:6,overflow:'hidden'},
@@ -245,17 +262,18 @@ const S = {
   /* referral panel */
   refBox  : {background:'#0004',padding:14,borderRadius:8,margin:'20px 0'},
   refLabel: {fontSize:14,margin:0,opacity:.8},
+
   copyRow : {display:'flex',marginTop:6,alignItems:'center',gap:6},
   refInput: {flex:1,padding:'8px 10px',fontSize:14,borderRadius:4,
              border:'1px solid #d4af37',background:'#111',color:'#d4af37'},
   copyBtn : {padding:'8px 12px',fontSize:13,border:'none',borderRadius:4,
              background:'#d4af37',color:'#000',cursor:'pointer'},
+
   progress: {fontSize:13,marginTop:8,opacity:.85},
   claim   : {marginTop:10,padding:10,width:'100%',fontSize:14,border:'none',
              borderRadius:6,background:'#6BCB77',color:'#000',cursor:'pointer'},
   claimed : {marginTop:10,fontSize:13,color:'#6BCB77'},
 
-  /* misc */
   count:{fontSize:14,margin:'14px 0 18px',opacity:.85},
   act  : {padding:10,fontSize:15,borderRadius:6,border:'none',
           background:'#d4af37',color:'#000',cursor:'pointer'},
