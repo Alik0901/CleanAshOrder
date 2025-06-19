@@ -1,4 +1,8 @@
-/* src/screens/Profile.jsx – профиль + реферал-панель с готовой ссылкой */
+/*  src/screens/Profile.jsx
+    ─────────────────────────────────────────────────────────────────
+    Профиль игрока + реферал-панель (только ссылка).
+    Кнопка «Burn Again» находится выше панели.
+*/
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchReferral, claimReferral } from '../api/referral.js';
@@ -7,40 +11,38 @@ const BACKEND =
   import.meta.env.VITE_BACKEND_URL ??
   'https://ash-backend-production.up.railway.app';
 
-/* путь фронта для формирования ссылки; можно задать через .env  */
-const PUBLIC_URL =
-  import.meta.env.VITE_APP_PUBLIC_URL || window.location.origin;
+/* параметры для ссылки t.me */
+const BOT_USERNAME      = import.meta.env.VITE_BOT_USERNAME || 'YourBot';
+const WEBAPP_SHORT_NAME = import.meta.env.VITE_WEBAPP_SHORTNAME || 'app';
 
 const SLUG = [
   'the_whisper', 'the_number', 'the_language', 'the_mirror',
   'the_chain',   'the_hour',   'the_mark',     'the_gate'
 ];
 
-/* ────────────────────────────────────────────────────────────────────── */
 export default function Profile() {
   const nav = useNavigate();
 
-  /* состояния профиля */
-  const [loading, setLoad]   = useState(true);
-  const [error,   setErr ]   = useState('');
-  const [name,    setName]   = useState('');
-  const [frags,   setFr  ]   = useState([]);
-  const [total,   setTotal]  = useState(0);
+  /* profile */
+  const [loading, setLoad] = useState(true);
+  const [error,   setErr ] = useState('');
+  const [name,    setName] = useState('');
+  const [frags,   setFr  ] = useState([]);
+  const [total,   setTotal] = useState(0);
 
-  /* рефералка */
-  const [refCode,  setCode] = useState('');
-  const [invited,  setInv ] = useState(0);
-  const [rewarded, setRw  ] = useState(false);
-  const [claimBusy, setCB] = useState(false);
-  const [copied,   setCp  ] = useState(false);
-  const [copiedLink, setCL] = useState(false);
+  /* referral */
+  const [refCode,   setCode] = useState('');
+  const [invited,   setInv ] = useState(0);
+  const [rewarded,  setRw  ] = useState(false);
+  const [claimBusy, setCB  ] = useState(false);
+  const [copiedLink, setCL ] = useState(false);
 
-  /* удаление профиля */
+  /* delete */
   const [ask,  setAsk]  = useState(false);
   const [busy, setBusy] = useState(false);
   const [dErr, setDErr] = useState('');
 
-  /* ─── загрузка данных ─────────────────────────────────────────────── */
+  /* load profile + referral */
   useEffect(() => {
     const uid   = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
     const token = localStorage.getItem('token');
@@ -48,7 +50,6 @@ export default function Profile() {
 
     const load = async () => {
       try {
-        /* профиль */
         const p = await fetch(`${BACKEND}/api/player/${uid}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
@@ -57,20 +58,16 @@ export default function Profile() {
         setName(pj.name);
         setFr(pj.fragments || []);
 
-        /* реферал-прогресс */
         const ref = await fetchReferral(uid, token);
         setCode(ref.refCode);
         setInv(ref.invitedCount);
         setRw(ref.rewardIssued);
 
-        /* глобальная статистика */
         const s = await fetch(`${BACKEND}/api/stats/total_users`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (s.ok) setTotal((await s.json()).value || 0);
-      } catch {
-        setErr('Failed to load');
-      }
+      } catch { setErr('Failed to load'); }
       setLoad(false);
     };
 
@@ -79,15 +76,11 @@ export default function Profile() {
     return () => window.removeEventListener('focus', load);
   }, [nav]);
 
-  /* ─── helpers ------------------------------------------------------- */
-  const copy = async text => {
+  /* helpers */
+  const copyLink = async text => {
     try {
       await navigator.clipboard.writeText(text);
-      if (text === refCode) {
-        setCp(true); setTimeout(() => setCp(false), 1500);
-      } else {
-        setCL(true); setTimeout(() => setCL(false), 1500);
-      }
+      setCL(true); setTimeout(() => setCL(false), 1500);
     } catch {/* ignore */}
   };
 
@@ -99,11 +92,8 @@ export default function Profile() {
       setRw(true);
       alert('🎉 Free fragment received!');
       window.location.reload();
-    } catch (e) {
-      alert(e.message);
-    } finally {
-      setCB(false);
-    }
+    } catch (e) { alert(e.message); }
+    finally { setCB(false); }
   };
 
   const delProfile = async () => {
@@ -115,26 +105,22 @@ export default function Profile() {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${tok}` }
       });
-      if (!r.ok) {
-        const j = await r.json();
-        throw new Error(j.error || 'Delete error');
-      }
-      localStorage.clear();
-      nav('/');
+      if (!r.ok) throw new Error((await r.json()).error || 'Delete error');
+      localStorage.clear(); nav('/');
     } catch (e) { setDErr(e.message); setBusy(false); }
   };
 
-  /* ─── guards ─────────────────────────────────────────────────────── */
+  /* guards */
   if (loading)
     return <div style={S.page}><p style={S.load}>Loading…</p></div>;
   if (error)
     return <div style={S.page}><p style={S.err}>{error}</p></div>;
 
   const rows = [[1,2,3,4],[5,6,7,8]];
-  const progress = Math.min(invited, 3);
-  const shareLink = `${PUBLIC_URL}/init?ref=${refCode}`;
+  const progress  = Math.min(invited, 3);
+  const shareLink = `https://t.me/${BOT_USERNAME}/${WEBAPP_SHORT_NAME}?startapp=${encodeURIComponent(refCode)}`;
 
-  /* ─── JSX ─────────────────────────────────────────────────────────── */
+  /* JSX */
   return (
     <div style={S.page}>
       <div style={S.card}>
@@ -156,32 +142,20 @@ export default function Profile() {
           </div>
         ))}
 
-        {/* ─── REFERRAL PANEL ───────────────────────────────────────── */}
-        <div style={S.refBox}>
-          {/* code */}
-          <p style={S.refLabel}>Your referral code</p>
-          <div style={S.copyRow}>
-            <input
-              style={S.refInput}
-              readOnly
-              value={refCode}
-              onClick={() => copy(refCode)}
-            />
-            <button style={S.copyBtn} onClick={() => copy(refCode)}>
-              {copied ? 'Copied' : 'Copy'}
-            </button>
-          </div>
+        {/* кнопка burn выше панели */}
+        <button style={S.act} onClick={()=>nav('/path')}>🔥 Burn Again</button>
 
-          {/* link */}
-          <p style={{fontSize:13,margin:'10px 0 4px',opacity:.8}}>Share link</p>
+        {/* ── REFERRAL PANEL ─────────────────────────────────────── */}
+        <div style={S.refBox}>
+          <p style={{fontSize:13,margin:'0 0 4px',opacity:.8}}>Share link</p>
           <div style={S.copyRow}>
             <input
               style={S.refInput}
               readOnly
               value={shareLink}
-              onClick={() => copy(shareLink)}
+              onClick={() => copyLink(shareLink)}
             />
-            <button style={S.copyBtn} onClick={() => copy(shareLink)}>
+            <button style={S.copyBtn} onClick={() => copyLink(shareLink)}>
               {copiedLink ? 'Copied' : 'Copy link'}
             </button>
           </div>
@@ -202,8 +176,6 @@ export default function Profile() {
         </div>
 
         <p style={S.count}>Ash Seekers: {total.toLocaleString()}</p>
-
-        <button style={S.act} onClick={()=>nav('/path')}>🔥 Burn Again</button>
 
         {frags.length === 8 && (
           <button style={{...S.act,marginTop:6,fontSize:16}}
@@ -238,7 +210,7 @@ export default function Profile() {
   );
 }
 
-/* ─── styles ─────────────────────────────────────────────────────────── */
+/* ─── styles ───────────────────────────────────────────────────────── */
 const S = {
   page : {minHeight:'100vh',background:'url("/profile-bg.webp") center/cover',
           display:'flex',justifyContent:'center',alignItems:'center',
@@ -261,14 +233,11 @@ const S = {
 
   /* referral panel */
   refBox  : {background:'#0004',padding:14,borderRadius:8,margin:'20px 0'},
-  refLabel: {fontSize:14,margin:0,opacity:.8},
-
   copyRow : {display:'flex',marginTop:6,alignItems:'center',gap:6},
   refInput: {flex:1,padding:'8px 10px',fontSize:14,borderRadius:4,
              border:'1px solid #d4af37',background:'#111',color:'#d4af37'},
   copyBtn : {padding:'8px 12px',fontSize:13,border:'none',borderRadius:4,
              background:'#d4af37',color:'#000',cursor:'pointer'},
-
   progress: {fontSize:13,marginTop:8,opacity:.85},
   claim   : {marginTop:10,padding:10,width:'100%',fontSize:14,border:'none',
              borderRadius:6,background:'#6BCB77',color:'#000',cursor:'pointer'},
@@ -280,7 +249,6 @@ const S = {
   del  : {padding:10,fontSize:14,borderRadius:6,border:'none',
           background:'#a00',color:'#fff',cursor:'pointer',marginTop:8},
 
-  /* confirm delete */
   wrap : {position:'fixed',inset:0,background:'#0007',backdropFilter:'blur(4px)',
           display:'flex',justifyContent:'center',alignItems:'center',zIndex:40},
   box  : {background:'#222',padding:24,borderRadius:10,width:300,color:'#fff',
