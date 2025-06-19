@@ -1,155 +1,165 @@
-import React, { useEffect, useState } from 'react';
+// src/screens/Init.jsx
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-
-/* ---------------- env ---------------- */
 
 const BACKEND =
   import.meta.env.VITE_BACKEND_URL ??
   'https://ash-backend-production.up.railway.app';
 
-const NAME_RE = /^[A-Za-z ]+$/;
-
-/* ---------------- styles -------------- */
-
-const S = {
-  page : { position:'relative',minHeight:'100vh',
-           background:'url("/bg-init.webp") center/cover',
-           display:'flex',justifyContent:'center',alignItems:'center',
-           fontFamily:'serif',padding:16,color:'#d4af37' },
-
-  box  : { width:'100%',maxWidth:380,background:'#000a',padding:24,
-           borderRadius:8,textAlign:'center',backdropFilter:'blur(4px)' },
-
-  h1   : { margin:0,fontSize:26 },
-  info : { fontSize:14,opacity:.85,margin:'8px 0 20px' },
-  input: { width:'100%',padding:10,fontSize:16,borderRadius:4,
-           border:'1px solid #555',background:'#222',color:'#fff',marginBottom:20 },
-
-  btn  : { width:'100%',padding:12,fontSize:16,borderRadius:4,border:'none',
-           background:'#d4af37',color:'#000',cursor:'pointer',transition:'opacity .2s' },
-
-  status:{ marginTop:14,fontSize:14 },
-
-  /* modal */
-  wrap : { position:'fixed',inset:0,background:'#0009',backdropFilter:'blur(6px)',
-           display:'flex',justifyContent:'center',alignItems:'center',zIndex:40 },
-
-  modal: { background:'#181818',padding:24,borderRadius:10,maxWidth:340,
-           color:'#fff',lineHeight:1.45,textAlign:'left',boxShadow:'0 0 18px #000' },
-
-  mBtn : { display:'block',width:'100%',marginTop:18,padding:10,
-           fontSize:15,border:'none',borderRadius:6,cursor:'pointer',
-           background:'#d4af37',color:'#000' }
-};
-
-/* ---------------- component ----------- */
+const NAME_RGX = /^[A-Za-z ]+$/;
 
 export default function Init() {
-  const nav = useNavigate();
+  const nav              = useNavigate();
+  const nameRef          = useRef(null);
 
-  /* Telegram & JWT -------------------------------- */
-  const [tgId, setTgId]       = useState('');
-  const [initRaw,setInitRaw]  = useState('');
-  const [checking,setCheck]   = useState(true);
-  const [status,setStatus]    = useState('Checking…');
+  const [tgId,  setTgId] = useState('');
+  const [raw,   setRaw]  = useState('');
+  const [status,setMsg ] = useState('Checking…');
+  const [busy,  setBusy] = useState(true);
 
-  /* form ----------------------------------------- */
-  const [name,setName]        = useState('');
-  const validName             = NAME_RE.test(name.trim()) && name.trim().length>0;
+  /* form */
+  const [name,  setName] = useState('');
+  const validName        = NAME_RGX.test(name.trim()) && name.trim().length>0;
 
-  /* rules modal ---------------------------------- */
-  const [rulesOpen,setRules]  = useState(false);
-  const [rulesOk,setRulesOk]  = useState(false);
+  /* info-modal */
+  const [showInfo, setShowInfo]   = useState(false);    // visible right now
+  const [infoSeen, setInfoSeen]   = useState(false);    // already confirmed
 
-  /* ------------- mount: read TG data ------------ */
+  /* ─── 1. Telegram boot ─── */
   useEffect(()=>{
-    const wa = window.Telegram?.WebApp;
-    const raw = wa?.initData || '';
+    const wa  = window.Telegram?.WebApp;
     const uid = wa?.initDataUnsafe?.user?.id;
-    if (!raw || !uid){ setStatus('❌ Telegram init error'); return; }
+    if(!wa)   { setMsg('Telegram WebApp API missing'); return; }
+    if(!uid)  { setMsg('User ID not found'); return; }
 
-    setTgId(String(uid)); setInitRaw(raw);
+    setTgId(String(uid));
+    setRaw(wa.initData || '');
   },[]);
 
-  /* ------------- check existing player ---------- */
+  /* ─── 2. check existing player ─── */
   useEffect(()=>{
-    if (!tgId) return;
+    if(!tgId) return;
 
     (async()=>{
       try{
+        /* public GET */
         const r = await fetch(`${BACKEND}/api/player/${tgId}`);
-        if (r.ok){
-          /* есть игрок → получаем JWT и уходим */
-          const r2 = await fetch(`${BACKEND}/api/init`,{
-            method:'POST',headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({tg_id:tgId,name:'',initData:initRaw})
+        if(r.ok){
+          /* существуем ⇒ берём JWT и идём дальше */
+          const init = await fetch(`${BACKEND}/api/init`,{
+            method:'POST',
+            headers:{ 'Content-Type':'application/json' },
+            body: JSON.stringify({ tg_id:tgId,name:'',initData:raw })
           });
-          const j2 = await r2.json();
-          if (r2.ok && j2.token){
-            localStorage.setItem('token',j2.token);
-            nav('/profile'); return;
-          }
+          const j = await init.json();
+          localStorage.setItem('token', j.token);
+          nav('/profile'); return;
         }
-        /* нет игрока  */
-        setCheck(false); setStatus('');
-      }catch{ setStatus('Network error'); setCheck(false);}
+        /* 404 → новый игрок */
+        setShowInfo(true);          // сразу инфо-модалка
+        setMsg('Enter your name');  // статус для DEV
+      }catch{
+        setMsg('Network error');    // не критично — можно регистрироваться
+      }finally{
+        setBusy(false);
+      }
     })();
-  },[tgId,initRaw,nav]);
+  },[tgId,raw,nav]);
 
-  /* ------------- submit ------------------------- */
+  /* если новичок ткнул в инпут раньше, чем showInfo стало true */
+  const handleFocus = ()=>{ if(!infoSeen) setShowInfo(true); };
+
+  /* ─── 3. submit ─── */
   const submit = async e =>{
     e.preventDefault();
-    if (!validName || !rulesOk) return;
+    if(!validName || busy) return;
+    setBusy(true); setMsg('Submitting…');
     try{
       const r = await fetch(`${BACKEND}/api/init`,{
         method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({tg_id:tgId,name:name.trim(),initData:initRaw})
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ tg_id:tgId,name:name.trim(),initData:raw })
       });
       const j = await r.json();
-      if (!r.ok){ setStatus(j.error||'error'); return; }
-      if (j.token) localStorage.setItem('token', j.token);
+      if(!r.ok) throw new Error(j.error||'init failed');
+      localStorage.setItem('token', j.token);
       nav('/path');
-    }catch{ setStatus('Network error'); }
+    }catch(e){ setMsg(e.message); }
+    setBusy(false);
   };
 
-  /* ------------- ui ---------------------------- */
-  if (checking) return <div style={S.page}><p style={S.status}>{status}</p></div>;
-
+  /* ─── UI ─── */
   return (
-    <div style={S.page}>
-      <form style={S.box} onSubmit={submit}>
-        <h1 style={S.h1}>Enter the Ash</h1>
-        <p style={S.info}>Telegram&nbsp;ID:&nbsp;<b>{tgId}</b></p>
-
-        <input style={S.input} placeholder="Your name (A-Z only)"
-               value={name} onChange={e=>setName(e.target.value)}
-               onFocus={()=>!rulesOk && setRules(true)} />
-
-        <button style={{...S.btn,opacity:(validName&&rulesOk)?1:0.5}}
-                disabled={!validName||!rulesOk}>Save and Continue</button>
-
-        {status && <p style={S.status}>{status}</p>}
-      </form>
-
-      {/* ---------- rules modal ---------- */}
-      {rulesOpen && (
-        <div style={S.wrap}>
-          <div style={S.modal}>
-            <h3 style={{marginTop:0,marginBottom:12}}>Welcome, Seeker.</h3>
-            <p>
-              • Burn <b>exactly 0.5 TON</b> each time. Over 4 TON total will never be required.<br/>
-              • With every burn you either gain a <b>Fragment</b> of the Ash
-              or suffer a <b>24-hour curse</b>.<br/>
-              •  Earn all eight Fragments and decipher the hidden sentence.<br/>
-              •  The first to enter the sentence forges a unique, player-shaped&nbsp;NFT — and wins.<br/>
+    <div style={st.wrap}>
+      {/* info-modal */}
+      {showInfo && (
+        <div style={st.modalBG}>
+          <div style={st.modal}>
+            <h3>Welcome, Seeker!</h3>
+            <p style={st.p}>
+              • Burn exactly <b>0.5 TON</b> each time (max 8 burns → 4 TON).<br/>
+              • Collect all <b>8 fragments</b>; beware of random 24 h&nbsp;curses.<br/>
+              • Assemble the hidden phrase to forge a unique final&nbsp;NFT.<br/>
+              • First to submit the phrase becomes the sole Winner.<br/>
+              <br/>
+              Proceed only if you understand the risks — mis-payments are lost.
             </p>
-            <button style={S.mBtn} onClick={()=>{setRules(false);setRulesOk(true);}}>
-              I have read &amp; understood
+            <button style={st.ok} onClick={()=>{ setInfoSeen(true); setShowInfo(false); nameRef.current?.focus(); }}>
+              I understand
             </button>
           </div>
         </div>
       )}
+
+      {/* form card */}
+      <form style={st.card} onSubmit={submit}>
+        <h1 style={st.h}>Enter&nbsp;the&nbsp;Ash</h1>
+        <p style={st.sm}>Telegram&nbsp;ID: {tgId}</p>
+
+        <input
+          ref={nameRef}
+          placeholder="Your name (A-Z only)"
+          value={name}
+          onChange={e=>setName(e.target.value)}
+          onFocus={handleFocus}
+          disabled={!infoSeen}
+          style={{...st.inp,opacity:infoSeen?1:0.4}}
+        />
+
+        <button
+          type="submit"
+          disabled={!validName || busy || !infoSeen}
+          style={{
+            ...st.btn,
+            opacity: (!validName || busy || !infoSeen) ? 0.5 : 1
+          }}
+        >
+          Save and Continue
+        </button>
+
+        {!!msg && <p style={st.msg}>{msg}</p>}
+      </form>
     </div>
   );
 }
+
+/* ─── styles ─── */
+const st={
+  wrap:{minHeight:'100vh',display:'flex',justifyContent:'center',alignItems:'center',
+        background:'url("/bg-init.webp") center/cover',padding:16,color:'#f9d342',
+        fontFamily:'serif'},
+  card:{background:'rgba(0,0,0,.7)',padding:24,borderRadius:8,width:'100%',maxWidth:360,
+        display:'flex',flexDirection:'column',gap:16,textAlign:'center'},
+  h:{margin:0,fontSize:26},
+  sm:{margin:0,fontSize:14,opacity:.85},
+  inp:{padding:12,fontSize:16,borderRadius:4,border:'1px solid #555',background:'#222',color:'#fff'},
+  btn:{padding:12,fontSize:16,borderRadius:4,border:'none',background:'#f9d342',color:'#000',fontWeight:700,cursor:'pointer'},
+  msg:{fontSize:13,marginTop:8},
+  /* modal */
+  modalBG:{position:'fixed',inset:0,background:'rgba(0,0,0,.8)',backdropFilter:'blur(6px)',
+           display:'flex',alignItems:'center',justifyContent:'center',zIndex:100},
+  modal:{background:'#181818',padding:24,borderRadius:8,maxWidth:320,textAlign:'left'},
+  p:{fontSize:14,lineHeight:1.45,margin:'8px 0 16px'},
+  ok:{display:'block',width:'100%',padding:10,fontSize:15,border:'none',
+      borderRadius:6,background:'#f9d342',color:'#000',cursor:'pointer'}
+};
