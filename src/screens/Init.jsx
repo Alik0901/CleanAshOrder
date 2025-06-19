@@ -1,177 +1,155 @@
-// src/screens/Init.jsx
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+/* ---------------- env ---------------- */
+
 const BACKEND =
-  import.meta.env.VITE_BACKEND_URL ||
+  import.meta.env.VITE_BACKEND_URL ??
   'https://ash-backend-production.up.railway.app';
 
 const NAME_RE = /^[A-Za-z ]+$/;
 
+/* ---------------- styles -------------- */
+
+const S = {
+  page : { position:'relative',minHeight:'100vh',
+           background:'url("/bg-init.webp") center/cover',
+           display:'flex',justifyContent:'center',alignItems:'center',
+           fontFamily:'serif',padding:16,color:'#d4af37' },
+
+  box  : { width:'100%',maxWidth:380,background:'#000a',padding:24,
+           borderRadius:8,textAlign:'center',backdropFilter:'blur(4px)' },
+
+  h1   : { margin:0,fontSize:26 },
+  info : { fontSize:14,opacity:.85,margin:'8px 0 20px' },
+  input: { width:'100%',padding:10,fontSize:16,borderRadius:4,
+           border:'1px solid #555',background:'#222',color:'#fff',marginBottom:20 },
+
+  btn  : { width:'100%',padding:12,fontSize:16,borderRadius:4,border:'none',
+           background:'#d4af37',color:'#000',cursor:'pointer',transition:'opacity .2s' },
+
+  status:{ marginTop:14,fontSize:14 },
+
+  /* modal */
+  wrap : { position:'fixed',inset:0,background:'#0009',backdropFilter:'blur(6px)',
+           display:'flex',justifyContent:'center',alignItems:'center',zIndex:40 },
+
+  modal: { background:'#181818',padding:24,borderRadius:10,maxWidth:340,
+           color:'#fff',lineHeight:1.45,textAlign:'left',boxShadow:'0 0 18px #000' },
+
+  mBtn : { display:'block',width:'100%',marginTop:18,padding:10,
+           fontSize:15,border:'none',borderRadius:6,cursor:'pointer',
+           background:'#d4af37',color:'#000' }
+};
+
+/* ---------------- component ----------- */
+
 export default function Init() {
   const nav = useNavigate();
 
-  /* ───────────── modal “rules & risks” ───────────── */
-  const [showRules, setShowRules] = useState(true);
-  const [agree,     setAgree]     = useState(false);
+  /* Telegram & JWT -------------------------------- */
+  const [tgId, setTgId]       = useState('');
+  const [initRaw,setInitRaw]  = useState('');
+  const [checking,setCheck]   = useState(true);
+  const [status,setStatus]    = useState('Checking…');
 
-  /* ───────────── telegram / auth state ───────────── */
-  const [tgId,  setTgId]   = useState('');
-  const [raw,   setRaw]    = useState('');
-  const [busy,  setBusy]   = useState(false);
-  const [stat,  setStat]   = useState('');   // статус/ошибка
+  /* form ----------------------------------------- */
+  const [name,setName]        = useState('');
+  const validName             = NAME_RE.test(name.trim()) && name.trim().length>0;
 
-  /* ───────────── reg-form state ───────────── */
-  const [name, setName]    = useState('');
-  const nameOK             = NAME_RE.test(name.trim());
+  /* rules modal ---------------------------------- */
+  const [rulesOpen,setRules]  = useState(false);
+  const [rulesOk,setRulesOk]  = useState(false);
 
-  /* intro-sound (один раз) */
-  useEffect(()=>{ new Audio('/sounds/start.mp3').play().catch(()=>{}); },[]);
-
-  /* считываем initData после закрытия правил */
+  /* ------------- mount: read TG data ------------ */
   useEffect(()=>{
-    if (showRules) return;         // пока правила не приняты — ничего не делаем
+    const wa = window.Telegram?.WebApp;
+    const raw = wa?.initData || '';
+    const uid = wa?.initDataUnsafe?.user?.id;
+    if (!raw || !uid){ setStatus('❌ Telegram init error'); return; }
 
-    const wa   = window.Telegram?.WebApp;
-    const raw0 = wa?.initData        || '';
-    const id0  = wa?.initDataUnsafe?.user?.id;
+    setTgId(String(uid)); setInitRaw(raw);
+  },[]);
 
-    if (!wa)    return setStat('❌ Telegram.WebApp not found');
-    if (!raw0)  return setStat('❌ initData missing');
-    if (!id0)   return setStat('❌ User ID not found');
-
-    setTgId(String(id0));
-    setRaw(raw0);
-    setStat('Checking existing profile…');
-  },[showRules]);
-
-  /* если tgId получен — проверяем/создаём профиль */
+  /* ------------- check existing player ---------- */
   useEffect(()=>{
     if (!tgId) return;
 
-    (async ()=>{
+    (async()=>{
       try{
-        /* GET player */
         const r = await fetch(`${BACKEND}/api/player/${tgId}`);
         if (r.ok){
-          /* существует — обычный init, токен, переход */
+          /* есть игрок → получаем JWT и уходим */
           const r2 = await fetch(`${BACKEND}/api/init`,{
             method:'POST',headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ tg_id:tgId, name:'', initData: raw })
+            body:JSON.stringify({tg_id:tgId,name:'',initData:initRaw})
           });
           const j2 = await r2.json();
           if (r2.ok && j2.token){
-            localStorage.setItem('token', j2.token);
-            return nav('/profile');
+            localStorage.setItem('token',j2.token);
+            nav('/profile'); return;
           }
         }
-        setStat('');   // новый игрок → показываем форму
-      }catch{
-        setStat('⚠️ Network error');
-      }
+        /* нет игрока  */
+        setCheck(false); setStatus('');
+      }catch{ setStatus('Network error'); setCheck(false);}
     })();
-  },[tgId,raw,nav]);
+  },[tgId,initRaw,nav]);
 
-  /* submit name */
-  const submit = async e=>{
+  /* ------------- submit ------------------------- */
+  const submit = async e =>{
     e.preventDefault();
-    if (!nameOK) return setStat('❗ Name — A-Z letters and spaces only');
-    setBusy(true); setStat('⏳ Submitting…');
+    if (!validName || !rulesOk) return;
     try{
       const r = await fetch(`${BACKEND}/api/init`,{
-        method:'POST',headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ tg_id:tgId, name:name.trim(), initData: raw })
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({tg_id:tgId,name:name.trim(),initData:initRaw})
       });
       const j = await r.json();
-      if (!r.ok) throw new Error(j.error||'Error');
-      j.token && localStorage.setItem('token', j.token);
+      if (!r.ok){ setStatus(j.error||'error'); return; }
+      if (j.token) localStorage.setItem('token', j.token);
       nav('/path');
-    }catch(e){
-      setStat(`⚠️ ${e.message}`); setBusy(false);
-    }
+    }catch{ setStatus('Network error'); }
   };
 
-  /* ───────────── JSX ───────────── */
+  /* ------------- ui ---------------------------- */
+  if (checking) return <div style={S.page}><p style={S.status}>{status}</p></div>;
+
   return (
-    <div style={ST.bg}>
-      {/* ---------- RULES MODAL ---------- */}
-      {showRules && (
-        <div style={ST.back}>
-          <div style={ST.modal} onClick={e=>e.stopPropagation()}>
-            <h2 style={{margin:'0 0 10px'}}>Welcome, Seeker</h2>
-            <p style={ST.text}>
-              • Every <b>burn</b> costs <b>0.5 TON</b> and forges either a fragment or a <b>24-hour&nbsp;curse</b>.<br/>
-              • You will <b>never spend more than 4 TON</b> in total — eight burns is all it takes.<br/>
-              • Collect the <b>8 unique fragments</b> to reveal a hidden incantation.<br/>
-              • Enter that incantation to forge a <b>final NFT</b>; its look depends on your own path.<br/>
-              • The first to enter the phrase becomes the winner.<br/>
-              • Payments are <b>irreversible</b> — send exactly <b>0.5 TON</b> each time.<br/><br/>
-              <i>Tread carefully, and may the ashes guide you.</i>
+    <div style={S.page}>
+      <form style={S.box} onSubmit={submit}>
+        <h1 style={S.h1}>Enter the Ash</h1>
+        <p style={S.info}>Telegram&nbsp;ID:&nbsp;<b>{tgId}</b></p>
+
+        <input style={S.input} placeholder="Your name (A-Z only)"
+               value={name} onChange={e=>setName(e.target.value)}
+               onFocus={()=>!rulesOk && setRules(true)} />
+
+        <button style={{...S.btn,opacity:(validName&&rulesOk)?1:0.5}}
+                disabled={!validName||!rulesOk}>Save and Continue</button>
+
+        {status && <p style={S.status}>{status}</p>}
+      </form>
+
+      {/* ---------- rules modal ---------- */}
+      {rulesOpen && (
+        <div style={S.wrap}>
+          <div style={S.modal}>
+            <h3 style={{marginTop:0,marginBottom:12}}>Welcome, Seeker.</h3>
+            <p>
+              • Burn <b>exactly 0.5 TON</b> each time. Over 4 TON total will never be required.<br/>
+              • With every burn you either gain a <b>Fragment</b> of the Ash
+              or suffer a <b>24-hour curse</b>.<br/>
+              •  Earn all eight Fragments and decipher the hidden sentence.<br/>
+              •  The first to enter the sentence forges a unique, player-shaped&nbsp;NFT — and wins.<br/>
             </p>
-
-            <label style={ST.check}>
-              <input type="checkbox" checked={agree}
-                     onChange={e=>setAgree(e.target.checked)}/> I understand the rules
-            </label>
-
-            <button
-              disabled={!agree}
-              onClick={()=>setShowRules(false)}
-              style={{...ST.mBtn,background:agree?'#d4af37':'#666'}}>
-              Continue
+            <button style={S.mBtn} onClick={()=>{setRules(false);setRulesOk(true);}}>
+              I have read &amp; understood
             </button>
           </div>
         </div>
       )}
-
-      {/* ---------- REG-FORM ---------- */}
-      {!showRules && (
-        <form onSubmit={submit} style={ST.card}>
-          <h1 style={{margin:0,color:'#d4af37'}}>Order of Ash</h1>
-          <p style={{color:'#ccc',margin:'6px 0 24px'}}>Enter your name to begin</p>
-
-          <input
-            style={ST.input}
-            placeholder="Your name (A–Z only)"
-            value={name}
-            onChange={e=>setName(e.target.value)}
-            disabled={busy}
-          />
-
-          <button
-            disabled={!nameOK||busy}
-            style={{...ST.btn,opacity:nameOK&&!busy?1:.5}}>
-            {busy?'Please wait…':'Save and Continue'}
-          </button>
-
-          {stat && <p style={ST.status}>{stat}</p>}
-        </form>
-      )}
     </div>
   );
 }
-
-/* ---------- styles ---------- */
-const ST = {
-  bg:{minHeight:'100vh',background:'url("/bg-init.webp") center/cover',
-      display:'flex',justifyContent:'center',alignItems:'center',
-      fontFamily:'Arial, sans-serif',color:'#f9d342'},
-  card:{width:'90%',maxWidth:360,background:'rgba(0,0,0,.7)',
-        padding:24,borderRadius:8,textAlign:'center'},
-  input:{width:'100%',padding:10,fontSize:16,borderRadius:4,
-         background:'#222',color:'#fff',border:'1px solid #555',marginBottom:16},
-  btn  :{width:'100%',padding:12,fontSize:16,border:'none',
-         borderRadius:4,background:'#f9d342',color:'#000',fontWeight:'bold',
-         cursor:'pointer'},
-  status:{marginTop:12,fontSize:14},
-
-  /* modal */
-  back :{position:'fixed',inset:0,background:'#000a',
-         backdropFilter:'blur(4px)',display:'flex',
-         justifyContent:'center',alignItems:'center',zIndex:100},
-  modal:{width:'90%',maxWidth:360,background:'#181818',color:'#fff',
-         padding:20,borderRadius:8,boxShadow:'0 0 16px #000'},
-  text :{fontSize:14,lineHeight:1.4,textAlign:'left'},
-  check:{display:'block',fontSize:14,margin:'12px 0'},
-  mBtn :{width:'100%',padding:10,border:'none',borderRadius:6,color:'#000',cursor:'pointer'}
-};
