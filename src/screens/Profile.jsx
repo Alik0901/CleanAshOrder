@@ -1,4 +1,4 @@
-/*  src/screens/Profile.jsx – v3.1 (fixed redirect hang)
+/*  src/screens/Profile.jsx – v3.2 (async stats, no hang)
     ───────────────────────────────────────────────────── */
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -16,12 +16,14 @@ const SLUG = [
 export default function Profile() {
   const nav = useNavigate();
 
-  /* ── state ─────────────────────────────────────────────── */
-  const [loading, setLoad] = useState(true);
-  const [error,   setErr ] = useState('');
-  const [name,    setName] = useState('');
-  const [frags,   setFr  ] = useState([]);
-  const [total,   setTotal]= useState(0);
+  /* base */
+  const [loading,setLoad]=useState(true);
+  const [error,  setErr ]=useState('');
+  const [name,   setName]=useState('');
+  const [frags,  setFr  ]=useState([]);
+
+  /* stats */
+  const [total,setTotal]=useState(null);
 
   /* referral */
   const [refCode,setCode]=useState('');
@@ -30,73 +32,58 @@ export default function Profile() {
   const [claimB ,setCB ]=useState(false);
   const [copied ,setCp ]=useState(false);
 
-  /* delete dialog */
+  /* delete */
   const [ask,setAsk]=useState(false);
   const [busy,setBusy]=useState(false);
   const [dErr,setDErr]=useState('');
 
-  /* ── load profile ──────────────────────────────────────── */
+  /* ─── load profile once ───────────────────────────────────────── */
   useEffect(()=>{
     const uid = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
     const tok = localStorage.getItem('token');
-    if(!uid){ setLoad(false); nav('/init'); return; }
+    if(!uid){ nav('/init'); return; }
 
-    const load = async () => {
-      try {
-        /* profile call */
+    (async()=>{
+      try{
         const p = await fetch(`${BACKEND}/api/player/${uid}`,{
-          headers:{ Authorization: tok ? `Bearer ${tok}` : undefined }
+          headers:{ Authorization: tok?`Bearer ${tok}`:undefined }
         });
 
-        if (p.status === 404) {           // профиль удалён
-          localStorage.removeItem('token');
-          setLoad(false);
-          nav('/init'); return;
+        if(p.status===404||p.status===401||p.status===403){
+          localStorage.removeItem('token'); nav('/init'); return;
         }
-        if (p.status === 401 || p.status === 403) { // протухший JWT
-          localStorage.removeItem('token');
-          setLoad(false);
-          nav('/init'); return;
-        }
-        if (!p.ok) throw new Error('profile');
+        if(!p.ok) throw 0;
 
         const pj = await p.json();
         setName(pj.name); setFr(pj.fragments||[]);
 
-        /* referral summary (optional) */
-        if (tok) {
-          try {
+        /* referral summary (не критично) */
+        if(tok){
+          try{
             const ref = await fetchReferral(uid,tok);
-            setCode(ref.refCode);
-            setInv(ref.invitedCount);
-            setRw (ref.rewardIssued);
-          } catch {/* игнорируем — панель покажется без данных */}
+            setCode(ref.refCode); setInv(ref.invitedCount); setRw(ref.rewardIssued);
+          }catch{/* ignore */}
         }
 
-        /* total stats */
-        const s = await fetch(`${BACKEND}/api/stats/total_users`,{
-          headers:{ Authorization: tok ? `Bearer ${tok}` : undefined }
-        });
-        if (s.ok) setTotal((await s.json()).value || 0);
+      }catch{ setErr('Failed to load'); }
+      setLoad(false);
 
-        setLoad(false);
-      } catch {
-        setLoad(false);
-        setErr('Failed to load');
-      }
-    };
-
-    load();
-    window.addEventListener('focus',load);
-    return()=>window.removeEventListener('focus',load);
+      /* ── stats без ожидания ─────────────────────────────── */
+      fetch(`${BACKEND}/api/stats/total_users`,{
+        headers:{ Authorization: tok?`Bearer ${tok}`:undefined }
+      })
+      .then(r=>r.ok?r.json():null)
+      .then(j=> j && setTotal(j.value))
+      .catch(()=>{/* silent */});
+    })();
   },[nav]);
 
-  /* ── helpers ───────────────────────────────────────────── */
-  const copy=async()=>{
+  /* ─── helpers ─────────────────────────────────────────── */
+  const copy = async () => {
     try{ await navigator.clipboard.writeText(refCode);
          setCp(true); setTimeout(()=>setCp(false),1500);}catch{}
   };
-  const claim=async()=>{
+  const claim = async () => {
     setCB(true);
     try{
       const tok=localStorage.getItem('token');
@@ -104,25 +91,25 @@ export default function Profile() {
       setRw(true); alert('🎉 Free fragment received!'); window.location.reload();
     }catch(e){ alert(e.message);}finally{ setCB(false);}
   };
-  const delProfile=async()=>{
+  const delProfile = async () => {
     setBusy(true); setDErr('');
     try{
-      const uid=window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
-      const tok=localStorage.getItem('token');
+      const uid = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+      const tok = localStorage.getItem('token');
       await fetch(`${BACKEND}/api/player/${uid}`,{
-        method:'DELETE',headers:{Authorization:`Bearer ${tok}` }
+        method:'DELETE',headers:{Authorization:`Bearer ${tok}`}
       });
       localStorage.clear(); nav('/');
     }catch(e){ setDErr(e.message); setBusy(false);}
   };
 
-  /* ── guards ────────────────────────────────────────────── */
-  if (loading)
+  /* ─── guards ──────────────────────────────────────────── */
+  if(loading)
     return <div style={S.page}><p style={S.load}>Loading…</p></div>;
-  if (error)
+  if(error)
     return <div style={S.page}><p style={S.err}>{error}</p></div>;
 
-  /* ── JSX ──────────────────────────────────────────────── */
+  /* ─── JSX ─────────────────────────────────────────────── */
   const rows=[[1,2,3,4],[5,6,7,8]];
   const progress=Math.min(invCnt,3);
 
@@ -138,16 +125,15 @@ export default function Profile() {
               <div key={id} style={S.slot}>
                 {frags.includes(id)&&(
                   <img src={`/fragments/fragment_${id}_${SLUG[id-1]}.webp`}
-                       style={S.img}/>)}
+                       style={S.img}/>
+                )}
               </div>
             ))}
           </div>
         ))}
 
-        {/* burn again */}
         <button style={S.act} onClick={()=>nav('/path')}>🔥 Burn Again</button>
 
-        {/* referral */}
         <div style={S.refBox}>
           <p style={S.refLabel}>Your referral code</p>
           <div style={S.copyRow}>
@@ -168,7 +154,9 @@ export default function Profile() {
           {reward && <p style={S.claimed}>Reward already claimed ✅</p>}
         </div>
 
-        <p style={S.count}>Ash Seekers: {total.toLocaleString()}</p>
+        {total!==null && (
+          <p style={S.count}>Ash Seekers: {total.toLocaleString()}</p>
+        )}
 
         {frags.length===8 && (
           <button style={{...S.act,marginTop:6,fontSize:16}}
