@@ -12,8 +12,8 @@ const BACKEND =
   'https://ash-backend-production.up.railway.app';
 
 /* параметры для ссылки t.me */
-const BOT_USERNAME      = import.meta.env.VITE_BOT_USERNAME || 'YourBot';
-const WEBAPP_SHORT_NAME = import.meta.env.VITE_WEBAPP_SHORTNAME || 'app';
+const BOT_USERNAME      = import.meta.env.VITE_BOT_USERNAME || 'AshOrderBot';
+const WEBAPP_SHORT_NAME = import.meta.env.VITE_WEBAPP_SHORTNAME || 'ash';
 
 const SLUG = [
   'the_whisper', 'the_number', 'the_language', 'the_mirror',
