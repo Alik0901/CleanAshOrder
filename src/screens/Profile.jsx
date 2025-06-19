@@ -1,10 +1,5 @@
-/*  src/screens/Profile.jsx  – v3 (19-Jun-2025)
-    -------------------------------------------------------------
-    • если /api/player → 404 ⇒ пользователь стёрт  → очистка token, ↩ /init
-    • если /api/player → 401/403 ⇒ протухший JWT   → очистка token, ↩ /init
-    • Loading… показывается максимум до завершения fetch
-*/
-
+/*  src/screens/Profile.jsx – v3.1 (fixed redirect hang)
+    ───────────────────────────────────────────────────── */
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchReferral, claimReferral } from '../api/referral.js';
@@ -21,12 +16,12 @@ const SLUG = [
 export default function Profile() {
   const nav = useNavigate();
 
-  /* ─── state ─────────────────────────────────────────────────── */
-  const [loading,setLoad]=useState(true);
-  const [error,  setErr ]=useState('');
-  const [name,   setName]=useState('');
-  const [frags,  setFr  ]=useState([]);
-  const [total,  setTotal]=useState(0);
+  /* ── state ─────────────────────────────────────────────── */
+  const [loading, setLoad] = useState(true);
+  const [error,   setErr ] = useState('');
+  const [name,    setName] = useState('');
+  const [frags,   setFr  ] = useState([]);
+  const [total,   setTotal]= useState(0);
 
   /* referral */
   const [refCode,setCode]=useState('');
@@ -35,30 +30,32 @@ export default function Profile() {
   const [claimB ,setCB ]=useState(false);
   const [copied ,setCp ]=useState(false);
 
-  /* delete */
+  /* delete dialog */
   const [ask,setAsk]=useState(false);
   const [busy,setBusy]=useState(false);
   const [dErr,setDErr]=useState('');
 
-  /* ─── load on mount ─────────────────────────────────────────── */
+  /* ── load profile ──────────────────────────────────────── */
   useEffect(()=>{
     const uid = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
     const tok = localStorage.getItem('token');
-    if(!uid){ nav('/init'); return; }
+    if(!uid){ setLoad(false); nav('/init'); return; }
 
     const load = async () => {
       try {
-        /* profile ------------------------------------------------ */
+        /* profile call */
         const p = await fetch(`${BACKEND}/api/player/${uid}`,{
           headers:{ Authorization: tok ? `Bearer ${tok}` : undefined }
         });
 
-        if (p.status === 404) {                 // игрок стёрт
+        if (p.status === 404) {           // профиль удалён
           localStorage.removeItem('token');
+          setLoad(false);
           nav('/init'); return;
         }
-        if (p.status === 401 || p.status === 403) { // токен протух
+        if (p.status === 401 || p.status === 403) { // протухший JWT
           localStorage.removeItem('token');
+          setLoad(false);
           nav('/init'); return;
         }
         if (!p.ok) throw new Error('profile');
@@ -66,68 +63,66 @@ export default function Profile() {
         const pj = await p.json();
         setName(pj.name); setFr(pj.fragments||[]);
 
-        /* referral summary -------------------------------------- */
+        /* referral summary (optional) */
         if (tok) {
           try {
             const ref = await fetchReferral(uid,tok);
             setCode(ref.refCode);
             setInv(ref.invitedCount);
             setRw (ref.rewardIssued);
-          } catch { /* проглотим, покажем без панели */ }
+          } catch {/* игнорируем — панель покажется без данных */}
         }
 
-        /* total users ------------------------------------------- */
+        /* total stats */
         const s = await fetch(`${BACKEND}/api/stats/total_users`,{
           headers:{ Authorization: tok ? `Bearer ${tok}` : undefined }
         });
         if (s.ok) setTotal((await s.json()).value || 0);
 
+        setLoad(false);
       } catch {
+        setLoad(false);
         setErr('Failed to load');
       }
-      setLoad(false);
     };
 
-    load();                      // сразу
+    load();
     window.addEventListener('focus',load);
-    return ()=> window.removeEventListener('focus',load);
+    return()=>window.removeEventListener('focus',load);
   },[nav]);
 
-  /* ─── helpers ───────────────────────────────────────────────── */
-  const copy = async () => {
-    try { await navigator.clipboard.writeText(refCode);
-          setCp(true); setTimeout(()=>setCp(false),1500);} catch{}
+  /* ── helpers ───────────────────────────────────────────── */
+  const copy=async()=>{
+    try{ await navigator.clipboard.writeText(refCode);
+         setCp(true); setTimeout(()=>setCp(false),1500);}catch{}
   };
-  const claim = async () => {
+  const claim=async()=>{
     setCB(true);
-    try {
-      const tok = localStorage.getItem('token');
+    try{
+      const tok=localStorage.getItem('token');
       await claimReferral(tok);
-      setRw(true); alert('🎉 Free fragment received!');
-      window.location.reload();
-    } catch(e){ alert(e.message); }
-    finally   { setCB(false);}
+      setRw(true); alert('🎉 Free fragment received!'); window.location.reload();
+    }catch(e){ alert(e.message);}finally{ setCB(false);}
   };
-  const delProfile = async () => {
+  const delProfile=async()=>{
     setBusy(true); setDErr('');
     try{
-      const uid = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
-      const tok = localStorage.getItem('token');
+      const uid=window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+      const tok=localStorage.getItem('token');
       await fetch(`${BACKEND}/api/player/${uid}`,{
-        method:'DELETE',
-        headers:{ Authorization:`Bearer ${tok}` }
+        method:'DELETE',headers:{Authorization:`Bearer ${tok}` }
       });
       localStorage.clear(); nav('/');
     }catch(e){ setDErr(e.message); setBusy(false);}
   };
 
-  /* ─── render guards ─────────────────────────────────────────── */
+  /* ── guards ────────────────────────────────────────────── */
   if (loading)
     return <div style={S.page}><p style={S.load}>Loading…</p></div>;
   if (error)
     return <div style={S.page}><p style={S.err}>{error}</p></div>;
 
-  /* ─── JSX ───────────────────────────────────────────────────── */
+  /* ── JSX ──────────────────────────────────────────────── */
   const rows=[[1,2,3,4],[5,6,7,8]];
   const progress=Math.min(invCnt,3);
 
@@ -152,7 +147,7 @@ export default function Profile() {
         {/* burn again */}
         <button style={S.act} onClick={()=>nav('/path')}>🔥 Burn Again</button>
 
-        {/* referral panel (показываем даже без токена, но без claim) */}
+        {/* referral */}
         <div style={S.refBox}>
           <p style={S.refLabel}>Your referral code</p>
           <div style={S.copyRow}>
@@ -182,7 +177,7 @@ export default function Profile() {
           </button>
         )}
 
-        <div style={{flexGrow:1}}></div>
+        <div style={{flexGrow:1}} />
 
         <button style={S.del} onClick={()=>setAsk(true)}>Delete profile</button>
       </div>
@@ -207,7 +202,7 @@ export default function Profile() {
   );
 }
 
-/* styles  */
+/* ── styles (идентичны прошлой версии) ────────────────────── */
 const S = {
   page:{minHeight:'100vh',background:'url("/profile-bg.webp") center/cover',
         display:'flex',justifyContent:'center',alignItems:'center',
@@ -230,6 +225,7 @@ const S = {
             border:'1px solid #d4af37',background:'#111',color:'#d4af37'},
   copyBtn:{padding:'8px 12px',fontSize:13,border:'none',borderRadius:4,
            background:'#d4af37',color:'#000',cursor:'pointer'},
+
   progress:{fontSize:13,marginTop:8,opacity:.85},
   claim:{marginTop:10,padding:10,width:'100%',fontSize:14,border:'none',
          borderRadius:6,background:'#6BCB77',color:'#000',cursor:'pointer'},
