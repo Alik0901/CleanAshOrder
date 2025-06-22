@@ -239,10 +239,9 @@ const S = {
   refLabel:{fontSize:14,margin:0,opacity:.8},
   copyRow:{display:'flex',marginTop:6,alignItems:'center',gap:6},
   refText:{flex:1,padding:'8px 0',fontSize:15,wordBreak:'break-all',
-           cursor:'pointer',userSelect:'all',textAlign:'center',
-           borderBottom:'1px dotted #d4af37'},
-  copyBtn:{padding:'8px 12px',fontSize:13,border:'none',borderRadius:4,
-           background:'#d4af37',color:'#000',cursor:'pointer'},
+          cursor:'pointer',userSelect:'all',textAlign:'center'},
+          copyBtn:{padding:'8px 12px',fontSize:13,border:'none',borderRadius:4,
+          background:'#d4af37',color:'#000',cursor:'pointer'},
 
   progress:{fontSize:13,marginTop:8,opacity:.85},
   claim:{marginTop:10,padding:10,width:'100%',fontSize:14,border:'none',
