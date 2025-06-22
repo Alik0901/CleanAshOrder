@@ -1,4 +1,9 @@
-/*  src/screens/Profile.jsx – v3.3 (stats-fix, safe copy)  */
+/*  src/screens/Profile.jsx – v3.4
+    • фикс статистики (total)
+    • безопасная копия кода
+    • zoom-overlay для фрагментов
+*/
+
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchReferral, claimReferral } from '../api/referral.js';
@@ -12,31 +17,34 @@ const SLUG = [
   'the_chain','the_hour','the_mark','the_gate'
 ];
 
-export default function Profile() {
+export default function Profile () {
   const nav = useNavigate();
 
   /* base */
-  const [loading, setLoad] = useState(true);
-  const [error,   setErr ] = useState('');
-  const [name,    setName] = useState('');
-  const [frags,   setFr  ] = useState([]);
+  const [loading, setLoad]  = useState(true);
+  const [error,   setErr ]  = useState('');
+  const [name,    setName]  = useState('');
+  const [frags,   setFr  ]  = useState([]);
 
   /* stats */
-  const [total, setTotal] = useState(null);
+  const [total, setTotal]   = useState(null);
 
   /* referral */
-  const [refCode, setCode] = useState('');
-  const [invCnt,  setInv ] = useState(0);
-  const [reward,  setRw  ] = useState(false);
-  const [claimB,  setCB  ] = useState(false);
-  const [copied,  setCp  ] = useState(false);
+  const [refCode, setCode]  = useState('');
+  const [invCnt,  setInv ]  = useState(0);
+  const [reward,  setRw  ]  = useState(false);
+  const [claimB,  setCB  ]  = useState(false);
+  const [copied,  setCp  ]  = useState(false);
 
   /* delete */
-  const [ask,  setAsk ] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [dErr, setDErr] = useState('');
+  const [ask,  setAsk ]     = useState(false);
+  const [busy, setBusy]     = useState(false);
+  const [dErr, setDErr]     = useState('');
 
-  /* ─── load profile once ───────────────────────────────── */
+  /* zoom */
+  const [zoomSrc, setZoom]  = useState('');
+
+  /* ─── load once ─────────────────────────────────────── */
   useEffect(() => {
     const uid = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
     const tok = localStorage.getItem('token');
@@ -56,17 +64,16 @@ export default function Profile() {
         if (!p.ok) throw 0;
 
         const pj = await p.json();
-        setName(pj.name);
+        setName(pj.name ?? '');
         setFr(pj.fragments ?? []);
 
-        /* referral summary (optional) */
         if (tok) {
           try {
             const ref = await fetchReferral(uid, tok);
             setCode(ref.refCode ?? '');
             setInv(ref.invitedCount ?? 0);
             setRw(ref.rewardIssued ?? false);
-          } catch { /* ignore */ }
+          } catch {/* optional */}
         }
 
       } catch {
@@ -74,24 +81,24 @@ export default function Profile() {
       }
       setLoad(false);
 
-      /* ── stats (fire-and-forget) ─────────────────────── */
+      /* fire-and-forget stats */
       fetch(`${BACKEND}/api/stats/total_users`, {
         headers: { Authorization: tok ? `Bearer ${tok}` : undefined }
       })
         .then(r => r.ok ? r.json() : null)
-        .then(j => j && setTotal(j.total))        // ← FIX
-        .catch(() => {/* silent */});
+        .then(j => j && setTotal(j.total))
+        .catch(()=>{});
     })();
   }, [nav]);
 
-  /* ─── helpers ───────────────────────────────────────── */
+  /* ─── helpers ─────────────────────────────── */
   const copy = async () => {
     if (!refCode) return;
     try {
       await navigator.clipboard.writeText(refCode);
       setCp(true);
-      setTimeout(() => setCp(false), 1500);
-    } catch { /* ignore */ }
+      setTimeout(()=>setCp(false),1500);
+    } catch {/* noop */}
   };
 
   const claim = async () => {
@@ -102,11 +109,8 @@ export default function Profile() {
       setRw(true);
       alert('🎉 Free fragment received!');
       window.location.reload();
-    } catch (e) {
-      alert(e.message);
-    } finally {
-      setCB(false);
-    }
+    } catch (e) { alert(e.message); }
+    setCB(false);
   };
 
   const delProfile = async () => {
@@ -115,24 +119,21 @@ export default function Profile() {
       const uid = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
       const tok = localStorage.getItem('token');
       await fetch(`${BACKEND}/api/player/${uid}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${tok}` }
+        method:'DELETE', headers:{ Authorization:`Bearer ${tok}` }
       });
       localStorage.clear(); nav('/');
-    } catch (e) {
-      setDErr(e.message); setBusy(false);
-    }
+    } catch (e) { setDErr(e.message); setBusy(false); }
   };
 
-  /* ─── guards ───────────────────────────────────────── */
+  /* guards */
   if (loading)
     return <div style={S.page}><p style={S.load}>Loading…</p></div>;
   if (error)
     return <div style={S.page}><p style={S.err}>{error}</p></div>;
 
-  /* ─── JSX ─────────────────────────────────────────── */
-  const rows = [[1,2,3,4],[5,6,7,8]];
-  const progress = Math.min(invCnt, 3);
+  /* render */
+  const rows     = [[1,2,3,4],[5,6,7,8]];
+  const progress = Math.min(invCnt,3);
 
   return (
     <div style={S.page}>
@@ -148,6 +149,7 @@ export default function Profile() {
                   <img
                     src={`/fragments/fragment_${id}_${SLUG[id-1]}.webp`}
                     style={S.img}
+                    onClick={()=>setZoom(`/fragments/fragment_${id}_${SLUG[id-1]}.webp`)}
                   />
                 )}
               </div>
@@ -160,12 +162,7 @@ export default function Profile() {
         <div style={S.refBox}>
           <p style={S.refLabel}>Your referral code</p>
           <div style={S.copyRow}>
-            <input
-              style={S.refInput}
-              readOnly
-              value={refCode}
-              onClick={copy}
-            />
+            <input style={S.refInput} readOnly value={refCode} onClick={copy}/>
             <button style={S.copyBtn} onClick={copy}>
               {copied ? 'Copied' : 'Copy'}
             </button>
@@ -174,21 +171,15 @@ export default function Profile() {
           <p style={S.progress}>Invited {progress}/3</p>
 
           {(progress>=3 && !reward && localStorage.getItem('token')) && (
-            <button
-              style={S.claim}
-              disabled={claimB}
-              onClick={claim}>
+            <button style={S.claim} disabled={claimB} onClick={claim}>
               {claimB ? 'Processing…' : 'Claim free fragment'}
             </button>
           )}
-
           {reward && <p style={S.claimed}>Reward already claimed ✅</p>}
         </div>
 
         {total !== null && (
-          <p style={S.count}>
-            Ash Seekers:&nbsp;{total.toLocaleString()}
-          </p>
+          <p style={S.count}>Ash Seekers:&nbsp;{total.toLocaleString()}</p>
         )}
 
         {frags.length === 8 && (
@@ -200,15 +191,12 @@ export default function Profile() {
         )}
 
         <div style={{flexGrow:1}} />
-
-        <button style={S.del} onClick={()=>setAsk(true)}>
-          Delete profile
-        </button>
+        <button style={S.del} onClick={()=>setAsk(true)}>Delete profile</button>
       </div>
 
       {ask && (
-        <div style={S.wrap}>
-          <div style={S.box}>
+        <div style={S.wrap} onClick={()=>!busy&&setAsk(false)}>
+          <div style={S.box} onClick={e=>e.stopPropagation()}>
             <p style={{margin:'0 0 12px',fontSize:17}}>
               Delete profile permanently?
             </p>
@@ -225,11 +213,19 @@ export default function Profile() {
           </div>
         </div>
       )}
+
+      {/* zoom overlay */}
+      {zoomSrc && (
+        <div style={S.zoomWrap} onClick={()=>setZoom('')}>
+          <img src={zoomSrc} style={S.zoomImg} onClick={e=>e.stopPropagation()}/>
+          <button style={S.close} onClick={()=>setZoom('')}>✕</button>
+        </div>
+      )}
     </div>
   );
 }
 
-/* ── styles (как прежде) ─────────────────────────────── */
+/* styles */
 const S = {
   page:{minHeight:'100vh',background:'url("/profile-bg.webp") center/cover',
         display:'flex',justifyContent:'center',alignItems:'center',
@@ -244,7 +240,7 @@ const S = {
   row:{display:'flex',gap:6,marginBottom:6},
   slot:{flex:'1 1 0',aspectRatio:'1/1',background:'#111',
         border:'1px solid #d4af37',borderRadius:6,overflow:'hidden'},
-  img:{width:'100%',height:'100%',objectFit:'cover'},
+  img:{width:'100%',height:'100%',objectFit:'cover',cursor:'pointer'},
 
   refBox:{background:'#0004',padding:14,borderRadius:8,margin:'20px 0'},
   refLabel:{fontSize:14,margin:0,opacity:.8},
@@ -272,5 +268,13 @@ const S = {
   ok:{width:'100%',padding:10,fontSize:15,border:'none',borderRadius:6,
       background:'#d4af37',color:'#000',cursor:'pointer'},
   cancel:{width:'100%',padding:10,fontSize:14,marginTop:10,border:'none',
-          borderRadius:6,background:'#555',color:'#fff',cursor:'pointer'}
+          borderRadius:6,background:'#555',color:'#fff',cursor:'pointer'},
+
+  /* zoom */
+  zoomWrap:{position:'fixed',inset:0,background:'#000d',zIndex:60,
+            display:'flex',justifyContent:'center',alignItems:'center'},
+  zoomImg:{maxWidth:'90vw',maxHeight:'86vh',borderRadius:10},
+  close:{position:'fixed',top:16,right:14,fontSize:34,lineHeight:'28px',
+         background:'none',border:'none',color:'#fff',cursor:'pointer',
+         zIndex:61}
 };
