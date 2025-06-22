@@ -49,22 +49,29 @@ export default function Init() {
     (async () => {
       try {
         const r = await fetch(`${BACKEND}/api/player/${tgId}`);
-        if (r.ok) {                               // игрок уже существует
-          const t = await fetch(`${BACKEND}/api/init`,{
-            method:'POST',headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ tg_id:tgId,name:'',initData:raw })
+        if (r.ok) {   // игрок уже есть → сразу редирект, без сброса loading
+          const t = await fetch(`${BACKEND}/api/init`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tg_id: tgId, name: '', initData: raw })
           });
           const j = await t.json();
           if (j.token) localStorage.setItem('token', j.token);
-          nav('/profile'); return;
+          nav('/profile');
+          return;    // после return мы не будем вызывать setLoading(false)
         }
-        /* новый игрок */
+
+        // новый игрок — показываем форму
         if (!sessionStorage.getItem(INFO_KEY)) setInfo(true);
         setNote('Enter your name');
-      } catch { setNote('Network error – try again'); }
-      finally { setLoading(false); }
+        setLoading(false);
+
+      } catch {
+        setNote('Network error – try again');
+        setLoading(false);
+      }
     })();
-  }, [tgId,raw,nav]);
+  }, [tgId, raw, nav]);
 
   /* 3. submit */
   const submit = async e => {
