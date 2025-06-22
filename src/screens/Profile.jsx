@@ -1,7 +1,6 @@
-/*  src/screens/Profile.jsx – v3.4
-    • фикс статистики (total)
-    • безопасная копия кода
-    • zoom-overlay для фрагментов
+/*  src/screens/Profile.jsx – v3.5
+    • refCode выводится текстом, кнопка Copy сохранена
+    • остальной функционал неизменён (stats-fix, zoom-overlay, safe copy)
 */
 
 import React, { useEffect, useState } from 'react';
@@ -21,28 +20,28 @@ export default function Profile () {
   const nav = useNavigate();
 
   /* base */
-  const [loading, setLoad]  = useState(true);
-  const [error,   setErr ]  = useState('');
-  const [name,    setName]  = useState('');
-  const [frags,   setFr  ]  = useState([]);
+  const [loading,setLoad]  = useState(true);
+  const [error,  setErr ]  = useState('');
+  const [name,   setName]  = useState('');
+  const [frags,  setFr  ]  = useState([]);
 
   /* stats */
-  const [total, setTotal]   = useState(null);
+  const [total,  setTotal] = useState(null);
 
   /* referral */
-  const [refCode, setCode]  = useState('');
-  const [invCnt,  setInv ]  = useState(0);
-  const [reward,  setRw  ]  = useState(false);
-  const [claimB,  setCB  ]  = useState(false);
-  const [copied,  setCp  ]  = useState(false);
+  const [refCode,setCode]  = useState('');
+  const [invCnt, setInv ]  = useState(0);
+  const [reward, setRw  ]  = useState(false);
+  const [claimB, setCB  ]  = useState(false);
+  const [copied, setCp  ]  = useState(false);
 
   /* delete */
-  const [ask,  setAsk ]     = useState(false);
-  const [busy, setBusy]     = useState(false);
-  const [dErr, setDErr]     = useState('');
+  const [ask,  setAsk ]    = useState(false);
+  const [busy, setBusy]    = useState(false);
+  const [dErr, setDErr]    = useState('');
 
   /* zoom */
-  const [zoomSrc, setZoom]  = useState('');
+  const [zoomSrc,setZoom]  = useState('');
 
   /* ─── load once ─────────────────────────────────────── */
   useEffect(() => {
@@ -57,9 +56,7 @@ export default function Profile () {
         });
 
         if ([401,403,404].includes(p.status)) {
-          localStorage.removeItem('token');
-          nav('/init');
-          return;
+          localStorage.removeItem('token'); nav('/init'); return;
         }
         if (!p.ok) throw 0;
 
@@ -72,33 +69,28 @@ export default function Profile () {
             const ref = await fetchReferral(uid, tok);
             setCode(ref.refCode ?? '');
             setInv(ref.invitedCount ?? 0);
-            setRw(ref.rewardIssued ?? false);
+            setRw (ref.rewardIssued ?? false);
           } catch {/* optional */}
         }
-
-      } catch {
-        setErr('Failed to load');
-      }
+      } catch { setErr('Failed to load'); }
       setLoad(false);
 
-      /* fire-and-forget stats */
       fetch(`${BACKEND}/api/stats/total_users`, {
         headers: { Authorization: tok ? `Bearer ${tok}` : undefined }
       })
-        .then(r => r.ok ? r.json() : null)
-        .then(j => j && setTotal(j.total))
+        .then(r=>r.ok?r.json():null)
+        .then(j=>j && setTotal(j.total))
         .catch(()=>{});
     })();
   }, [nav]);
 
-  /* ─── helpers ─────────────────────────────── */
+  /* helpers */
   const copy = async () => {
     if (!refCode) return;
     try {
       await navigator.clipboard.writeText(refCode);
-      setCp(true);
-      setTimeout(()=>setCp(false),1500);
-    } catch {/* noop */}
+      setCp(true); setTimeout(()=>setCp(false),1500);
+    } catch {}
   };
 
   const claim = async () => {
@@ -162,7 +154,7 @@ export default function Profile () {
         <div style={S.refBox}>
           <p style={S.refLabel}>Your referral code</p>
           <div style={S.copyRow}>
-            <input style={S.refInput} readOnly value={refCode} onClick={copy}/>
+            <span style={S.refText} onClick={copy}>{refCode || '—'}</span>
             <button style={S.copyBtn} onClick={copy}>
               {copied ? 'Copied' : 'Copy'}
             </button>
@@ -179,7 +171,9 @@ export default function Profile () {
         </div>
 
         {total !== null && (
-          <p style={S.count}>Ash Seekers:&nbsp;{total.toLocaleString()}</p>
+          <p style={S.count}>
+            Ash Seekers:&nbsp;{total.toLocaleString()}
+          </p>
         )}
 
         {frags.length === 8 && (
@@ -214,7 +208,6 @@ export default function Profile () {
         </div>
       )}
 
-      {/* zoom overlay */}
       {zoomSrc && (
         <div style={S.zoomWrap} onClick={()=>setZoom('')}>
           <img src={zoomSrc} style={S.zoomImg} onClick={e=>e.stopPropagation()}/>
@@ -245,8 +238,9 @@ const S = {
   refBox:{background:'#0004',padding:14,borderRadius:8,margin:'20px 0'},
   refLabel:{fontSize:14,margin:0,opacity:.8},
   copyRow:{display:'flex',marginTop:6,alignItems:'center',gap:6},
-  refInput:{flex:1,padding:'8px 10px',fontSize:14,borderRadius:4,
-            border:'1px solid #d4af37',background:'#111',color:'#d4af37'},
+  refText:{flex:1,padding:'8px 0',fontSize:15,wordBreak:'break-all',
+           cursor:'pointer',userSelect:'all',textAlign:'center',
+           borderBottom:'1px dotted #d4af37'},
   copyBtn:{padding:'8px 12px',fontSize:13,border:'none',borderRadius:4,
            background:'#d4af37',color:'#000',cursor:'pointer'},
 
@@ -270,7 +264,6 @@ const S = {
   cancel:{width:'100%',padding:10,fontSize:14,marginTop:10,border:'none',
           borderRadius:6,background:'#555',color:'#fff',cursor:'pointer'},
 
-  /* zoom */
   zoomWrap:{position:'fixed',inset:0,background:'#000d',zIndex:60,
             display:'flex',justifyContent:'center',alignItems:'center'},
   zoomImg:{maxWidth:'90vw',maxHeight:'86vh',borderRadius:10},
