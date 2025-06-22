@@ -1,5 +1,4 @@
-/*  src/screens/Profile.jsx – v3.2 (async stats, no hang)
-    ───────────────────────────────────────────────────── */
+/*  src/screens/Profile.jsx – v3.3 (stats-fix, safe copy)  */
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchReferral, claimReferral } from '../api/referral.js';
@@ -17,101 +16,123 @@ export default function Profile() {
   const nav = useNavigate();
 
   /* base */
-  const [loading,setLoad]=useState(true);
-  const [error,  setErr ]=useState('');
-  const [name,   setName]=useState('');
-  const [frags,  setFr  ]=useState([]);
+  const [loading, setLoad] = useState(true);
+  const [error,   setErr ] = useState('');
+  const [name,    setName] = useState('');
+  const [frags,   setFr  ] = useState([]);
 
   /* stats */
-  const [total,setTotal]=useState(null);
+  const [total, setTotal] = useState(null);
 
   /* referral */
-  const [refCode,setCode]=useState('');
-  const [invCnt, setInv ]=useState(0);
-  const [reward ,setRw  ]=useState(false);
-  const [claimB ,setCB ]=useState(false);
-  const [copied ,setCp ]=useState(false);
+  const [refCode, setCode] = useState('');
+  const [invCnt,  setInv ] = useState(0);
+  const [reward,  setRw  ] = useState(false);
+  const [claimB,  setCB  ] = useState(false);
+  const [copied,  setCp  ] = useState(false);
 
   /* delete */
-  const [ask,setAsk]=useState(false);
-  const [busy,setBusy]=useState(false);
-  const [dErr,setDErr]=useState('');
+  const [ask,  setAsk ] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [dErr, setDErr] = useState('');
 
-  /* ─── load profile once ───────────────────────────────────────── */
-  useEffect(()=>{
+  /* ─── load profile once ───────────────────────────────── */
+  useEffect(() => {
     const uid = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
     const tok = localStorage.getItem('token');
-    if(!uid){ nav('/init'); return; }
+    if (!uid) { nav('/init'); return; }
 
-    (async()=>{
-      try{
-        const p = await fetch(`${BACKEND}/api/player/${uid}`,{
-          headers:{ Authorization: tok?`Bearer ${tok}`:undefined }
+    (async () => {
+      try {
+        const p = await fetch(`${BACKEND}/api/player/${uid}`, {
+          headers: { Authorization: tok ? `Bearer ${tok}` : undefined }
         });
 
-        if(p.status===404||p.status===401||p.status===403){
-          localStorage.removeItem('token'); nav('/init'); return;
+        if ([401,403,404].includes(p.status)) {
+          localStorage.removeItem('token');
+          nav('/init');
+          return;
         }
-        if(!p.ok) throw 0;
+        if (!p.ok) throw 0;
 
         const pj = await p.json();
-        setName(pj.name); setFr(pj.fragments||[]);
+        setName(pj.name);
+        setFr(pj.fragments ?? []);
 
-        /* referral summary (не критично) */
-        if(tok){
-          try{
-            const ref = await fetchReferral(uid,tok);
-            setCode(ref.refCode); setInv(ref.invitedCount); setRw(ref.rewardIssued);
-          }catch{/* ignore */}
+        /* referral summary (optional) */
+        if (tok) {
+          try {
+            const ref = await fetchReferral(uid, tok);
+            setCode(ref.refCode ?? '');
+            setInv(ref.invitedCount ?? 0);
+            setRw(ref.rewardIssued ?? false);
+          } catch { /* ignore */ }
         }
 
-      }catch{ setErr('Failed to load'); }
+      } catch {
+        setErr('Failed to load');
+      }
       setLoad(false);
 
-      /* ── stats без ожидания ─────────────────────────────── */
-      fetch(`${BACKEND}/api/stats/total_users`,{
-        headers:{ Authorization: tok?`Bearer ${tok}`:undefined }
+      /* ── stats (fire-and-forget) ─────────────────────── */
+      fetch(`${BACKEND}/api/stats/total_users`, {
+        headers: { Authorization: tok ? `Bearer ${tok}` : undefined }
       })
-      .then(r=>r.ok?r.json():null)
-      .then(j=> j && setTotal(j.value))
-      .catch(()=>{/* silent */});
+        .then(r => r.ok ? r.json() : null)
+        .then(j => j && setTotal(j.total))        // ← FIX
+        .catch(() => {/* silent */});
     })();
-  },[nav]);
+  }, [nav]);
 
-  /* ─── helpers ─────────────────────────────────────────── */
+  /* ─── helpers ───────────────────────────────────────── */
   const copy = async () => {
-    try{ await navigator.clipboard.writeText(refCode);
-         setCp(true); setTimeout(()=>setCp(false),1500);}catch{}
+    if (!refCode) return;
+    try {
+      await navigator.clipboard.writeText(refCode);
+      setCp(true);
+      setTimeout(() => setCp(false), 1500);
+    } catch { /* ignore */ }
   };
+
   const claim = async () => {
     setCB(true);
-    try{
-      const tok=localStorage.getItem('token');
+    try {
+      const tok = localStorage.getItem('token');
       await claimReferral(tok);
-      setRw(true); alert('🎉 Free fragment received!'); window.location.reload();
-    }catch(e){ alert(e.message);}finally{ setCB(false);}
+      setRw(true);
+      alert('🎉 Free fragment received!');
+      window.location.reload();
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setCB(false);
+    }
   };
+
   const delProfile = async () => {
     setBusy(true); setDErr('');
-    try{
+    try {
       const uid = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
       const tok = localStorage.getItem('token');
-      await fetch(`${BACKEND}/api/player/${uid}`,{
-        method:'DELETE',headers:{Authorization:`Bearer ${tok}`}
+      await fetch(`${BACKEND}/api/player/${uid}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${tok}` }
       });
       localStorage.clear(); nav('/');
-    }catch(e){ setDErr(e.message); setBusy(false);}
+    } catch (e) {
+      setDErr(e.message); setBusy(false);
+    }
   };
 
-  /* ─── guards ──────────────────────────────────────────── */
-  if(loading)
+  /* ─── guards ───────────────────────────────────────── */
+  if (loading)
     return <div style={S.page}><p style={S.load}>Loading…</p></div>;
-  if(error)
+  if (error)
     return <div style={S.page}><p style={S.err}>{error}</p></div>;
 
-  /* ─── JSX ─────────────────────────────────────────────── */
-  const rows=[[1,2,3,4],[5,6,7,8]];
-  const progress=Math.min(invCnt,3);
+  /* ─── JSX ─────────────────────────────────────────── */
+  const rows = [[1,2,3,4],[5,6,7,8]];
+  const progress = Math.min(invCnt, 3);
 
   return (
     <div style={S.page}>
@@ -123,9 +144,11 @@ export default function Profile() {
           <div key={i} style={S.row}>
             {r.map(id=>(
               <div key={id} style={S.slot}>
-                {frags.includes(id)&&(
-                  <img src={`/fragments/fragment_${id}_${SLUG[id-1]}.webp`}
-                       style={S.img}/>
+                {frags.includes(id) && (
+                  <img
+                    src={`/fragments/fragment_${id}_${SLUG[id-1]}.webp`}
+                    style={S.img}
+                  />
                 )}
               </div>
             ))}
@@ -137,37 +160,50 @@ export default function Profile() {
         <div style={S.refBox}>
           <p style={S.refLabel}>Your referral code</p>
           <div style={S.copyRow}>
-            <input style={S.refInput} readOnly value={refCode} onClick={copy}/>
+            <input
+              style={S.refInput}
+              readOnly
+              value={refCode}
+              onClick={copy}
+            />
             <button style={S.copyBtn} onClick={copy}>
-              {copied?'Copied':'Copy'}
+              {copied ? 'Copied' : 'Copy'}
             </button>
           </div>
 
           <p style={S.progress}>Invited {progress}/3</p>
 
           {(progress>=3 && !reward && localStorage.getItem('token')) && (
-            <button style={S.claim} disabled={claimB} onClick={claim}>
-              {claimB?'Processing…':'Claim free fragment'}
+            <button
+              style={S.claim}
+              disabled={claimB}
+              onClick={claim}>
+              {claimB ? 'Processing…' : 'Claim free fragment'}
             </button>
           )}
 
           {reward && <p style={S.claimed}>Reward already claimed ✅</p>}
         </div>
 
-        {total!==null && (
-          <p style={S.count}>Ash Seekers: {total.toLocaleString()}</p>
+        {total !== null && (
+          <p style={S.count}>
+            Ash Seekers:&nbsp;{total.toLocaleString()}
+          </p>
         )}
 
-        {frags.length===8 && (
-          <button style={{...S.act,marginTop:6,fontSize:16}}
-                  onClick={()=>nav('/final')}>
+        {frags.length === 8 && (
+          <button
+            style={{ ...S.act, marginTop:6, fontSize:16 }}
+            onClick={()=>nav('/final')}>
             🗝 Enter Final Phrase
           </button>
         )}
 
         <div style={{flexGrow:1}} />
 
-        <button style={S.del} onClick={()=>setAsk(true)}>Delete profile</button>
+        <button style={S.del} onClick={()=>setAsk(true)}>
+          Delete profile
+        </button>
       </div>
 
       {ask && (
@@ -178,9 +214,12 @@ export default function Profile() {
             </p>
             {dErr && <p style={{color:'#f66',fontSize:14}}>{dErr}</p>}
             <button style={S.ok} disabled={busy} onClick={delProfile}>
-              {busy?'Deleting…':'Yes, delete'}
+              {busy ? 'Deleting…' : 'Yes, delete'}
             </button>
-            <button style={S.cancel} disabled={busy} onClick={()=>setAsk(false)}>
+            <button
+              style={S.cancel}
+              disabled={busy}
+              onClick={()=>setAsk(false)}>
               Cancel
             </button>
           </div>
@@ -190,7 +229,7 @@ export default function Profile() {
   );
 }
 
-/* ── styles (идентичны прошлой версии) ────────────────────── */
+/* ── styles (как прежде) ─────────────────────────────── */
 const S = {
   page:{minHeight:'100vh',background:'url("/profile-bg.webp") center/cover',
         display:'flex',justifyContent:'center',alignItems:'center',
@@ -198,7 +237,8 @@ const S = {
   load:{fontSize:18}, err:{fontSize:16,color:'#f66'},
 
   card:{width:'100%',maxWidth:360,minHeight:520,background:'rgba(0,0,0,.55)',
-        padding:20,borderRadius:8,display:'flex',flexDirection:'column',textAlign:'center'},
+        padding:20,borderRadius:8,display:'flex',flexDirection:'column',
+        textAlign:'center'},
   h:{margin:0,fontSize:26}, sub:{fontSize:14,margin:'6px 0 18px',opacity:.85},
 
   row:{display:'flex',gap:6,marginBottom:6},
