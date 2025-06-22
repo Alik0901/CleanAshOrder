@@ -1,38 +1,31 @@
-// src/api/referral.js
 const BACKEND =
   import.meta.env.VITE_BACKEND_URL ??
   'https://ash-backend-production.up.railway.app';
 
 /**
- * Получить сводку по рефералам
- * @param {string|number} uid  — Telegram ID игрока
- * @param {string} token      — JWT из localStorage
+ * Получить сводку по рефералам (берётся tg_id из JWT)
+ * @param {string} token — JWT из localStorage
+ * @returns {Promise<{refCode: string|null, invitedCount: number, rewardIssued: boolean}>}
  */
-export async function fetchReferral(uid, token) {
-  const res = await fetch(`${BACKEND}/api/referral/${uid}`, {
+export async function fetchReferral(token) {
+  const res = await fetch(`${BACKEND}/api/referral`, {
     headers: {
       'Content-Type': 'application/json',
-      // если токена нет — передаём пустую строку, так не будет `undefined`
       Authorization: token ? `Bearer ${token}` : ''
     }
   });
 
+  const body = await res.json().catch(() => ({}));
   if (!res.ok) {
-    // попробуем достать текст ошибки из JSON
-    let errText = `HTTP ${res.status}`;
-    try {
-      const body = await res.json();
-      errText = body.error || errText;
-    } catch { /* игнор */ }
-    throw new Error(`Не удалось загрузить рефералку: ${errText}`);
+    throw new Error(body.error || `HTTP ${res.status}`);
   }
-
-  return res.json(); // { refCode, invitedCount, rewardIssued }
+  return body;
 }
 
 /**
  * Запрос на получение бесплатного фрагмента
  * @param {string} token — JWT из localStorage
+ * @returns {Promise<{ok: boolean, fragment: number|null}>}
  */
 export async function claimReferral(token) {
   const res = await fetch(`${BACKEND}/api/referral/claim`, {
@@ -44,10 +37,8 @@ export async function claimReferral(token) {
   });
 
   const body = await res.json().catch(() => ({}));
-
   if (!res.ok) {
-    throw new Error(body.error || `Ошибка claimReferral: HTTP ${res.status}`);
+    throw new Error(body.error || `HTTP ${res.status}`);
   }
-
-  return body; // { ok: true, fragment: число }
+  return body;
 }
