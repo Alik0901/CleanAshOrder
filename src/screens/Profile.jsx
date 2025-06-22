@@ -254,15 +254,12 @@ export default function Profile() {
           <img
             src={zoomSrc}
             style={S.zoomImg}
-            onClick={e => e.stopPropagation()}
+            onClick={() => setZoom('')}
           />
-          <button style={S.close} onClick={() => setZoom('')}>
-            ✕
-          </button>
         </div>
       )}
     </div>
-  );
+);
 }
 
 /* ── styles ───────────────────────────────────────────────── */
