@@ -1,6 +1,8 @@
+// src/screens/Profile.jsx – v3.7
+
 import React, { useEffect, useState } from 'react';
 import { useNavigate }        from 'react-router-dom';
-import { fetchReferral, claimReferral } from '../api/referral.js';
+import { claimReferral }      from '../api/referral.js';
 
 const BACKEND =
   import.meta.env.VITE_BACKEND_URL ??
@@ -14,125 +16,132 @@ const SLUG = [
 export default function Profile() {
   const nav = useNavigate();
 
-  /* базовый стейт */
-  const [loading, setLoad] = useState(true);
-  const [error,   setErr ] = useState('');
-  const [name,    setName] = useState('');
-  const [frags,   setFr  ] = useState([]);
+  // базовый стейт
+  const [loading, setLoading] = useState(true);
+  const [error,   setError ]  = useState('');
+  const [name,    setName  ]  = useState('');
+  const [frags,   setFrags ]  = useState([]);
 
-  /* общая статистика */
+  // общая статистика
   const [total, setTotal] = useState(null);
 
-  /* реферальная программа */
-  const [refCode, setCode] = useState('');
-  const [invCnt,  setInv ] = useState(0);
-  const [reward,  setRw  ] = useState(false);
-  const [claimB,  setCB  ] = useState(false);
-  const [copied,  setCp  ] = useState(false);
+  // реферальная инфа
+  const [refCode, setRefCode]       = useState('');
+  const [invitedCount, setInvited]  = useState(0);
+  const [rewardIssued, setReward]   = useState(false);
+  const [claiming, setClaiming]     = useState(false);
+  const [copied, setCopied]         = useState(false);
 
-  /* удаление профиля */
-  const [ask,  setAsk ] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [dErr, setDErr] = useState('');
+  // удаление профиля
+  const [confirmDel, setConfirmDel] = useState(false);
+  const [deleting, setDeleting]     = useState(false);
+  const [delError, setDelError]     = useState('');
 
-  /* зум-фрагмент */
-  const [zoomSrc, setZoom] = useState('');
+  // зум картинки
+  const [zoomSrc, setZoomSrc]       = useState('');
 
   useEffect(() => {
-  const uid = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
-  const tok = localStorage.getItem('token');
-  console.log('PROFILE MOUNT', { uid, tok });
-  if (!uid || !tok) {
-    localStorage.removeItem('token');
-    nav('/init');
-    return;
-  }
-
-  (async () => {
-    try {
-      console.log('> fetch /api/player');
-      const r1 = await fetch(`${BACKEND}/api/player/${uid}`, {
-        headers: { Authorization:`Bearer ${tok}` }
-      });
-      console.log('player status', r1.status);
-      if (!r1.ok) throw new Error('player failed');
-      const pj = await r1.json();
-      console.log('player data', pj);
-      setName(pj.name||'');
-      setFr(pj.fragments||[]);
-
-      console.log('> fetchReferral');
-      const ref = await fetchReferral(tok);
-      console.log('referral', ref);
-      setCode(ref.refCode);
-      setInv(ref.invitedCount);
-      setRw(ref.rewardIssued);
-
-    } catch (e) {
-      console.error('Error loading profile/referral', e);
-      setErr('Failed to load');
-    } finally {
-      console.log('done loading');
-      setLoad(false);
+    const uid = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+    const token = localStorage.getItem('token');
+    if (!uid || !token) {
+      localStorage.removeItem('token');
+      nav('/init');
+      return;
     }
-  })();
 
-  // статистика
-  fetch(`${BACKEND}/api/stats/total_users`, {
-    headers: { Authorization:`Bearer ${tok}` }
-  })
-    .then(r => r.ok ? r.json() : null)
-    .then(j => { if (j) setTotal(j.total); })
-    .catch(()=>{});
-}, [nav]);
+    (async () => {
+      try {
+        // 1) профиль + реферальные данные
+        const res = await fetch(`${BACKEND}/api/player/${uid}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!res.ok) {
+          throw new Error(`status ${res.status}`);
+        }
+        const data = await res.json();
+        setName(data.name || '');
+        setFrags(data.fragments || []);
+        setRefCode(data.ref_code || '');
+        setInvited(data.invitedCount || 0);
+        setReward(!!data.referral_reward_issued);
+      } catch (err) {
+        console.error('Profile load error', err);
+        setError('Не удалось загрузить профиль');
+      } finally {
+        setLoading(false);
+      }
 
-  /* ─── Helpers ───────────────────────────────────────── */
-  const copy = async () => {
+      // 2) общая статистика (fire-and-forget)
+      fetch(`${BACKEND}/api/stats/total_users`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then(j => j && setTotal(j.total))
+        .catch(()=>{/* silent */});
+    })();
+  }, [nav]);
+
+  // копировать код
+  const onCopy = async () => {
     if (!refCode) return;
     try {
       await navigator.clipboard.writeText(refCode);
-      setCp(true);
-      setTimeout(() => setCp(false), 1500);
+      setCopied(true);
+      setTimeout(()=>setCopied(false),1500);
     } catch {}
   };
 
-  const claim = async () => {
-    setCB(true);
+  // забрать бесплатный фрагмент
+  const onClaim = async () => {
+    setClaiming(true);
     try {
-      const tok = localStorage.getItem('token');
-      const { fragment } = await claimReferral(tok);
-      setRw(true);
-      alert(`🎉 You received fragment #${fragment}!`);
-    } catch (e) {
-      alert(e.message);
+      const token = localStorage.getItem('token');
+      const { ok } = await claimReferral(token);
+      if (ok) {
+        setReward(true);
+        alert('🎉 Вы получили бесплатный фрагмент!');
+        // можно перезагрузить или добавить новый фрагмент в state
+      }
+    } catch (err) {
+      alert(err.message);
     } finally {
-      setCB(false);
+      setClaiming(false);
     }
   };
 
-  const delProfile = async () => {
-    setBusy(true);
-    setDErr('');
+  // удалить профиль
+  const onDelete = async () => {
+    setDeleting(true);
+    setDelError('');
     try {
       const uid = window.Telegram.WebApp.initDataUnsafe.user.id;
-      await fetch(`${BACKEND}/api/player/${uid}`, {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${BACKEND}/api/player/${uid}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        headers: { Authorization: `Bearer ${token}` }
       });
+      if (!res.ok) {
+        const body = await res.json().catch(()=>({}));
+        throw new Error(body.error || `status ${res.status}`);
+      }
       localStorage.clear();
       nav('/');
-    } catch (e) {
-      setDErr(e.message);
-      setBusy(false);
+    } catch (err) {
+      console.error('Delete error', err);
+      setDelError(err.message);
+      setDeleting(false);
     }
   };
 
-  /* ─── Guards ────────────────────────────────────────── */
-  if (loading) return <div style={S.page}><p style={S.load}>Loading…</p></div>;
-  if (error)   return <div style={S.page}><p style={S.err}>{error}</p></div>;
+  if (loading) return (
+    <div style={S.page}><p style={S.load}>Loading…</p></div>
+  );
+  if (error) return (
+    <div style={S.page}><p style={S.err}>{error}</p></div>
+  );
 
-  const rows     = [[1,2,3,4],[5,6,7,8]];
-  const progress = Math.min(invCnt, 3);
+  const rows = [[1,2,3,4],[5,6,7,8]];
+  const canClaim = invitedCount >= 3 && !rewardIssued;
 
   return (
     <div style={S.page}>
@@ -140,15 +149,15 @@ export default function Profile() {
         <h2 style={S.h}>{name}</h2>
         <p style={S.sub}>Fragments {frags.length}/8</p>
 
-        {rows.map((r,i)=>(
-          <div key={i} style={S.row}>
+        {rows.map((r,idx)=>(
+          <div key={idx} style={S.row}>
             {r.map(id=>(
               <div key={id} style={S.slot}>
-                {frags.includes(id) && (
+                {frags.includes(id)&&(
                   <img
                     src={`/fragments/fragment_${id}_${SLUG[id-1]}.webp`}
                     style={S.img}
-                    onClick={()=>setZoom(`/fragments/fragment_${id}_${SLUG[id-1]}.webp`)}
+                    onClick={()=>setZoomSrc(`/fragments/fragment_${id}_${SLUG[id-1]}.webp`)}
                   />
                 )}
               </div>
@@ -160,65 +169,71 @@ export default function Profile() {
           🔥 Burn Again
         </button>
 
+        {/* рефералка */}
         <div style={S.refBox}>
           <p style={S.refLabel}>Your referral code</p>
           <div style={S.refCodeRow}>
             <span style={S.refCode}>{refCode || '—'}</span>
-            <button style={S.copyBtn} onClick={copy}>
-              {copied ? 'Copied' : 'Copy'}
+            <button style={S.copyBtn} onClick={onCopy}>
+              {copied?'Copied':'Copy'}
             </button>
           </div>
-          <p style={S.progress}>Invited {progress}/3</p>
-          {progress >= 3 && !reward && (
-            <button style={S.claim} disabled={claimB} onClick={claim}>
-              {claimB ? 'Processing…' : 'Claim free fragment'}
+
+          <p style={S.progress}>
+            Invited {invitedCount}/3
+          </p>
+
+          {canClaim && (
+            <button style={S.claim} disabled={claiming} onClick={onClaim}>
+              {claiming?'Processing…':'Claim free fragment'}
             </button>
           )}
-          {reward && <p style={S.claimed}>Reward already claimed ✅</p>}
+          {rewardIssued && (
+            <p style={S.claimed}>Reward already claimed ✅</p>
+          )}
         </div>
 
-        {total !== null && (
+        {total!==null && (
           <p style={S.count}>Ash Seekers: {total.toLocaleString()}</p>
         )}
 
-        {frags.length === 8 && (
-          <button
-            style={{ ...S.act, marginTop:6, fontSize:16 }}
-            onClick={()=>nav('/final')}>
+        {frags.length===8 && (
+          <button style={{...S.act,marginTop:6,fontSize:16}}
+                  onClick={()=>nav('/final')}>
             🗝 Enter Final Phrase
           </button>
         )}
 
-        <div style={{ flexGrow:1 }}/>
-        <button style={S.del} onClick={()=>setAsk(true)}>
+        <div style={{flexGrow:1}}/>
+        <button style={S.del} onClick={()=>setConfirmDel(true)}>
           Delete profile
         </button>
       </div>
 
-      {ask && (
-        <div style={S.wrap} onClick={()=>!busy&&setAsk(false)}>
+      {/* Подтверждение удаления */}
+      {confirmDel && (
+        <div style={S.wrap} onClick={()=>!deleting&&setConfirmDel(false)}>
           <div style={S.box} onClick={e=>e.stopPropagation()}>
-            <p style={{ margin:'0 0 12px', fontSize:17 }}>
+            <p style={{margin:'0 0 12px',fontSize:17}}>
               Delete profile permanently?
             </p>
-            {dErr && <p style={{ color:'#f66', fontSize:14 }}>{dErr}</p>}
-            <button style={S.ok} disabled={busy} onClick={delProfile}>
-              {busy ? 'Deleting…' : 'Yes, delete'}
+            {delError && <p style={{color:'#f66',fontSize:14}}>{delError}</p>}
+            <button style={S.ok} disabled={deleting} onClick={onDelete}>
+              {deleting?'Deleting…':'Yes, delete'}
             </button>
-            <button style={S.cancel} disabled={busy} onClick={()=>setAsk(false)}>
+            <button style={S.cancel} disabled={deleting}
+                    onClick={()=>setConfirmDel(false)}>
               Cancel
             </button>
           </div>
         </div>
       )}
 
+      {/* Зум overlay */}
       {zoomSrc && (
-        <div style={S.zoomWrap} onClick={()=>setZoom('')}>
-          <img
-            src={zoomSrc}
-            style={S.zoomImg}
-            onClick={()=>setZoom('')}
-          />
+        <div style={S.zoomWrap} onClick={()=>setZoomSrc('')}>
+          <img src={zoomSrc} style={S.zoomImg}
+               onClick={()=>setZoomSrc('')} />
         </div>
       )}
     </div>

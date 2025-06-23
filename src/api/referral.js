@@ -1,9 +1,11 @@
+// src/api/referral.js
+
 const BACKEND =
   import.meta.env.VITE_BACKEND_URL ??
   'https://ash-backend-production.up.railway.app';
 
 /**
- * Получить сводку по рефералам (tg_id определяется из JWT)
+ * Получить сводку по рефералам (tg_id — из JWT).
  * @param {string} token — JWT из localStorage
  * @returns {Promise<{ refCode: string|null, invitedCount: number, rewardIssued: boolean }>}
  */
@@ -13,31 +15,36 @@ export async function fetchReferral(token) {
   }
 
   const res = await fetch(`${BACKEND}/api/referral`, {
-    headers: { 'Authorization': `Bearer ${token}` }
+    method:  'GET',
+    headers: {
+      'Content-Type':  'application/json',
+      'Authorization': `Bearer ${token}`
+    }
   });
 
-  let body;
+  let data;
   try {
-    body = await res.json();
+    data = await res.json();
   } catch {
-    throw new Error(`Ошибка разбора ответа: HTTP ${res.status}`);
+    throw new Error(`Невалидный JSON: HTTP ${res.status}`);
   }
 
   if (!res.ok) {
-    throw new Error(body.error || `Ошибка ${res.status}`);
+    // если сервер прислал { error: '...' }
+    throw new Error(data.error || `Ошибка ${res.status}`);
   }
 
   return {
-    refCode:      body.refCode      ?? null,
-    invitedCount: body.invitedCount ?? 0,
-    rewardIssued: body.rewardIssued ?? false
+    refCode:      data.refCode      ?? null,
+    invitedCount: data.invitedCount ?? 0,
+    rewardIssued: data.rewardIssued ?? false
   };
 }
 
 /**
- * Запрос на получение бесплатного фрагмента
+ * Запрос на получение бесплатного фрагмента по рефералке.
  * @param {string} token — JWT из localStorage
- * @returns {Promise<{ ok: boolean, fragment: number|null }>}
+ * @returns {Promise<{ ok: true, fragment: number|null }>}
  */
 export async function claimReferral(token) {
   if (!token) {
@@ -45,23 +52,27 @@ export async function claimReferral(token) {
   }
 
   const res = await fetch(`${BACKEND}/api/referral/claim`, {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${token}` }
+    method:  'POST',
+    headers: {
+      'Content-Type':  'application/json',
+      'Authorization': `Bearer ${token}`
+    }
   });
 
-  let body;
+  let data;
   try {
-    body = await res.json();
+    data = await res.json();
   } catch {
-    throw new Error(`Ошибка разбора ответа: HTTP ${res.status}`);
+    throw new Error(`Невалидный JSON: HTTP ${res.status}`);
   }
 
   if (!res.ok) {
-    throw new Error(body.error || `Ошибка ${res.status}`);
+    throw new Error(data.error || `Ошибка ${res.status}`);
   }
 
+  // data = { ok: true, fragment: <number|null> }
   return {
-    ok:       body.ok === true,
-    fragment: body.fragment ?? null
+    ok:       data.ok === true,
+    fragment: data.fragment ?? null
   };
 }
