@@ -94,7 +94,7 @@ export default function Profile() {
     setClaiming(true);
     try {
       const token = localStorage.getItem('token');
-      const { fragment } = await claimReferral(token);
+      const { fragment } = await claimReferral(localStorage.getItem('token'));
       setReward(true);
       if (fragment != null) {
         setFrags(prev => [...prev, fragment]);
