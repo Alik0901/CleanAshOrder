@@ -1,12 +1,7 @@
-// src/screens/Profile.jsx
-
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchReferral, claimReferral } from '../api/referral.js';
-
-const BACKEND =
-  import.meta.env.VITE_BACKEND_URL ??
-  'https://ash-backend-production.up.railway.app';
+import { createInvoice, checkBurnStatus } from '../api/burn.js';
+import { claimReferral } from '../api/referral.js';
 
 const SLUG = [
   'the_whisper','the_number','the_language','the_mirror',
@@ -15,90 +10,121 @@ const SLUG = [
 
 export default function Profile() {
   const nav = useNavigate();
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState('');
+  const [name, setName]           = useState('');
+  const [frags, setFrags]         = useState([]);
+  const [total, setTotal]         = useState(null);
 
-  const [loading, setLoading]   = useState(true);
-  const [error,   setError]     = useState('');
-  const [name,    setName]      = useState('');
-  const [frags,   setFrags]     = useState([]);
+  // burn
+  const [paying, setPaying]       = useState(false);
+  const [invoiceUrl, setInvoiceUrl] = useState('');
 
-  const [total, setTotal]       = useState(null);
+  // referral
+  const [refCode, setRefCode]     = useState('');
+  const [invCnt, setInvCnt]       = useState(0);
+  const [reward, setReward]       = useState(false);
+  const [claiming, setClaiming]   = useState(false);
+  const [copied, setCopied]       = useState(false);
 
-  const [refCode,   setRefCode]   = useState('');
-  const [invitedCnt,setInvitedCnt]= useState(0);
-  const [rewarded,  setRewarded]  = useState(false);
-  const [claiming,  setClaiming]  = useState(false);
-  const [copied,    setCopied]    = useState(false);
+  // delete
+  const [askDel, setAskDel]       = useState(false);
+  const [busyDel, setBusyDel]     = useState(false);
+  const [delError, setDelError]   = useState('');
 
-  const [askDel, setAskDel] = useState(false);
-  const [busyDel,setBusyDel]= useState(false);
-  const [delErr, setDelErr] = useState('');
+  // zoom
+  const [zoomSrc, setZoomSrc]     = useState('');
 
-  const [zoomSrc, setZoomSrc] = useState('');
+  const token = localStorage.getItem('token');
+  const uid   = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+
+  // проверяем статус непогашенного invoice
+  const pollStatus = useCallback(async (invoiceId) => {
+    try {
+      const { paid, newFragment } = await checkBurnStatus(invoiceId);
+      if (paid) {
+        if (newFragment != null) {
+          setFrags(prev => [...prev, newFragment]);
+        }
+        localStorage.removeItem('invoiceId');
+        localStorage.removeItem('invoiceUrl');
+        setPaying(false);
+      } else {
+        // если всё ещё не paid — оставляем paying = true
+        setPaying(true);
+      }
+    } catch {
+      setPaying(true);
+    }
+  }, []);
 
   useEffect(() => {
-    const uid   = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
-    const token = localStorage.getItem('token');
     if (!uid || !token) {
       localStorage.removeItem('token');
-      return void nav('/init');
+      nav('/init');
+      return;
     }
 
     (async () => {
       try {
-        // 1) профиль
-        const resp = await fetch(`${BACKEND}/api/player/${uid}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
+        // 1) профиль + фраги + рефералка сразу
+        const resp = await fetch(`/api/player/${uid}`, {
+          headers: { Authorization: `Bearer ${token}` }
         });
-        if (![200].includes(resp.status)) {
-          throw new Error();
-        }
+        if ([401,403,404].includes(resp.status)) throw new Error();
         const pj = await resp.json();
         setName(pj.name || '');
         setFrags(pj.fragments || []);
+        setRefCode(pj.ref_code || '');
+        setInvCnt(pj.invitedCount || 0);
+        setReward(!!pj.referral_reward_issued);
       } catch {
-        setError('Не удалось загрузить профиль');
+        setError('Failed to load profile');
+      } finally {
         setLoading(false);
-        return;
       }
 
-      try {
-        // 2) рефералка
-        const r = await fetchReferral(token);
-        setRefCode(r.refCode);
-        setInvitedCnt(r.invitedCount);
-        setRewarded(r.rewardIssued);
-      } catch {
-        // silent
-      }
-
-      // 3) общая статистика
-      fetch(`${BACKEND}/api/stats/total_users`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+      // 2) общая статистика
+      fetch('/api/stats/total_users', {
+        headers: { Authorization: `Bearer ${token}` }
       })
         .then(r => r.ok ? r.json() : null)
         .then(j => j && setTotal(j.total))
-        .catch(()=>{});
-      setLoading(false);
-    })();
-  }, [nav]);
+        .catch(() => {});
 
-  const copyCode = async () => {
-    if (!refCode) return;
-    await navigator.clipboard.writeText(refCode);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+      // 3) если есть незавершённый invoice
+      const pid = localStorage.getItem('invoiceId');
+      const purl = localStorage.getItem('invoiceUrl');
+      if (pid && purl) {
+        setPaying(true);
+        setInvoiceUrl(purl);
+        pollStatus(pid);
+      }
+    })();
+  }, [uid, token, nav, pollStatus]);
+
+  const burn = async () => {
+    try {
+      const { invoiceId, paymentUrl } = await createInvoice(token, uid);
+      localStorage.setItem('invoiceId', invoiceId);
+      localStorage.setItem('invoiceUrl', paymentUrl);
+      setInvoiceUrl(paymentUrl);
+      setPaying(true);
+      window.open(paymentUrl, '_blank');
+    } catch {
+      alert('Failed to create invoice');
+    }
   };
 
-  const onClaim = async () => {
+  const claim = async () => {
     setClaiming(true);
     try {
-      const token = localStorage.getItem('token');
       const { fragment } = await claimReferral(token);
-      setRewarded(true);
+      setReward(true);
       if (fragment != null) {
-        setFrags(f => [...f, fragment]);
+        setFrags(prev => [...prev, fragment]);
       }
-      alert('🎉 Бесплатный фрагмент получен!');
+      alert('🎉 Free fragment received!');
     } catch (e) {
       alert(e.message);
     } finally {
@@ -106,29 +132,36 @@ export default function Profile() {
     }
   };
 
-  const onDelete = async () => {
-    setBusyDel(true);
-    setDelErr('');
+  const copyCode = async () => {
+    if (!refCode) return;
     try {
-      const uid   = window.Telegram.WebApp.initDataUnsafe.user.id;
-      const token = localStorage.getItem('token');
-      await fetch(`${BACKEND}/api/player/${uid}`, {
+      await navigator.clipboard.writeText(refCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {}
+  };
+
+  const deleteProfile = async () => {
+    setBusyDel(true);
+    setDelError('');
+    try {
+      await fetch(`/api/player/${uid}`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` }
       });
       localStorage.clear();
       nav('/');
     } catch (e) {
-      setDelErr(e.message);
+      setDelError(e.message);
       setBusyDel(false);
     }
   };
 
-  if (loading) return <div style={S.page}><p>Loading…</p></div>;
-  if (error)   return <div style={S.page}><p style={{color:'red'}}>{error}</p></div>;
+  if (loading) return <div style={S.page}><p style={S.load}>Loading…</p></div>;
+  if (error)   return <div style={S.page}><p style={S.err}>{error}</p></div>;
 
-  const rows    = [[1,2,3,4],[5,6,7,8]];
-  const progress= Math.min(invitedCnt, 3);
+  const rows     = [[1,2,3,4],[5,6,7,8]];
+  const progress = Math.min(invCnt, 3);
 
   return (
     <div style={S.page}>
@@ -152,9 +185,15 @@ export default function Profile() {
           </div>
         ))}
 
-        <button style={S.act} onClick={() => nav('/path')}>
-          🔥 Burn Again
-        </button>
+        {paying ? (
+          <button style={{ ...S.act, opacity: 0.6 }} disabled>
+            Awaiting payment
+          </button>
+        ) : (
+          <button style={S.act} onClick={burn}>
+            🔥 Burn Again
+          </button>
+        )}
 
         <div style={S.refBox}>
           <p style={S.refLabel}>Your referral code</p>
@@ -164,39 +203,42 @@ export default function Profile() {
               {copied ? 'Copied' : 'Copy'}
             </button>
           </div>
-          <p>Invited {progress}/3</p>
-          {!rewarded && progress >= 3 && (
-            <button style={S.claim} disabled={claiming} onClick={onClaim}>
+          <p style={S.progress}>Invited {progress}/3</p>
+          {!reward && progress >= 3 && (
+            <button style={S.claim} disabled={claiming} onClick={claim}>
               {claiming ? 'Processing…' : 'Claim free fragment'}
             </button>
           )}
-          {rewarded && <p style={S.claimed}>Reward already claimed ✅</p>}
+          {reward && <p style={S.claimed}>Reward already claimed ✅</p>}
         </div>
 
-        {total != null && (
+        {total !== null && (
           <p style={S.count}>Ash Seekers: {total.toLocaleString()}</p>
         )}
 
         {frags.length === 8 && (
-          <button style={S.act} onClick={() => nav('/final')}>
+          <button style={{ ...S.act, marginTop:6, fontSize:16 }} onClick={() => nav('/final')}>
             🗝 Enter Final Phrase
           </button>
         )}
 
+        <div style={{ flexGrow: 1 }} />
         <button style={S.del} onClick={() => setAskDel(true)}>
           Delete profile
         </button>
       </div>
 
       {askDel && (
-        <div style={S.modal}>
-          <div style={S.modalBox}>
-            <p>Delete profile permanently?</p>
-            {delErr && <p style={{color:'red'}}>{delErr}</p>}
-            <button disabled={busyDel} onClick={onDelete}>
+        <div style={S.wrap} onClick={() => !busyDel && setAskDel(false)}>
+          <div style={S.box} onClick={e => e.stopPropagation()}>
+            <p style={{ margin:'0 0 12px', fontSize:17 }}>
+              Delete profile permanently?
+            </p>
+            {delError && <p style={{ color:'#f66', fontSize:14 }}>{delError}</p>}
+            <button style={S.ok} disabled={busyDel} onClick={deleteProfile}>
               {busyDel ? 'Deleting…' : 'Yes, delete'}
             </button>
-            <button disabled={busyDel} onClick={() => setAskDel(false)}>
+            <button style={S.cancel} disabled={busyDel} onClick={() => setAskDel(false)}>
               Cancel
             </button>
           </div>
@@ -204,14 +246,13 @@ export default function Profile() {
       )}
 
       {zoomSrc && (
-        <div style={S.zoomOverlay} onClick={() => setZoomSrc('')}>
-          <img src={zoomSrc} style={S.zoomImg} alt="" />
+        <div style={S.zoomWrap} onClick={() => setZoomSrc('')}>
+          <img src={zoomSrc} style={S.zoomImg} onClick={() => setZoomSrc('')} />
         </div>
       )}
     </div>
   );
 }
-
 /* Стили */
 const S = {
   page: {
