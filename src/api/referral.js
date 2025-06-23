@@ -5,9 +5,37 @@ const BACKEND =
   'https://ash-backend-production.up.railway.app';
 
 /**
+ * Получить сводку по рефералам
+ * (refCode, сколько приглашено, выдан ли reward)
+ */
+export async function fetchReferral(token) {
+  if (!token) {
+    throw new Error('Не задан токен авторизации');
+  }
+
+  const res = await fetch(`${BACKEND}/api/referral`, {
+    method: 'GET',
+    headers: {
+      'Content-Type':  'application/json',
+      'Authorization': `Bearer ${token}`
+    }
+  });
+
+  const body = await res.json();
+  if (!res.ok) {
+    throw new Error(body.error || `HTTP ${res.status}`);
+  }
+
+  return {
+    refCode:      body.refCode      ?? null,
+    invitedCount: body.invitedCount ?? 0,
+    rewardIssued: body.rewardIssued ?? false
+  };
+}
+
+/**
  * Запрос на получение бесплатного фрагмента
- * @param {string} token — JWT из localStorage
- * @returns {Promise<{ ok: boolean, fragment: number|null }>}
+ * (POST /api/referral/claim с пустым JSON)
  */
 export async function claimReferral(token) {
   if (!token) {
@@ -20,18 +48,12 @@ export async function claimReferral(token) {
       'Content-Type':  'application/json',
       'Authorization': `Bearer ${token}`
     },
-    body: JSON.stringify({})   // пустой JSON, чтобы express.json() его распарсил
+    body: JSON.stringify({})
   });
 
-  let body;
-  try {
-    body = await res.json();
-  } catch {
-    throw new Error(`Ошибка разбора ответа: HTTP ${res.status}`);
-  }
-
+  const body = await res.json();
   if (!res.ok) {
-    throw new Error(body.error || `Ошибка ${res.status}`);
+    throw new Error(body.error || `HTTP ${res.status}`);
   }
 
   return {
