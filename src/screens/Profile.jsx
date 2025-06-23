@@ -39,52 +39,52 @@ export default function Profile() {
   const [zoomSrc, setZoom] = useState('');
 
   useEffect(() => {
-    const uid = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
-    const tok = localStorage.getItem('token');
-    if (!uid || !tok) {
-      localStorage.removeItem('token');
-      nav('/init');
-      return;
+  const uid = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+  const tok = localStorage.getItem('token');
+  console.log('PROFILE MOUNT', { uid, tok });
+  if (!uid || !tok) {
+    localStorage.removeItem('token');
+    nav('/init');
+    return;
+  }
+
+  (async () => {
+    try {
+      console.log('> fetch /api/player');
+      const r1 = await fetch(`${BACKEND}/api/player/${uid}`, {
+        headers: { Authorization:`Bearer ${tok}` }
+      });
+      console.log('player status', r1.status);
+      if (!r1.ok) throw new Error('player failed');
+      const pj = await r1.json();
+      console.log('player data', pj);
+      setName(pj.name||'');
+      setFr(pj.fragments||[]);
+
+      console.log('> fetchReferral');
+      const ref = await fetchReferral(tok);
+      console.log('referral', ref);
+      setCode(ref.refCode);
+      setInv(ref.invitedCount);
+      setRw(ref.rewardIssued);
+
+    } catch (e) {
+      console.error('Error loading profile/referral', e);
+      setErr('Failed to load');
+    } finally {
+      console.log('done loading');
+      setLoad(false);
     }
+  })();
 
-    (async () => {
-      try {
-        // 1) Получаем профиль
-        const resp = await fetch(
-          `${BACKEND}/api/player/${uid}`,
-          { headers: { Authorization: `Bearer ${tok}` } }
-        );
-        if (![200].includes(resp.status)) {
-          throw new Error();
-        }
-        const pj = await resp.json();
-        setName(pj.name || '');
-        setFr(pj.fragments || []);
-
-        // 2) Получаем данные реферальной программы
-        const { refCode, invitedCount, rewardIssued } = await fetchReferral(tok);
-        setCode(refCode);
-        setInv(invitedCount);
-        setRw(rewardIssued);
-      } catch {
-        setErr('Failed to load');
-      } finally {
-        setLoad(false);
-      }
-
-      // 3) Fire-and-forget: общая статистика
-      fetch(`${BACKEND}/api/stats/total_users`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      })
-        .then(r => r.ok ? r.json() : null)
-        .then(j => {
-          if (j && typeof j.total === 'number') {
-            setTotal(j.total);
-          }
-        })
-        .catch(() => {});
-    })();
-  }, [nav]);
+  // статистика
+  fetch(`${BACKEND}/api/stats/total_users`, {
+    headers: { Authorization:`Bearer ${tok}` }
+  })
+    .then(r => r.ok ? r.json() : null)
+    .then(j => { if (j) setTotal(j.total); })
+    .catch(()=>{});
+}, [nav]);
 
   /* ─── Helpers ───────────────────────────────────────── */
   const copy = async () => {
