@@ -49,39 +49,44 @@ export default function Profile() {
 
     (async () => {
       try {
-        // 1) профиль
-        const p = await fetch(`${BACKEND}/api/player/${uid}`, {
-          headers: { Authorization: `Bearer ${tok}` }
-        });
-        if ([401,403,404].includes(p.status)) {
+        // 1) Получаем профиль
+        const resp = await fetch(
+          `${BACKEND}/api/player/${uid}`,
+          { headers: { Authorization: `Bearer ${tok}` } }
+        );
+        if (![200].includes(resp.status)) {
           throw new Error();
         }
-        const pj = await p.json();
+        const pj = await resp.json();
         setName(pj.name || '');
         setFr(pj.fragments || []);
 
-        // 2) рефералка
-        const ref = await fetchReferral(tok);
-        setCode(ref.refCode);
-        setInv(ref.invitedCount);
-        setRw(ref.rewardIssued);
+        // 2) Получаем данные реферальной программы
+        const { refCode, invitedCount, rewardIssued } = await fetchReferral(tok);
+        setCode(refCode);
+        setInv(invitedCount);
+        setRw(rewardIssued);
       } catch {
         setErr('Failed to load');
       } finally {
         setLoad(false);
       }
 
-      // 3) общая статистика (fire-and-forget)
+      // 3) Fire-and-forget: общая статистика
       fetch(`${BACKEND}/api/stats/total_users`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       })
         .then(r => r.ok ? r.json() : null)
-        .then(j => j && setTotal(j.total))
+        .then(j => {
+          if (j && typeof j.total === 'number') {
+            setTotal(j.total);
+          }
+        })
         .catch(() => {});
     })();
   }, [nav]);
 
-  /* копировать код */
+  /* ─── Helpers ───────────────────────────────────────── */
   const copy = async () => {
     if (!refCode) return;
     try {
@@ -91,14 +96,13 @@ export default function Profile() {
     } catch {}
   };
 
-  /* забрать фрагмент */
   const claim = async () => {
     setCB(true);
     try {
       const tok = localStorage.getItem('token');
-      await claimReferral(tok);
+      const { fragment } = await claimReferral(tok);
       setRw(true);
-      alert('🎉 Free fragment received!');
+      alert(`🎉 You received fragment #${fragment}!`);
     } catch (e) {
       alert(e.message);
     } finally {
@@ -106,7 +110,6 @@ export default function Profile() {
     }
   };
 
-  /* удалить профиль */
   const delProfile = async () => {
     setBusy(true);
     setDErr('');
@@ -124,6 +127,7 @@ export default function Profile() {
     }
   };
 
+  /* ─── Guards ────────────────────────────────────────── */
   if (loading) return <div style={S.page}><p style={S.load}>Loading…</p></div>;
   if (error)   return <div style={S.page}><p style={S.err}>{error}</p></div>;
 
@@ -136,17 +140,15 @@ export default function Profile() {
         <h2 style={S.h}>{name}</h2>
         <p style={S.sub}>Fragments {frags.length}/8</p>
 
-        {rows.map((r,i) => (
+        {rows.map((r,i)=>(
           <div key={i} style={S.row}>
-            {r.map(id => (
+            {r.map(id=>(
               <div key={id} style={S.slot}>
                 {frags.includes(id) && (
                   <img
                     src={`/fragments/fragment_${id}_${SLUG[id-1]}.webp`}
                     style={S.img}
-                    onClick={() =>
-                      setZoom(`/fragments/fragment_${id}_${SLUG[id-1]}.webp`)
-                    }
+                    onClick={()=>setZoom(`/fragments/fragment_${id}_${SLUG[id-1]}.webp`)}
                   />
                 )}
               </div>
@@ -154,12 +156,14 @@ export default function Profile() {
           </div>
         ))}
 
-        <button style={S.act} onClick={() => nav('/path')}>🔥 Burn Again</button>
+        <button style={S.act} onClick={()=>nav('/path')}>
+          🔥 Burn Again
+        </button>
 
         <div style={S.refBox}>
           <p style={S.refLabel}>Your referral code</p>
           <div style={S.refCodeRow}>
-            <span   style={S.refCode}>{refCode || '—'}</span>
+            <span style={S.refCode}>{refCode || '—'}</span>
             <button style={S.copyBtn} onClick={copy}>
               {copied ? 'Copied' : 'Copy'}
             </button>
@@ -174,36 +178,34 @@ export default function Profile() {
         </div>
 
         {total !== null && (
-          <p style={S.count}>
-            Ash Seekers: {total.toLocaleString()}
-          </p>
+          <p style={S.count}>Ash Seekers: {total.toLocaleString()}</p>
         )}
 
         {frags.length === 8 && (
-          <button style={{...S.act,marginTop:6,fontSize:16}}
-                  onClick={() => nav('/final')}>
+          <button
+            style={{ ...S.act, marginTop:6, fontSize:16 }}
+            onClick={()=>nav('/final')}>
             🗝 Enter Final Phrase
           </button>
         )}
 
-        <div style={{flexGrow:1}}/>
-        <button style={S.del} onClick={() => setAsk(true)}>
+        <div style={{ flexGrow:1 }}/>
+        <button style={S.del} onClick={()=>setAsk(true)}>
           Delete profile
         </button>
       </div>
 
       {ask && (
-        <div style={S.wrap} onClick={() => !busy && setAsk(false)}>
-          <div style={S.box} onClick={e => e.stopPropagation()}>
-            <p style={{margin:'0 0 12px',fontSize:17}}>
+        <div style={S.wrap} onClick={()=>!busy&&setAsk(false)}>
+          <div style={S.box} onClick={e=>e.stopPropagation()}>
+            <p style={{ margin:'0 0 12px', fontSize:17 }}>
               Delete profile permanently?
             </p>
-            {dErr && <p style={{color:'#f66',fontSize:14}}>{dErr}</p>}
+            {dErr && <p style={{ color:'#f66', fontSize:14 }}>{dErr}</p>}
             <button style={S.ok} disabled={busy} onClick={delProfile}>
               {busy ? 'Deleting…' : 'Yes, delete'}
             </button>
-            <button style={S.cancel} disabled={busy}
-                    onClick={() => setAsk(false)}>
+            <button style={S.cancel} disabled={busy} onClick={()=>setAsk(false)}>
               Cancel
             </button>
           </div>
@@ -211,196 +213,71 @@ export default function Profile() {
       )}
 
       {zoomSrc && (
-        <div style={S.zoomWrap} onClick={() => setZoom('')}>
-          <img src={zoomSrc} style={S.zoomImg}
-               onClick={() => setZoom('')} />
+        <div style={S.zoomWrap} onClick={()=>setZoom('')}>
+          <img
+            src={zoomSrc}
+            style={S.zoomImg}
+            onClick={()=>setZoom('')}
+          />
         </div>
       )}
     </div>
   );
 }
 
-
-/* ── styles ───────────────────────────────────────────────── */
+/* ── Styles ───────────────────────────────────────────── */
 const S = {
-  page: {
-    minHeight: '100vh',
-    background: 'url("/profile-bg.webp") center/cover',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
-    color: '#d4af37',
-    fontFamily: 'serif',
-  },
-  load: { fontSize: 18 },
-  err:  { fontSize: 16, color: '#f66' },
+  page:{ minHeight:'100vh', background:'url("/profile-bg.webp") center/cover',
+         display:'flex',justifyContent:'center',alignItems:'center',
+         padding:16,color:'#d4af37',fontFamily:'serif' },
+  load:{ fontSize:18 }, err:{ fontSize:16,color:'#f66' },
 
-  card: {
-    width: '100%',
-    maxWidth: 360,
-    minHeight: 520,
-    background: 'rgba(0,0,0,0.55)',
-    padding: 20,
-    borderRadius: 8,
-    display: 'flex',
-    flexDirection: 'column',
-    textAlign: 'center',
-  },
-  h:   { margin: 0, fontSize: 26 },
-  sub: { fontSize: 14, margin: '6px 0 18px', opacity: .85 },
+  card:{ width:'100%',maxWidth:360,minHeight:520,background:'rgba(0,0,0,0.55)',
+         padding:20,borderRadius:8,display:'flex',flexDirection:'column',
+         textAlign:'center' },
+  h:{ margin:0,fontSize:26 }, sub:{ fontSize:14,margin:'6px 0 18px',
+                                     opacity:.85 },
 
-  row: { display: 'flex', gap: 6, marginBottom: 6 },
-  slot:{
-    flex: '1 1 0',
-    aspectRatio: '1/1',
-    background: '#111',
-    border: '1px solid #d4af37',
-    borderRadius: 6,
-    overflow: 'hidden',
-  },
-  img:{
-    width: '100%',
-    height: '100%',
-    objectFit: 'cover',
-    cursor: 'pointer',
-  },
+  row:{ display:'flex',gap:6,marginBottom:6 },
+  slot:{ flex:'1 1 0',aspectRatio:'1/1',background:'#111',
+         border:'1px solid #d4af37',borderRadius:6,overflow:'hidden' },
+  img:{ width:'100%',height:'100%',objectFit:'cover',cursor:'pointer' },
 
-  refBox:{
-    background: 'rgba(0,0,0,0.6)',
-    border: '1px solid #d4af37',
-    borderRadius: 8,
-    boxShadow: '0 0 8px rgba(0,0,0,0.5)',
-    padding: 16,
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: 8,
-    margin: '24px 0',
-  },
-  refLabel:{ margin: 0, fontSize: 14, opacity: .8 },
-  refCodeRow:{
-    display: 'flex',
-    alignItems: 'center',
-    gap: 12,
-  },
-  refCode:{
-    fontSize: 18,
-    fontWeight: 600,
-    color: '#d4af37',
-  },
-  copyBtn:{
-    padding: '6px 12px',
-    fontSize: 13,
-    border: 'none',
-    borderRadius: 4,
-    background: '#d4af37',
-    color: '#000',
-    cursor: 'pointer',
-  },
-  progress:{
-    margin: 0,
-    fontSize: 13,
-    opacity: .85,
-  },
-  claim:{
-    marginTop: 10,
-    padding: 10,
-    width: '100%',
-    fontSize: 14,
-    border: 'none',
-    borderRadius: 6,
-    background: '#6BCB77',
-    color: '#000',
-    cursor: 'pointer',
-  },
-  claimed: { marginTop: 10, fontSize: 13, color: '#6BCB77' },
+  refBox:{ background:'rgba(0,0,0,0.6)',border:'1px solid #d4af37',
+           borderRadius:8,boxShadow:'0 0 8px rgba(0,0,0,0.5)',
+           padding:16,display:'flex',flexDirection:'column',
+           alignItems:'center',gap:8,margin:'24px 0' },
+  refLabel:{ margin:0,fontSize:14,opacity:.8 },
+  refCodeRow:{ display:'flex',alignItems:'center',gap:12 },
+  refCode:{ fontSize:18,fontWeight:600,color:'#d4af37' },
+  copyBtn:{ padding:'6px 12px',fontSize:13,border:'none',
+            borderRadius:4,background:'#d4af37',color:'#000',
+            cursor:'pointer' },
+  progress:{ margin:0,fontSize:13,opacity:.85 },
+  claim:{ marginTop:10,padding:10,width:'100%',fontSize:14,
+          border:'none',borderRadius:6,background:'#6BCB77',
+          color:'#000',cursor:'pointer' },
+  claimed:{ marginTop:10,fontSize:13,color:'#6BCB77' },
 
-  count:{ fontSize: 14, margin: '14px 0 18px', opacity: .85 },
-  act:  {
-    padding: 10,
-    fontSize: 15,
-    borderRadius: 6,
-    border: 'none',
-    background: '#d4af37',
-    color: '#000',
-    cursor: 'pointer',
-  },
-  del: {
-    padding: 10,
-    fontSize: 14,
-    borderRadius: 6,
-    border: 'none',
-    background: '#a00',
-    color: '#fff',
-    cursor: 'pointer',
-    marginTop: 8,
-  },
+  count:{ fontSize:14,margin:'14px 0 18px',opacity:.85 },
+  act:{ padding:10,fontSize:15,borderRadius:6,border:'none',
+        background:'#d4af37',color:'#000',cursor:'pointer' },
+  del:{ padding:10,fontSize:14,borderRadius:6,border:'none',
+        background:'#a00',color:'#fff',cursor:'pointer',marginTop:8 },
 
-  wrap:{
-    position: 'fixed',
-    inset: 0,
-    background: '#0007',
-    backdropFilter: 'blur(4px)',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 40,
-  },
-  box:{
-    background: '#222',
-    padding: 24,
-    borderRadius: 10,
-    width: 300,
-    color: '#fff',
-    textAlign: 'center',
-  },
-  ok:{
-    width: '100%',
-    padding: 10,
-    fontSize: 15,
-    border: 'none',
-    borderRadius: 6,
-    background: '#d4af37',
-    color: '#000',
-    cursor: 'pointer',
-  },
-  cancel:{
-    width: '100%',
-    padding: 10,
-    fontSize: 14,
-    marginTop: 10,
-    border: 'none',
-    borderRadius: 6,
-    background: '#555',
-    color: '#fff',
-    cursor: 'pointer',
-  },
+  wrap:{ position:'fixed',inset:0,background:'#0007',
+         backdropFilter:'blur(4px)',display:'flex',
+         justifyContent:'center',alignItems:'center',zIndex:40 },
+  box:{ background:'#222',padding:24,borderRadius:10,width:300,
+        color:'#fff',textAlign:'center' },
+  ok:{ width:'100%',padding:10,fontSize:15,border:'none',
+       borderRadius:6,background:'#d4af37',color:'#000',
+       cursor:'pointer' },
+  cancel:{ width:'100%',padding:10,fontSize:14,marginTop:10,
+           border:'none',borderRadius:6,background:'#555',
+           color:'#fff',cursor:'pointer' },
 
-  zoomWrap:{
-    position: 'fixed',
-    inset: 0,
-    background: '#000d',
-    zIndex: 60,
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  zoomImg:{
-    maxWidth: '90vw',
-    maxHeight: '86vh',
-    borderRadius: 10,
-  },
-  close:{
-    position: 'fixed',
-    top: 16,
-    right: 14,
-    fontSize: 34,
-    lineHeight: '28px',
-    background: 'none',
-    border: 'none',
-    color: '#fff',
-    cursor: 'pointer',
-    zIndex: 61,
-  },
+  zoomWrap:{ position:'fixed',inset:0,background:'#000d',zIndex:60,
+             display:'flex',justifyContent:'center',alignItems:'center' },
+  zoomImg:{ maxWidth:'90vw',maxHeight:'86vh',borderRadius:10 },
 };

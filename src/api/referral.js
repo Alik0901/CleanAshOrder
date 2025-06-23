@@ -3,8 +3,9 @@ const BACKEND =
   'https://ash-backend-production.up.railway.app';
 
 /**
- * Получить сводку по рефералам (tg_id берётся из JWT).
+ * Получить сводку по рефералам (tg_id определяется из JWT)
  * @param {string} token — JWT из localStorage
+ * @returns {Promise<{ refCode: string|null, invitedCount: number, rewardIssued: boolean }>}
  */
 export async function fetchReferral(token) {
   if (!token) {
@@ -12,13 +13,15 @@ export async function fetchReferral(token) {
   }
 
   const res = await fetch(`${BACKEND}/api/referral`, {
-    method: 'GET',
-    headers: { Authorization: `Bearer ${token}` }
+    headers: { 'Authorization': `Bearer ${token}` }
   });
 
-  const body = await res.json().catch(() => {
+  let body;
+  try {
+    body = await res.json();
+  } catch {
     throw new Error(`Ошибка разбора ответа: HTTP ${res.status}`);
-  });
+  }
 
   if (!res.ok) {
     throw new Error(body.error || `Ошибка ${res.status}`);
@@ -32,8 +35,9 @@ export async function fetchReferral(token) {
 }
 
 /**
- * Запрос на получение бесплатного фрагмента.
+ * Запрос на получение бесплатного фрагмента
  * @param {string} token — JWT из localStorage
+ * @returns {Promise<{ ok: boolean, fragment: number|null }>}
  */
 export async function claimReferral(token) {
   if (!token) {
@@ -42,19 +46,22 @@ export async function claimReferral(token) {
 
   const res = await fetch(`${BACKEND}/api/referral/claim`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}` }
+    headers: { 'Authorization': `Bearer ${token}` }
   });
 
-  const body = await res.json().catch(() => {
+  let body;
+  try {
+    body = await res.json();
+  } catch {
     throw new Error(`Ошибка разбора ответа: HTTP ${res.status}`);
-  });
+  }
 
   if (!res.ok) {
     throw new Error(body.error || `Ошибка ${res.status}`);
   }
 
   return {
-    ok:       body.ok       === true,
+    ok:       body.ok === true,
     fragment: body.fragment ?? null
   };
 }
