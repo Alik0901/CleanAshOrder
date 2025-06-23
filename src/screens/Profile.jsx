@@ -1,99 +1,87 @@
-/*  src/screens/Profile.jsx – v3.6
-    • исправлена структура JSX
-    • убраны дубли «Invited»
-    • отрисовка refCode как текста в рамке
-    • зум по клику, плавное закрытие
-*/
-
 import React, { useEffect, useState } from 'react';
 import { useNavigate }        from 'react-router-dom';
-import { fetchReferral,
-         claimReferral }      from '../api/referral.js';
+import { fetchReferral, claimReferral } from '../api/referral.js';
 
 const BACKEND =
   import.meta.env.VITE_BACKEND_URL ??
   'https://ash-backend-production.up.railway.app';
 
 const SLUG = [
-  'the_whisper', 'the_number', 'the_language', 'the_mirror',
-  'the_chain', 'the_hour', 'the_mark', 'the_gate'
+  'the_whisper','the_number','the_language','the_mirror',
+  'the_chain','the_hour','the_mark','the_gate'
 ];
 
 export default function Profile() {
   const nav = useNavigate();
 
-  /* base */
+  /* базовый стейт */
   const [loading, setLoad] = useState(true);
   const [error,   setErr ] = useState('');
   const [name,    setName] = useState('');
   const [frags,   setFr  ] = useState([]);
 
-  /* stats */
+  /* общая статистика */
   const [total, setTotal] = useState(null);
 
-  /* referral */
-  const [refCode, setCode ] = useState('');
-  const [invCnt,  setInv  ] = useState(0);
-  const [reward,  setRw   ] = useState(false);
-  const [claimB,  setCB   ] = useState(false);
-  const [copied,  setCp   ] = useState(false);
+  /* реферальная программа */
+  const [refCode, setCode] = useState('');
+  const [invCnt,  setInv ] = useState(0);
+  const [reward,  setRw  ] = useState(false);
+  const [claimB,  setCB  ] = useState(false);
+  const [copied,  setCp  ] = useState(false);
 
-  /* delete */
+  /* удаление профиля */
   const [ask,  setAsk ] = useState(false);
   const [busy, setBusy] = useState(false);
   const [dErr, setDErr] = useState('');
 
-  /* zoom */
+  /* зум-фрагмент */
   const [zoomSrc, setZoom] = useState('');
 
-  /* ─── load once ───────────────────────────────────── */
   useEffect(() => {
     const uid = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
     const tok = localStorage.getItem('token');
-    if (!uid) { nav('/init'); return; }
+    if (!uid || !tok) {
+      localStorage.removeItem('token');
+      nav('/init');
+      return;
+    }
 
     (async () => {
       try {
+        // 1) профиль
         const p = await fetch(`${BACKEND}/api/player/${uid}`, {
-          headers: { Authorization: tok ? `Bearer ${tok}` : undefined }
+          headers: { Authorization: `Bearer ${tok}` }
         });
-
         if ([401,403,404].includes(p.status)) {
-          localStorage.removeItem('token');
-          nav('/init');
-          return;
+          throw new Error();
         }
-        if (!p.ok) throw new Error();
-
         const pj = await p.json();
-        setName(pj.name ?? '');
-        setFr(pj.fragments ?? []);
+        setName(pj.name || '');
+        setFr(pj.fragments || []);
 
-        if (tok) {
-          try {
-            const ref = await fetchReferral(uid, tok);
-            setCode(ref.refCode ?? '');
-            setInv(ref.invitedCount ?? 0);
-            setRw(ref.rewardIssued ?? false);
-          } catch { /* optional */ }
-        }
+        // 2) рефералка
+        const ref = await fetchReferral(tok);
+        setCode(ref.refCode);
+        setInv(ref.invitedCount);
+        setRw(ref.rewardIssued);
       } catch {
         setErr('Failed to load');
       } finally {
         setLoad(false);
       }
 
-      // fire-and-forget stats
+      // 3) общая статистика (fire-and-forget)
       fetch(`${BACKEND}/api/stats/total_users`, {
-        headers: { Authorization: tok ? `Bearer ${tok}` : undefined }
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       })
-      .then(r => r.ok ? r.json() : null)
-      .then(j => j && setTotal(j.total))
-      .catch(() => {});
+        .then(r => r.ok ? r.json() : null)
+        .then(j => j && setTotal(j.total))
+        .catch(() => {});
     })();
   }, [nav]);
 
-  /* ─── helpers ───────────────────────────────────────── */
+  /* копировать код */
   const copy = async () => {
     if (!refCode) return;
     try {
@@ -103,6 +91,7 @@ export default function Profile() {
     } catch {}
   };
 
+  /* забрать фрагмент */
   const claim = async () => {
     setCB(true);
     try {
@@ -110,7 +99,6 @@ export default function Profile() {
       await claimReferral(tok);
       setRw(true);
       alert('🎉 Free fragment received!');
-      window.location.reload();
     } catch (e) {
       alert(e.message);
     } finally {
@@ -118,15 +106,15 @@ export default function Profile() {
     }
   };
 
+  /* удалить профиль */
   const delProfile = async () => {
     setBusy(true);
     setDErr('');
     try {
-      const uid = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
-      const tok = localStorage.getItem('token');
+      const uid = window.Telegram.WebApp.initDataUnsafe.user.id;
       await fetch(`${BACKEND}/api/player/${uid}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${tok}` }
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       localStorage.clear();
       nav('/');
@@ -136,16 +124,10 @@ export default function Profile() {
     }
   };
 
-  /* ─── guards ────────────────────────────────────────── */
-  if (loading) {
-    return <div style={S.page}><p style={S.load}>Loading…</p></div>;
-  }
-  if (error) {
-    return <div style={S.page}><p style={S.err}>{error}</p></div>;
-  }
+  if (loading) return <div style={S.page}><p style={S.load}>Loading…</p></div>;
+  if (error)   return <div style={S.page}><p style={S.err}>{error}</p></div>;
 
-  /* ─── render ───────────────────────────────────────── */
-  const rows     = [[1,2,3,4], [5,6,7,8]];
+  const rows     = [[1,2,3,4],[5,6,7,8]];
   const progress = Math.min(invCnt, 3);
 
   return (
@@ -172,95 +154,72 @@ export default function Profile() {
           </div>
         ))}
 
-        <button style={S.act} onClick={() => nav('/path')}>
-          🔥 Burn Again
-        </button>
+        <button style={S.act} onClick={() => nav('/path')}>🔥 Burn Again</button>
 
-        {/* Referral box */}
         <div style={S.refBox}>
           <p style={S.refLabel}>Your referral code</p>
           <div style={S.refCodeRow}>
-            <span style={S.refCode}>{refCode || '—'}</span>
+            <span   style={S.refCode}>{refCode || '—'}</span>
             <button style={S.copyBtn} onClick={copy}>
               {copied ? 'Copied' : 'Copy'}
             </button>
           </div>
-          <p style={S.progress}>
-            Invited {progress}/3
-          </p>
+          <p style={S.progress}>Invited {progress}/3</p>
           {progress >= 3 && !reward && (
             <button style={S.claim} disabled={claimB} onClick={claim}>
               {claimB ? 'Processing…' : 'Claim free fragment'}
             </button>
           )}
-          {reward && (
-            <p style={S.claimed}>
-              Reward already claimed ✅
-            </p>
-          )}
+          {reward && <p style={S.claimed}>Reward already claimed ✅</p>}
         </div>
 
         {total !== null && (
           <p style={S.count}>
-            Ash Seekers:&nbsp;{total.toLocaleString()}
+            Ash Seekers: {total.toLocaleString()}
           </p>
         )}
 
         {frags.length === 8 && (
-          <button
-            style={{ ...S.act, marginTop: 6, fontSize: 16 }}
-            onClick={() => nav('/final')}
-          >
+          <button style={{...S.act,marginTop:6,fontSize:16}}
+                  onClick={() => nav('/final')}>
             🗝 Enter Final Phrase
           </button>
         )}
 
-        <div style={{ flexGrow: 1 }} />
-
+        <div style={{flexGrow:1}}/>
         <button style={S.del} onClick={() => setAsk(true)}>
           Delete profile
         </button>
       </div>
 
-      {/* Delete confirmation */}
       {ask && (
         <div style={S.wrap} onClick={() => !busy && setAsk(false)}>
           <div style={S.box} onClick={e => e.stopPropagation()}>
-            <p style={{ margin: '0 0 12px', fontSize: 17 }}>
+            <p style={{margin:'0 0 12px',fontSize:17}}>
               Delete profile permanently?
             </p>
-            {dErr && (
-              <p style={{ color: '#f66', fontSize: 14 }}>
-                {dErr}
-              </p>
-            )}
+            {dErr && <p style={{color:'#f66',fontSize:14}}>{dErr}</p>}
             <button style={S.ok} disabled={busy} onClick={delProfile}>
               {busy ? 'Deleting…' : 'Yes, delete'}
             </button>
-            <button
-              style={S.cancel}
-              disabled={busy}
-              onClick={() => setAsk(false)}
-            >
+            <button style={S.cancel} disabled={busy}
+                    onClick={() => setAsk(false)}>
               Cancel
             </button>
           </div>
         </div>
       )}
 
-      {/* Zoom overlay */}
       {zoomSrc && (
         <div style={S.zoomWrap} onClick={() => setZoom('')}>
-          <img
-            src={zoomSrc}
-            style={S.zoomImg}
-            onClick={() => setZoom('')}
-          />
+          <img src={zoomSrc} style={S.zoomImg}
+               onClick={() => setZoom('')} />
         </div>
       )}
     </div>
-);
+  );
 }
+
 
 /* ── styles ───────────────────────────────────────────────── */
 const S = {
