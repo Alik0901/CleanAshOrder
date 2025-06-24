@@ -1,10 +1,8 @@
-/*  src/screens/Path.jsx – v5.4  (исправленный полностью)
+/*  src/screens/Path.jsx – v5.5  (добавлено восстановление pending при reload)
     ───────────────────────────────────────────────────────
-    • Живой авто-refresh JWT при 401
-    • Повторный create-invoice не сбрасывает pending
-    • Авто-polling и ручная кнопка «Check status»
-    • Модалка «0.5 TON» и анимация фрагмента
-    • Стили и разметка как в вашей версии v5.3
+    • При монтировании: если в localStorage есть invoiceId,
+      автоматически возобновляется ожидание оплаты и polling.
+    • Остальное без изменений (как в v5.4).
 */
 
 import React, { useEffect, useRef, useState } from 'react';
@@ -148,13 +146,11 @@ function Debug() {
 }
 
 /* ---------- helpers ----------------------------------------------- */
-// Сохраняем новый JWT из заголовка
 const saveToken = res => {
   const h = res.headers.get('Authorization') || '';
   if (h.startsWith('Bearer ')) localStorage.setItem('token', h.slice(7));
 };
 
-// Повторный init для refresh token
 async function refreshToken(tgId, initData) {
   const r = await fetch(`${BACKEND}/api/init`, {
     method: 'POST',
@@ -211,7 +207,7 @@ export default function Path() {
     const token = localStorage.getItem('token');
     if (!token) { nav('/init'); return; }
 
-    // загрузить last_burn и curse_expires
+    // 1) load cooldown/curse
     (async () => {
       try {
         const r = await fetch(`${BACKEND}/api/player/${user.id}`, {
@@ -224,7 +220,17 @@ export default function Path() {
       } catch {}
     })();
 
-    const timer = setInterval(() => setCd(s => s>0? s-1:0), 1000);
+    // 2) восстановить pending-инвойс
+    const invId = localStorage.getItem('invoiceId');
+    if (invId) {
+      setWait(true);
+      setHubUrl(localStorage.getItem('paymentUrl') || '');
+      setTonUrl(localStorage.getItem('tonspaceUrl') || '');
+      pollRef.current = setInterval(() => checkStatus(invId), 5000);
+    }
+
+    // 3) cooldown ticker
+    const timer = setInterval(() => setCd(s => s>0?s-1:0), 1000);
     return () => clearInterval(timer);
   }, [nav]);
 
@@ -248,13 +254,13 @@ export default function Path() {
       saveToken(r);
       const j = await r.json();
       if (!r.ok) throw new Error(j.error||'invoice');
+
       setHubUrl(j.paymentUrl);
       setTonUrl(j.tonspaceUrl);
       localStorage.setItem('invoiceId',  j.invoiceId);
       localStorage.setItem('paymentUrl', j.paymentUrl);
       localStorage.setItem('tonspaceUrl',j.tonspaceUrl);
 
-      // сразу открываем
       if (PLATFORM==='android' && j.tonspaceUrl) open(j.tonspaceUrl);
       else open(j.paymentUrl);
 
@@ -313,7 +319,7 @@ export default function Path() {
     }
   };
 
-  /* после окончания анимации скрываем фрагмент */
+  /* после анимации скрываем фрагмент */
   useEffect(() => {
     if (fragLoaded) {
       const t = setTimeout(() => { setFragUrl(''); setFragLoaded(false); }, 2300);
@@ -394,7 +400,7 @@ export default function Path() {
             Open in Tonhub
           </button>
           <button
-            style={{...S.btn,...S.sec, marginTop: 0}}
+            style={{...S.btn,...S.sec, marginTop:0}}
             onClick={()=> {
               const inv = localStorage.getItem('invoiceId');
               if(inv) checkStatus(inv);
