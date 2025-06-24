@@ -1,10 +1,4 @@
-/*  src/screens/Path.jsx – v5.5  (добавлено восстановление pending при reload)
-    ───────────────────────────────────────────────────────
-    • При монтировании: если в localStorage есть invoiceId,
-      автоматически возобновляется ожидание оплаты и polling.
-    • Остальное без изменений (как в v5.4).
-*/
-
+/*  src/screens/Path.jsx – v5.6  (исправлено: не открываем ссылки при ресторе pending) */
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -29,19 +23,6 @@ const FRAG_IMG = {
   8: 'fragment_8_the_gate.webp',
 };
 
-/* keyframes */
-const styleTag = (
-  <style>{`
-    @keyframes fly{
-      0%  {opacity:0;transform:translate(-50%,-50%) scale(.3);}
-      15% {opacity:1;transform:translate(-50%,-50%) scale(1);}
-      65% {opacity:1;transform:translate(-50%,-50%) scale(1);}
-      100%{opacity:0;transform:translate(-50%,280%) scale(.3);}
-    }
-  `}</style>
-);
-
-/* ---------- стили ----------------------------------------------- */
 const S = {
   page: {
     position: 'relative',
@@ -134,7 +115,17 @@ const S = {
   },
 };
 
-/* ---------- DEV overlay ------------------------------------------- */
+const styleTag = (
+  <style>{`
+    @keyframes fly{
+      0%  {opacity:0;transform:translate(-50%,-50%) scale(.3);}
+      15% {opacity:1;transform:translate(-50%,-50%) scale(1);}
+      65% {opacity:1;transform:translate(-50%,-50%) scale(1);}
+      100%{opacity:0;transform:translate(-50%,280%) scale(.3);}
+    }
+  `}</style>
+);
+
 function Debug() {
   const [log, setLog] = useState([]);
   useEffect(() => {
@@ -145,7 +136,6 @@ function Debug() {
   return <pre style={S.dbg}>{log.join('\n')}</pre>;
 }
 
-/* ---------- helpers ----------------------------------------------- */
 const saveToken = res => {
   const h = res.headers.get('Authorization') || '';
   if (h.startsWith('Bearer ')) localStorage.setItem('token', h.slice(7));
@@ -163,40 +153,33 @@ async function refreshToken(tgId, initData) {
   return true;
 }
 
-/* =================================================================== */
 export default function Path() {
   const nav     = useNavigate();
   const pollRef = useRef(null);
 
-  /* preload fragments */
-  useEffect(() => {
-    Object.values(FRAG_IMG).forEach(f => new Image().src = `/fragments/${f}`);
-  }, []);
-
-  /* ─── state ───────────────────────────────────────────────── */
-  const [tgId, setTgId]       = useState('');
+  const [tgId,    setTgId   ] = useState('');
   const [rawInit, setRawInit] = useState('');
-  const [cooldown, setCd]     = useState(0);
-  const [curse, setCurse]     = useState(null);
+  const [cd,      setCd     ] = useState(0);
+  const [curse,   setCurse  ] = useState(null);
 
-  const [busy,   setBusy]     = useState(false);
-  const [wait,   setWait]     = useState(false);
-  const [hubUrl, setHubUrl]   = useState('');
-  const [tonUrl, setTonUrl]   = useState('');
-  const [msg,    setMsg]      = useState('');
+  const [busy, setBusy]   = useState(false);
+  const [wait, setWait]   = useState(false);
+  const [hub,  setHub ]   = useState('');
+  const [ton,  setTon ]   = useState('');
+  const [msg,  setMsg ]   = useState('');
 
-  const [showModal, setModal]     = useState(false);
-  const [fragUrl,    setFragUrl]  = useState('');
-  const [fragLoaded, setFragLoaded]= useState(false);
+  const [showModal, setModal]        = useState(false);
+  const [fragUrl,    setFragUrl]     = useState('');
+  const [fragLoaded, setFragLoaded]  = useState(false);
 
   const COOLDOWN = 120;
-  const secLeft = t => Math.max(0,
+  const secLeft  = t => Math.max(0,
     COOLDOWN - Math.floor((Date.now() - new Date(t).getTime())/1000)
   );
   const fmt = s => `${String((s/60)|0).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
   const open = url => TG?.openLink?.(url,{try_instant_view:false}) || window.open(url,'_blank');
 
-  /* ─── mount ─────────────────────────────────────────────── */
+  /* mount: restore pending invoice, but DO NOT open links */
   useEffect(() => {
     const wa = TG?.initDataUnsafe;
     const user = wa?.user;
@@ -204,14 +187,15 @@ export default function Path() {
 
     setTgId(String(user.id));
     setRawInit(TG?.initData || '');
-    const token = localStorage.getItem('token');
-    if (!token) { nav('/init'); return; }
+    if (!localStorage.getItem('token')) {
+      nav('/init');
+      return;
+    }
 
-    // 1) load cooldown/curse
-    (async () => {
+    ;(async () => {
       try {
         const r = await fetch(`${BACKEND}/api/player/${user.id}`, {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
         const j = await r.json();
         if (j.last_burn) setCd(secLeft(j.last_burn));
@@ -220,21 +204,22 @@ export default function Path() {
       } catch {}
     })();
 
-    // 2) восстановить pending-инвойс
     const invId = localStorage.getItem('invoiceId');
     if (invId) {
       setWait(true);
-      setHubUrl(localStorage.getItem('paymentUrl') || '');
-      setTonUrl(localStorage.getItem('tonspaceUrl') || '');
+      setHub(localStorage.getItem('paymentUrl') || '');
+      setTon(localStorage.getItem('tonspaceUrl') || '');
       pollRef.current = setInterval(() => checkStatus(invId), 5000);
     }
 
-    // 3) cooldown ticker
     const timer = setInterval(() => setCd(s => s>0?s-1:0), 1000);
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(timer);
+      clearInterval(pollRef.current);
+    };
   }, [nav]);
 
-  /* ─── invoice creation & polling ───────────────────────────────── */
+  /* create invoice + auto-open */
   const createInvoice = async (retry = false) => {
     setBusy(true);
     setMsg('');
@@ -247,7 +232,7 @@ export default function Path() {
         },
         body: JSON.stringify({ tg_id: tgId }),
       });
-      if (r.status === 401 && !retry) {
+      if (r.status===401 && !retry) {
         const ok = await refreshToken(tgId, rawInit);
         if (ok) return createInvoice(true);
       }
@@ -255,12 +240,13 @@ export default function Path() {
       const j = await r.json();
       if (!r.ok) throw new Error(j.error||'invoice');
 
-      setHubUrl(j.paymentUrl);
-      setTonUrl(j.tonspaceUrl);
+      setHub(j.paymentUrl);
+      setTon(j.tonspaceUrl);
       localStorage.setItem('invoiceId',  j.invoiceId);
       localStorage.setItem('paymentUrl', j.paymentUrl);
       localStorage.setItem('tonspaceUrl',j.tonspaceUrl);
 
+      // вот здесь единственный open:
       if (PLATFORM==='android' && j.tonspaceUrl) open(j.tonspaceUrl);
       else open(j.paymentUrl);
 
@@ -279,12 +265,13 @@ export default function Path() {
     createInvoice();
   };
 
+  /* polling */
   const checkStatus = async id => {
     try {
       const r = await fetch(`${BACKEND}/api/burn-status/${id}`, {
         headers: { Authorization:`Bearer ${localStorage.getItem('token')}` }
       });
-      if (r.status === 401) {
+      if (r.status===401) {
         const ok = await refreshToken(tgId, rawInit);
         if (ok) return checkStatus(id);
       }
@@ -315,11 +302,10 @@ export default function Path() {
     } catch (e) {
       console.error(e);
       setMsg(e.message);
-      // остаёмся в pending
+      // остаёмся в wait, но без повторного open
     }
   };
 
-  /* после анимации скрываем фрагмент */
   useEffect(() => {
     if (fragLoaded) {
       const t = setTimeout(() => { setFragUrl(''); setFragLoaded(false); }, 2300);
@@ -327,8 +313,7 @@ export default function Path() {
     }
   }, [fragLoaded]);
 
-  /* ─── render ─────────────────────────────────────────────── */
-  const disabled = busy || wait || cooldown>0 || curse;
+  const disabled = busy || wait || cd>0 || curse;
   const mainTxt  = busy
     ? 'Creating invoice…'
     : wait
@@ -375,8 +360,8 @@ export default function Path() {
             ⛔ Cursed until {new Date(curse).toLocaleString()}
           </p>
         )}
-        {!msg && !curse && cooldown>0 && (
-          <p style={S.stat}>⏳ Next burn in {fmt(cooldown)}</p>
+        {!msg && !curse && cd>0 && (
+          <p style={S.stat}>⏳ Next burn in {fmt(cd)}</p>
         )}
 
         <button
@@ -387,17 +372,21 @@ export default function Path() {
         </button>
 
         {wait && <>
-          {PLATFORM==='android' && tonUrl && (
-            <button
-              style={{...S.btn,...S.sec}}
-              onClick={()=>open(tonUrl)}>
+          {PLATFORM==='android' && ton && (
+            <button style={{...S.btn,...S.sec}} onClick={()=>open(ton)}>
               Continue in Telegram Wallet
             </button>
           )}
-          <button
-            style={{...S.btn,...S.sec}}
-            onClick={()=>open(hubUrl)}>
+          <button style={{...S.btn,...S.sec}} onClick={()=>open(hub)}>
             Open in Tonhub
+          </button>
+          <button
+            style={{...S.btn,...S.sec, marginTop:0}}
+            onClick={() => {
+              const inv = localStorage.getItem('invoiceId');
+              if (inv) checkStatus(inv);
+            }}>
+            Check status
           </button>
         </>}
 
