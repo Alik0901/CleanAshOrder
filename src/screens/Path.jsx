@@ -399,14 +399,6 @@ export default function Path() {
             onClick={()=>open(hubUrl)}>
             Open in Tonhub
           </button>
-          <button
-            style={{...S.btn,...S.sec, marginTop:0}}
-            onClick={()=> {
-              const inv = localStorage.getItem('invoiceId');
-              if(inv) checkStatus(inv);
-            }}>
-            Check status
-          </button>
         </>}
 
         <button
