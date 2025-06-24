@@ -1,4 +1,4 @@
-/*  src/screens/Path.jsx – v5.6  (исправлено: не открываем ссылки при ресторе pending) */
+/*  src/screens/Path.jsx – последняя рабочая версия */
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -7,9 +7,9 @@ const BACKEND =
   import.meta.env.VITE_BACKEND_URL ??
   'https://ash-backend-production.up.railway.app';
 
-const TG       = window.Telegram?.WebApp;
-const PLATFORM = TG?.platform ?? 'unknown';
-const DEV      = import.meta.env.DEV;
+const TG        = window.Telegram?.WebApp;
+const PLATFORM  = TG?.platform ?? 'unknown';
+const DEV       = import.meta.env.DEV;
 
 /* id → файл */
 const FRAG_IMG = {
@@ -23,6 +23,7 @@ const FRAG_IMG = {
   8: 'fragment_8_the_gate.webp',
 };
 
+/* ---------- стили ---------------------------------------------------- */
 const S = {
   page: {
     position: 'relative',
@@ -136,6 +137,7 @@ function Debug() {
   return <pre style={S.dbg}>{log.join('\n')}</pre>;
 }
 
+/* ---------- helpers ----------------------------------------------- */
 const saveToken = res => {
   const h = res.headers.get('Authorization') || '';
   if (h.startsWith('Bearer ')) localStorage.setItem('token', h.slice(7));
@@ -153,10 +155,20 @@ async function refreshToken(tgId, initData) {
   return true;
 }
 
+/* =================================================================== */
 export default function Path() {
   const nav     = useNavigate();
   const pollRef = useRef(null);
 
+  /* preload fragments once */
+  useEffect(() => {
+    Object.values(FRAG_IMG).forEach(f => {
+      const img = new Image();
+      img.src = `/fragments/${f}`;
+    });
+  }, []);
+
+  /* ─── state ───────────────────────────────────────────────── */
   const [tgId,    setTgId   ] = useState('');
   const [rawInit, setRawInit] = useState('');
   const [cd,      setCd     ] = useState(0);
@@ -173,37 +185,37 @@ export default function Path() {
   const [fragLoaded, setFragLoaded]  = useState(false);
 
   const COOLDOWN = 120;
-  const secLeft  = t => Math.max(0,
-    COOLDOWN - Math.floor((Date.now() - new Date(t).getTime())/1000)
-  );
+  const secLeft = t => Math.max(0,
+    COOLDOWN - Math.floor((Date.now() - new Date(t).getTime()) / 1000));
   const fmt = s => `${String((s/60)|0).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
-  const open = url => TG?.openLink?.(url,{try_instant_view:false}) || window.open(url,'_blank');
+  const open = url =>
+    TG?.openLink?.(url, { try_instant_view: false }) || window.open(url, '_blank');
 
-  /* mount: restore pending invoice, but DO NOT open links */
+  /* ─── mount ─────────────────────────────────────────────── */
   useEffect(() => {
     const wa = TG?.initDataUnsafe;
-    const user = wa?.user;
-    if (!user?.id) { nav('/init'); return; }
+    const u  = wa?.user;
+    if (!u?.id) { nav('/init'); return; }
 
-    setTgId(String(user.id));
+    setTgId(String(u.id));
     setRawInit(TG?.initData || '');
-    if (!localStorage.getItem('token')) {
-      nav('/init');
-      return;
-    }
 
-    ;(async () => {
+    if (!localStorage.getItem('token')) { nav('/init'); return; }
+
+    /* load cooldown / curse */
+    (async () => {
       try {
-        const r = await fetch(`${BACKEND}/api/player/${user.id}`, {
+        const r = await fetch(`${BACKEND}/api/player/${u.id}`, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
         const j = await r.json();
         if (j.last_burn) setCd(secLeft(j.last_burn));
         if (j.curse_expires && new Date(j.curse_expires) > new Date())
           setCurse(j.curse_expires);
-      } catch {}
+      } catch { /* ignore */ }
     })();
 
+    /* restore pending invoice */
     const invId = localStorage.getItem('invoiceId');
     if (invId) {
       setWait(true);
@@ -212,14 +224,14 @@ export default function Path() {
       pollRef.current = setInterval(() => checkStatus(invId), 5000);
     }
 
-    const timer = setInterval(() => setCd(s => s>0?s-1:0), 1000);
+    const timer = setInterval(() => setCd(s => (s > 0 ? s - 1 : 0)), 1000);
     return () => {
       clearInterval(timer);
       clearInterval(pollRef.current);
     };
   }, [nav]);
 
-  /* create invoice + auto-open */
+  /* ─── invoice ---------------------------------------------------- */
   const createInvoice = async (retry = false) => {
     setBusy(true);
     setMsg('');
@@ -246,7 +258,7 @@ export default function Path() {
       localStorage.setItem('paymentUrl', j.paymentUrl);
       localStorage.setItem('tonspaceUrl',j.tonspaceUrl);
 
-      // вот здесь единственный open:
+      // единственный open при создании
       if (PLATFORM==='android' && j.tonspaceUrl) open(j.tonspaceUrl);
       else open(j.paymentUrl);
 
@@ -265,7 +277,7 @@ export default function Path() {
     createInvoice();
   };
 
-  /* polling */
+  /* ─── polling ----------------------------------------------------- */
   const checkStatus = async id => {
     try {
       const r = await fetch(`${BACKEND}/api/burn-status/${id}`, {
@@ -302,10 +314,11 @@ export default function Path() {
     } catch (e) {
       console.error(e);
       setMsg(e.message);
-      // остаёмся в wait, но без повторного open
+      // остаёмся в wait
     }
   };
 
+  /* скрытие анимации фрагмента */
   useEffect(() => {
     if (fragLoaded) {
       const t = setTimeout(() => { setFragUrl(''); setFragLoaded(false); }, 2300);
@@ -313,6 +326,7 @@ export default function Path() {
     }
   }, [fragLoaded]);
 
+  /* ─── render ─────────────────────────────────────────────── */
   const disabled = busy || wait || cd>0 || curse;
   const mainTxt  = busy
     ? 'Creating invoice…'
@@ -320,93 +334,98 @@ export default function Path() {
       ? 'Waiting for payment…'
       : '🔥 Burn Yourself for 0.5 TON';
 
-  return <>
-    {styleTag}
+  return (
+    <>
+      {styleTag}
 
-    {showModal && (
-      <div style={S.modalWrap} onClick={()=>setModal(false)}>
-        <div style={S.modal} onClick={e=>e.stopPropagation()}>
-          <h3>⚠️ Important</h3>
-          <p>
-            Send <b>exactly 0.5 TON</b>.<br/>
-            Any other amount will <b>not be recognised</b> and will be lost.
-          </p>
+      {/* Modal */}
+      {showModal && (
+        <div style={S.modalWrap} onClick={()=>setModal(false)}>
+          <div style={S.modal} onClick={e=>e.stopPropagation()}>
+            <h3>⚠️ Important</h3>
+            <p>
+              Send <b>exactly 0.5 TON</b>.<br/>
+              Any other amount will <b>not be recognised</b> and will be lost.
+            </p>
+            <button
+              style={{ ...S.mBtn, background:'#d4af37', color:'#000' }}
+              onClick={burn}>
+              I understand, continue
+            </button>
+            <button
+              style={{ ...S.mBtn, background:'#333', color:'#fff' }}
+              onClick={()=>setModal(false)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Main card */}
+      <div style={S.page}>
+        <div style={S.card}>
+          <h2 style={S.h2}>The Path Begins</h2>
+          <p style={S.sub}>Ready to burn yourself.</p>
+
+          {msg && (
+            <p style={{ ...S.stat, ...(msg.startsWith('🔥') ? S.ok : S.bad) }}>
+              {msg}
+            </p>
+          )}
+          {!msg && curse && (
+            <p style={S.stat}>
+              ⛔ Cursed until {new Date(curse).toLocaleString()}
+            </p>
+          )}
+          {!msg && !curse && cd>0 && (
+            <p style={S.stat}>⏳ Next burn in {fmt(cd)}</p>
+          )}
+
           <button
-            style={{ ...S.mBtn, background:'#d4af37', color:'#000' }}
-            onClick={burn}>
-            I understand, continue
+            style={{ ...S.btn, ...S.prim, opacity: disabled?0.6:1 }}
+            disabled={disabled}
+            onClick={()=>setModal(true)}>
+            {mainTxt}
           </button>
+
+          {wait && <>
+            {PLATFORM==='android' && ton && (
+              <button style={{...S.btn,...S.sec}} onClick={()=>open(ton)}>
+                Continue in Telegram Wallet
+              </button>
+            )}
+            <button style={{...S.btn,...S.sec}} onClick={()=>open(hub)}>
+              Open in Tonhub
+            </button>
+            <button
+              style={{...S.btn,...S.sec, marginTop:0}}
+              onClick={() => {
+                const inv = localStorage.getItem('invoiceId');
+                if (inv) checkStatus(inv);
+              }}>
+              Check status
+            </button>
+          </>}
+
           <button
-            style={{ ...S.mBtn, background:'#333', color:'#fff' }}
-            onClick={()=>setModal(false)}>
-            Cancel
+            style={{...S.btn,...S.sec}}
+            onClick={()=>nav('/profile')}>
+            Go to your personal account
           </button>
         </div>
       </div>
-    )}
 
-    <div style={S.page}>
-      <div style={S.card}>
-        <h2 style={S.h2}>The Path Begins</h2>
-        <p style={S.sub}>Ready to burn yourself.</p>
+      {/* Fragment animation */}
+      {fragUrl && (
+        <img
+          src={fragUrl}
+          alt="fragment"
+          style={S.frag}
+          onLoad={()=>setFragLoaded(true)}
+        />
+      )}
 
-        {msg && (
-          <p style={{ ...S.stat, ...(msg.startsWith('🔥') ? S.ok : S.bad) }}>
-            {msg}
-          </p>
-        )}
-        {!msg && curse && (
-          <p style={S.stat}>
-            ⛔ Cursed until {new Date(curse).toLocaleString()}
-          </p>
-        )}
-        {!msg && !curse && cd>0 && (
-          <p style={S.stat}>⏳ Next burn in {fmt(cd)}</p>
-        )}
-
-        <button
-          style={{ ...S.btn, ...S.prim, opacity: disabled?0.6:1 }}
-          disabled={disabled}
-          onClick={()=>setModal(true)}>
-          {mainTxt}
-        </button>
-
-        {wait && <>
-          {PLATFORM==='android' && ton && (
-            <button style={{...S.btn,...S.sec}} onClick={()=>open(ton)}>
-              Continue in Telegram Wallet
-            </button>
-          )}
-          <button style={{...S.btn,...S.sec}} onClick={()=>open(hub)}>
-            Open in Tonhub
-          </button>
-          <button
-            style={{...S.btn,...S.sec, marginTop:0}}
-            onClick={() => {
-              const inv = localStorage.getItem('invoiceId');
-              if (inv) checkStatus(inv);
-            }}>
-            Check status
-          </button>
-        </>}
-
-        <button
-          style={{...S.btn,...S.sec}}
-          onClick={()=>nav('/profile')}>
-          Go to your personal account
-        </button>
-      </div>
-    </div>
-
-    {fragUrl && (
-      <img
-        src={fragUrl}
-        alt="fragment"
-        style={S.frag}
-        onLoad={()=>setFragLoaded(true)}
-      />
-    )}
-
-    {DEV && location.search.includes('debug=1') && <Debug />}
-  </>;
+      {DEV && location.search.includes('debug=1') && <Debug />}
+    </>
+  );
 }
