@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate }        from 'react-router-dom';
-import { claimReferral }      from '../api/referral.js';
+// src/screens/Profile.jsx
 
-const BACKEND =
-  import.meta.env.VITE_BACKEND_URL ??
-  'https://ash-backend-production.up.railway.app';
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { claimReferral } from '../api/referral.js';
+
+const BACKEND = import.meta.env.VITE_BACKEND_URL
+  ?? 'https://ash-backend-production.up.railway.app';
 
 const SLUG = [
   'the_whisper','the_number','the_language','the_mirror',
@@ -14,23 +15,28 @@ const SLUG = [
 export default function Profile() {
   const nav = useNavigate();
 
+  /* базовый стейт */
   const [loading, setLoading]   = useState(true);
   const [error,   setError]     = useState('');
   const [name,    setName]      = useState('');
   const [frags,   setFrags]     = useState([]);
 
+  /* статистика */
   const [total, setTotal]       = useState(null);
 
+  /* реферальная программа */
   const [refCode, setRefCode]   = useState('');
   const [invCnt,  setInvCnt]    = useState(0);
   const [reward,  setReward]    = useState(false);
   const [claiming,setClaiming]  = useState(false);
   const [copied,  setCopied]    = useState(false);
 
+  /* удаление профиля */
   const [askDelete, setAskDelete] = useState(false);
   const [busyDel,   setBusyDel]   = useState(false);
   const [delError,  setDelError]  = useState('');
 
+  /* зум-фрагмент */
   const [zoomSrc, setZoomSrc] = useState('');
 
   useEffect(() => {
@@ -41,15 +47,14 @@ export default function Profile() {
       nav('/init');
       return;
     }
+
     (async () => {
       try {
-        // 1) fetch profile + referral data in one call
+        // 1) получаем профиль + рефералку
         const resp = await fetch(`${BACKEND}/api/player/${uid}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        if ([401,403,404].includes(resp.status)) {
-          throw new Error();
-        }
+        if ([401,403,404].includes(resp.status)) throw new Error();
         const pj = await resp.json();
         setName(pj.name || '');
         setFrags(pj.fragments || []);
@@ -57,20 +62,22 @@ export default function Profile() {
         setInvCnt(pj.invitedCount || 0);
         setReward(!!pj.referral_reward_issued);
       } catch {
-        setError('Failed to load profile');
+        setError('Не удалось загрузить профиль');
       } finally {
         setLoading(false);
       }
-      // 2) total users
+
+      // 2) общая статистика
       fetch(`${BACKEND}/api/stats/total_users`, {
         headers: { Authorization: `Bearer ${token}` }
       })
         .then(r => r.ok ? r.json() : null)
         .then(j => j && setTotal(j.total))
-        .catch(()=>{});
+        .catch(() => {/* silent */});
     })();
   }, [nav]);
 
+  /* копирование кода */
   const copyCode = async () => {
     if (!refCode) return;
     try {
@@ -80,16 +87,16 @@ export default function Profile() {
     } catch {}
   };
 
+  /* выдача бесплатного фрагмента */
   const claim = async () => {
     setClaiming(true);
     try {
-      const token = localStorage.getItem('token');
-      const { fragment } = await claimReferral(token);
+      const { fragment } = await claimReferral(localStorage.getItem('token'));
       setReward(true);
       if (fragment != null) {
         setFrags(prev => [...prev, fragment]);
       }
-      alert('🎉 Free fragment received!');
+      alert('🎉 Бесплатный фрагмент получен!');
     } catch (e) {
       alert(e.message);
     } finally {
@@ -97,6 +104,7 @@ export default function Profile() {
     }
   };
 
+  /* удаление профиля */
   const deleteProfile = async () => {
     setBusyDel(true);
     setDelError('');
@@ -115,12 +123,8 @@ export default function Profile() {
     }
   };
 
-  if (loading) return (
-    <div style={S.page}><p style={S.load}>Loading…</p></div>
-  );
-  if (error) return (
-    <div style={S.page}><p style={S.err}>{error}</p></div>
-  );
+  if (loading) return <div style={S.page}><p style={S.load}>Loading…</p></div>;
+  if (error)   return <div style={S.page}><p style={S.err}>{error}</p></div>;
 
   const rows     = [[1,2,3,4],[5,6,7,8]];
   const progress = Math.min(invCnt, 3);
@@ -147,11 +151,9 @@ export default function Profile() {
           </div>
         ))}
 
-        <button style={S.act} onClick={() => nav('/path')}>
-          🔥 Burn Again
-        </button>
+        <button style={S.act} onClick={() => nav('/path')}>🔥 Burn Again</button>
 
-        {/* Referral */}
+        {/* Реферальный блок */}
         <div style={S.refBox}>
           <p style={S.refLabel}>Your referral code</p>
           <div style={S.refCodeRow}>
@@ -169,45 +171,45 @@ export default function Profile() {
           {reward && <p style={S.claimed}>Reward already claimed ✅</p>}
         </div>
 
-        {total != null && (
+        {total !== null && (
           <p style={S.count}>Ash Seekers: {total.toLocaleString()}</p>
         )}
 
         {frags.length === 8 && (
           <button
-            style={{ ...S.act, marginTop: 6, fontSize: 16 }}
-            onClick={() => nav('/final')}
-          >
+            style={{ ...S.act, marginTop:6, fontSize:16 }}
+            onClick={() => nav('/final')}>
             🗝 Enter Final Phrase
           </button>
         )}
 
-        <div style={{ flexGrow: 1 }} />
-
+        <div style={{ flexGrow:1 }} />
         <button style={S.del} onClick={() => setAskDelete(true)}>
           Delete profile
         </button>
       </div>
 
-      {/* Delete confirmation modal */}
+      {/* Модалка удаления */}
       {askDelete && (
-        <div style={S.modalBack} onClick={() => !busyDel && setAskDelete(false)}>
-          <div style={S.modalBox} onClick={e => e.stopPropagation()}>
-            <p style={S.modalText}>Delete profile permanently?</p>
-            {delError && <p style={S.modalError}>{delError}</p>}
-            <button style={S.modalOk} disabled={busyDel} onClick={deleteProfile}>
+        <div style={S.wrap} onClick={() => !busyDel && setAskDelete(false)}>
+          <div style={S.box} onClick={e => e.stopPropagation()}>
+            <p style={{ margin:'0 0 12px', fontSize:17 }}>
+              Delete profile permanently?
+            </p>
+            {delError && <p style={{ color:'#f66', fontSize:14 }}>{delError}</p>}
+            <button style={S.ok} disabled={busyDel} onClick={deleteProfile}>
               {busyDel ? 'Deleting…' : 'Yes, delete'}
             </button>
-            <button style={S.modalCancel} disabled={busyDel} onClick={() => setAskDelete(false)}>
+            <button style={S.cancel} disabled={busyDel} onClick={() => setAskDelete(false)}>
               Cancel
             </button>
           </div>
         </div>
       )}
 
-      {/* Zoom overlay */}
+      {/* Зум-оверлей */}
       {zoomSrc && (
-        <div style={S.zoomBack} onClick={() => setZoomSrc('')}>
+        <div style={S.zoomWrap} onClick={() => setZoomSrc('')}>
           <img
             src={zoomSrc}
             style={S.zoomImg}
@@ -219,93 +221,59 @@ export default function Profile() {
   );
 }
 
-/** Styles **/
+/* Стили */
 const S = {
-  page: {
-    minHeight: '100vh',
-    background: 'url("/profile-bg.webp") center/cover',
-    display: 'flex', justifyContent: 'center', alignItems: 'center',
-    padding: 16, color: '#d4af37', fontFamily: 'serif'
-  },
-  load:  { fontSize: 18 },
-  err:   { fontSize: 16, color: '#f66' },
-  card:  {
-    width:'100%', maxWidth:360, minHeight:520,
-    background:'rgba(0,0,0,0.55)', padding:20,
-    borderRadius:8, display:'flex', flexDirection:'column',
-    textAlign:'center'
-  },
-  h:     { margin:0, fontSize:26 },
-  sub:   { fontSize:14, margin:'6px 0 18px', opacity:.85 },
+  page:{ position:'relative', minHeight:'100vh', background:'url("/profile-bg.webp") center/cover',
+         display:'flex',justifyContent:'center',alignItems:'center',
+         padding:16,color:'#d4af37',fontFamily:'serif' },
+  load:{ fontSize:18 }, err:{ fontSize:16, color:'#f66' },
 
-  row:   { display:'flex', gap:6, marginBottom:6 },
-  slot:  {
-    flex:'1 1 0', aspectRatio:'1/1', background:'#111',
-    border:'1px solid #d4af37', borderRadius:6, overflow:'hidden'
-  },
-  img:   { width:'100%', height:'100%', objectFit:'cover', cursor:'pointer' },
+  card:{ width:'100%', maxWidth:360, minHeight:520, background:'rgba(0,0,0,0.55)',
+         padding:20, borderRadius:8, display:'flex', flexDirection:'column',
+         textAlign:'center' },
+  h:{ margin:0, fontSize:26 }, sub:{ fontSize:14, margin:'6px 0 18px', opacity:.85 },
 
-  refBox: {
-    background:'rgba(0,0,0,0.6)', border:'1px solid #d4af37',
-    borderRadius:8, boxShadow:'0 0 8px rgba(0,0,0,0.5)',
-    padding:16, display:'flex', flexDirection:'column',
-    alignItems:'center', gap:8, margin:'24px 0'
-  },
-  refLabel:  { margin:0, fontSize:14, opacity:.8 },
+  row:{ display:'flex', gap:6, marginBottom:6 },
+  slot:{ flex:'1 1 0', aspectRatio:'1/1', background:'#111',
+         border:'1px solid #d4af37', borderRadius:6, overflow:'hidden' },
+  img:{ width:'100%', height:'100%', objectFit:'cover', cursor:'pointer' },
+
+  refBox:{ background:'rgba(0,0,0,0.6)', border:'1px solid #d4af37',
+           borderRadius:8, boxShadow:'0 0 8px rgba(0,0,0,0.5)',
+           padding:16, display:'flex', flexDirection:'column',
+           alignItems:'center', gap:8, margin:'24px 0' },
+  refLabel:{ margin:0, fontSize:14, opacity:.8 },
   refCodeRow:{ display:'flex', alignItems:'center', gap:12 },
-  refCode:   { fontSize:18, fontWeight:600, color:'#d4af37' },
-  copyBtn:   {
-    padding:'6px 12px', fontSize:13, border:'none',
-    borderRadius:4, background:'#d4af37', color:'#000',
-    cursor:'pointer'
-  },
-  progress:  { margin:0, fontSize:13, opacity:.85 },
-  claim:     {
-    marginTop:10, padding:10, width:'100%', fontSize:14,
-    border:'none', borderRadius:6, background:'#6BCB77',
-    color:'#000', cursor:'pointer'
-  },
-  claimed:   { marginTop:10, fontSize:13, color:'#6BCB77' },
+  refCode:{ fontSize:18, fontWeight:600, color:'#d4af37' },
+  copyBtn:{ padding:'6px 12px', fontSize:13, border:'none',
+            borderRadius:4, background:'#d4af37', color:'#000',
+            cursor:'pointer' },
+  progress:{ margin:0, fontSize:13, opacity:.85 },
+  claim:{ marginTop:10, padding:10, width:'100%', fontSize:14,
+          border:'none', borderRadius:6, background:'#6BCB77',
+          color:'#000', cursor:'pointer' },
+  claimed:{ marginTop:10, fontSize:13, color:'#6BCB77' },
 
-  count: { fontSize:14, margin:'14px 0 18px', opacity:.85 },
-  act:   {
-    padding:10, fontSize:15, borderRadius:6, border:'none',
-    background:'#d4af37', color:'#000', cursor:'pointer'
-  },
-  del:   {
-    padding:10, fontSize:14, borderRadius:6, border:'none',
-    background:'#a00', color:'#fff', cursor:'pointer',
-    marginTop:8
-  },
+  count:{ fontSize:14, margin:'14px 0 18px', opacity:.85 },
+  act:{ padding:10, fontSize:15, borderRadius:6, border:'none',
+        background:'#d4af37', color:'#000', cursor:'pointer' },
+  del:{ padding:10, fontSize:14, borderRadius:6, border:'none',
+        background:'#a00', color:'#fff', cursor:'pointer', marginTop:8 },
 
-  modalBack:   {
-    position:'fixed', inset:0, background:'#0007',
-    backdropFilter:'blur(4px)', display:'flex',
-    justifyContent:'center', alignItems:'center', zIndex:100
-  },
-  modalBox:    {
-    background:'#222', padding:24, borderRadius:10,
-    width:300, color:'#fff', textAlign:'center'
-  },
-  modalText:   { margin:'0 0 12px', fontSize:17 },
-  modalError:  { color:'#f66', fontSize:14 },
-  modalOk:     {
-    width:'100%', padding:10, fontSize:15, border:'none',
-    borderRadius:6, background:'#d4af37', color:'#000',
-    cursor:'pointer'
-  },
-  modalCancel: {
-    width:'100%', padding:10, fontSize:14, marginTop:10,
-    border:'none', borderRadius:6, background:'#555',
-    color:'#fff', cursor:'pointer'
-  },
+  wrap:{ position:'fixed', inset:0, background:'#0007',
+         backdropFilter:'blur(4px)', display:'flex',
+         justifyContent:'center', alignItems:'center', zIndex:40 },
+  box:{ background:'#222', padding:24, borderRadius:10, width:300,
+        color:'#fff', textAlign:'center' },
+  ok:{ width:'100%', padding:10, fontSize:15, border:'none',
+       borderRadius:6, background:'#d4af37', color:'#000',
+       cursor:'pointer' },
+  cancel:{ width:'100%', padding:10, fontSize:14, marginTop:10,
+           border:'none', borderRadius:6, background:'#555',
+           color:'#fff', cursor:'pointer' },
 
-  zoomBack: {
-    position:'fixed', inset:0, background:'#000d',
-    display:'flex', justifyContent:'center',
-    alignItems:'center', zIndex:200
-  },
-  zoomImg: {
-    maxWidth:'90vw', maxHeight:'90vh', borderRadius:10
-  }
+  zoomWrap:{ position:'fixed', inset:0, background:'#000d',
+             display:'flex', justifyContent:'center', alignItems:'center',
+             zIndex:60 },
+  zoomImg:{ maxWidth:'90vw', maxHeight:'86vh', borderRadius:10 },
 };
