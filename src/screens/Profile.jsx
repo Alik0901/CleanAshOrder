@@ -1,5 +1,3 @@
-// src/screens/Profile.jsx
-
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { claimReferral } from '../api/referral.js';
@@ -91,7 +89,8 @@ export default function Profile() {
   const claim = async () => {
     setClaiming(true);
     try {
-      const { fragment } = await claimReferral(localStorage.getItem('token'));
+      const token = localStorage.getItem('token');
+      const { fragment } = await claimReferral(token);
       setReward(true);
       if (fragment != null) {
         setFrags(prev => [...prev, fragment]);
@@ -176,9 +175,8 @@ export default function Profile() {
         )}
 
         {frags.length === 8 && (
-          <button
-            style={{ ...S.act, marginTop:6, fontSize:16 }}
-            onClick={() => nav('/final')}>
+          <button style={{ ...S.act, marginTop:6, fontSize:16 }}
+                  onClick={() => nav('/final')}>
             🗝 Enter Final Phrase
           </button>
         )}
@@ -200,7 +198,8 @@ export default function Profile() {
             <button style={S.ok} disabled={busyDel} onClick={deleteProfile}>
               {busyDel ? 'Deleting…' : 'Yes, delete'}
             </button>
-            <button style={S.cancel} disabled={busyDel} onClick={() => setAskDelete(false)}>
+            <button style={S.cancel} disabled={busyDel}
+                    onClick={() => setAskDelete(false)}>
               Cancel
             </button>
           </div>

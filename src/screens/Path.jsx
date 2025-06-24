@@ -1,4 +1,4 @@
-/*  src/screens/Path.jsx – последняя рабочая версия */
+/*  src/screens/Path.jsx – v5.6  (исправлено: не открываем ссылки при ресторе pending) */
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -23,8 +23,9 @@ const FRAG_IMG = {
   8: 'fragment_8_the_gate.webp',
 };
 
-/* ---------- стили ---------------------------------------------------- */
+/* ---------- стили (полный объект) ---------------------------------- */
 const S = {
+  /* page bg */
   page: {
     position: 'relative',
     minHeight: '100vh',
@@ -34,6 +35,7 @@ const S = {
     alignItems: 'center',
     padding: '32px 12px',
   },
+  /* main card */
   card: {
     width: '100%',
     maxWidth: 380,
@@ -43,6 +45,7 @@ const S = {
   h2:  { margin: 0, fontSize: 28, fontWeight: 700 },
   sub: { margin: '8px 0 24px', fontSize: 16 },
 
+  /* buttons */
   btn: {
     display: 'block',
     width: '100%',
@@ -57,10 +60,12 @@ const S = {
   prim: { background: '#d4af37', color: '#000' },
   sec:  { background: 'transparent', border: '1px solid #d4af37', color: '#d4af37' },
 
+  /* status text */
   stat: { fontSize: 15, minHeight: 22, margin: '12px 0' },
   ok:   { color: '#6BCB77' },
   bad:  { color: '#FF6B6B' },
 
+  /* modal */
   modalWrap: {
     position: 'fixed',
     inset: 0,
@@ -91,6 +96,7 @@ const S = {
     cursor: 'pointer',
   },
 
+  /* fragment animation */
   frag: {
     position: 'fixed',
     left: '50%',
@@ -102,9 +108,12 @@ const S = {
     animation: 'fly 2.3s forwards',
   },
 
+  /* debug overlay */
   dbg: {
     position: 'fixed',
-    left: 0, right: 0, bottom: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     maxHeight: '40vh',
     background: '#000c',
     color: '#5cff5c',
@@ -137,7 +146,6 @@ function Debug() {
   return <pre style={S.dbg}>{log.join('\n')}</pre>;
 }
 
-/* ---------- helpers ----------------------------------------------- */
 const saveToken = res => {
   const h = res.headers.get('Authorization') || '';
   if (h.startsWith('Bearer ')) localStorage.setItem('token', h.slice(7));
@@ -147,7 +155,7 @@ async function refreshToken(tgId, initData) {
   const r = await fetch(`${BACKEND}/api/init`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tg_id: tgId, initData }),
+    body: JSON.stringify({ tg_id: tgId, name: '', initData }),
   });
   if (!r.ok) return false;
   const j = await r.json();
@@ -169,27 +177,27 @@ export default function Path() {
   }, []);
 
   /* ─── state ───────────────────────────────────────────────── */
-  const [tgId,    setTgId   ] = useState('');
-  const [rawInit, setRawInit] = useState('');
-  const [cd,      setCd     ] = useState(0);
-  const [curse,   setCurse  ] = useState(null);
+  const [tgId,setTgId]   = useState('');
+  const [raw,setRaw]     = useState('');
+  const [cd,setCd]       = useState(0);
+  const [curse,setCurse] = useState(null);
 
-  const [busy, setBusy]   = useState(false);
-  const [wait, setWait]   = useState(false);
-  const [hub,  setHub ]   = useState('');
-  const [ton,  setTon ]   = useState('');
-  const [msg,  setMsg ]   = useState('');
+  const [busy,setBusy]   = useState(false);
+  const [wait,setWait]   = useState(false);
+  const [hub,setHub]     = useState('');
+  const [ton,setTon]     = useState('');
+  const [msg,setMsg]     = useState('');
 
-  const [showModal, setModal]        = useState(false);
-  const [fragUrl,    setFragUrl]     = useState('');
-  const [fragLoaded, setFragLoaded]  = useState(false);
+  const [showModal,setModal]         = useState(false);
+  const [frag,setFrag]               = useState('');
+  const [fragLoaded,setFragLoaded]   = useState(false);
 
   const COOLDOWN = 120;
   const secLeft = t => Math.max(0,
     COOLDOWN - Math.floor((Date.now() - new Date(t).getTime()) / 1000));
   const fmt = s => `${String((s/60)|0).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
   const open = url =>
-    TG?.openLink?.(url, { try_instant_view: false }) || window.open(url, '_blank');
+    TG?.openLink?.(url,{try_instant_view:false}) || window.open(url,'_blank');
 
   /* ─── mount ─────────────────────────────────────────────── */
   useEffect(() => {
@@ -198,16 +206,14 @@ export default function Path() {
     if (!u?.id) { nav('/init'); return; }
 
     setTgId(String(u.id));
-    setRawInit(TG?.initData || '');
+    setRaw(TG?.initData || '');
 
     if (!localStorage.getItem('token')) { nav('/init'); return; }
 
     /* load cooldown / curse */
     (async () => {
       try {
-        const r = await fetch(`${BACKEND}/api/player/${u.id}`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        });
+        const r = await fetch(`${BACKEND}/api/player/${u.id}`);
         const j = await r.json();
         if (j.last_burn) setCd(secLeft(j.last_burn));
         if (j.curse_expires && new Date(j.curse_expires) > new Date())
@@ -215,7 +221,6 @@ export default function Path() {
       } catch { /* ignore */ }
     })();
 
-    /* restore pending invoice */
     const invId = localStorage.getItem('invoiceId');
     if (invId) {
       setWait(true);
@@ -224,33 +229,31 @@ export default function Path() {
       pollRef.current = setInterval(() => checkStatus(invId), 5000);
     }
 
-    const timer = setInterval(() => setCd(s => (s > 0 ? s - 1 : 0)), 1000);
-    return () => {
-      clearInterval(timer);
-      clearInterval(pollRef.current);
-    };
+    const t = setInterval(() => setCd(s => (s > 0 ? s - 1 : 0)), 1000);
+    return () => { clearInterval(t); clearInterval(pollRef.current); };
   }, [nav]);
 
   /* ─── invoice ---------------------------------------------------- */
   const createInvoice = async (retry = false) => {
-    setBusy(true);
-    setMsg('');
+    setBusy(true); setMsg(''); setModal(false);
     try {
       const r = await fetch(`${BACKEND}/api/burn-invoice`, {
         method: 'POST',
         headers: {
-          'Content-Type':'application/json',
-          'Authorization':`Bearer ${localStorage.getItem('token')}`
+          'Content-Type': 'application/json',
+          Authorization : `Bearer ${localStorage.getItem('token')}`,
         },
         body: JSON.stringify({ tg_id: tgId }),
       });
-      if (r.status===401 && !retry) {
-        const ok = await refreshToken(tgId, rawInit);
+
+      if (r.status === 401 && !retry) {
+        const ok = await refreshToken(tgId, raw);
         if (ok) return createInvoice(true);
       }
+
       saveToken(r);
       const j = await r.json();
-      if (!r.ok) throw new Error(j.error||'invoice');
+      if (!r.ok) throw new Error(j.error || 'invoice');
 
       setHub(j.paymentUrl);
       setTon(j.tonspaceUrl);
@@ -258,14 +261,13 @@ export default function Path() {
       localStorage.setItem('paymentUrl', j.paymentUrl);
       localStorage.setItem('tonspaceUrl',j.tonspaceUrl);
 
-      // единственный open при создании
-      if (PLATFORM==='android' && j.tonspaceUrl) open(j.tonspaceUrl);
+      if (PLATFORM === 'android' && j.tonspaceUrl) open(j.tonspaceUrl);
       else open(j.paymentUrl);
 
       setWait(true);
-      pollRef.current = setInterval(() => checkStatus(j.invoiceId), 5000);
+      pollRef.current = setInterval(() => checkStatus(j.invoiceId), 5_000);
+
     } catch (e) {
-      console.error(e);
       setMsg(e.message);
       setBusy(false);
       setWait(false);
@@ -273,7 +275,6 @@ export default function Path() {
   };
 
   const burn = () => {
-    setModal(false);
     createInvoice();
   };
 
@@ -281,20 +282,15 @@ export default function Path() {
   const checkStatus = async id => {
     try {
       const r = await fetch(`${BACKEND}/api/burn-status/${id}`, {
-        headers: { Authorization:`Bearer ${localStorage.getItem('token')}` }
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });
-      if (r.status===401) {
-        const ok = await refreshToken(tgId, rawInit);
-        if (ok) return checkStatus(id);
-      }
       saveToken(r);
       const j = await r.json();
-      if (!r.ok) throw new Error(j.error||'status');
+      if (!r.ok) throw new Error(j.error || 'status');
 
       if (j.paid) {
         clearInterval(pollRef.current);
-        setBusy(false);
-        setWait(false);
+        setBusy(false); setWait(false);
         localStorage.removeItem('invoiceId');
         localStorage.removeItem('paymentUrl');
         localStorage.removeItem('tonspaceUrl');
@@ -303,65 +299,61 @@ export default function Path() {
           setCurse(j.curse_expires);
           setMsg(`⛔ Cursed until ${new Date(j.curse_expires).toLocaleString()}`);
         } else {
-          setCurse(null);
-          setCd(COOLDOWN);
+          setCurse(null); setCd(COOLDOWN);
           const url = `/fragments/${FRAG_IMG[j.newFragment]}`;
-          setFragUrl(url);
-          setFragLoaded(false);
+          setFrag(url); setFragLoaded(false);
           setMsg(`🔥 Fragment #${j.newFragment} received!`);
         }
       }
     } catch (e) {
-      console.error(e);
       setMsg(e.message);
-      // остаёмся в wait
+      // остаёмся в wait без авто-open
     }
   };
 
-  /* скрытие анимации фрагмента */
+  /* ─── fragment hide after animation ──────────────────────────── */
   useEffect(() => {
     if (fragLoaded) {
-      const t = setTimeout(() => { setFragUrl(''); setFragLoaded(false); }, 2300);
+      const t = setTimeout(() => { setFrag(''); setFragLoaded(false); }, 2300);
       return () => clearTimeout(t);
     }
   }, [fragLoaded]);
 
-  /* ─── render ─────────────────────────────────────────────── */
-  const disabled = busy || wait || cd>0 || curse;
-  const mainTxt  = busy
-    ? 'Creating invoice…'
-    : wait
-      ? 'Waiting for payment…'
-      : '🔥 Burn Yourself for 0.5 TON';
+  /* ─── render ───────────────────────────────────────────────── */
+  const disabled = busy || wait || cd > 0 || curse;
+  const mainTxt  = busy ? 'Creating invoice…'
+                 : wait ? 'Waiting for payment…'
+                 : '🔥 Burn Yourself for 0.5 TON';
 
   return (
     <>
       {styleTag}
 
-      {/* Modal */}
+      {/* modal */}
       {showModal && (
-        <div style={S.modalWrap} onClick={()=>setModal(false)}>
-          <div style={S.modal} onClick={e=>e.stopPropagation()}>
-            <h3>⚠️ Important</h3>
-            <p>
-              Send <b>exactly 0.5 TON</b>.<br/>
-              Any other amount will <b>not be recognised</b> and will be lost.
+        <div style={S.modalWrap} onClick={() => setModal(false)}>
+          <div style={S.modal} onClick={e => e.stopPropagation()}>
+            <h3 style={{ margin: '0 0 10px' }}>⚠️ Important</h3>
+            <p style={{ fontSize: 14, opacity: .9 }}>
+              Send <b>exactly 0.5&nbsp;TON</b>.<br />
+              Any other amount will <b>not be recognised</b><br />
+              and <b>will be lost</b>.
             </p>
             <button
-              style={{ ...S.mBtn, background:'#d4af37', color:'#000' }}
+              style={{ ...S.mBtn, background: '#d4af37', color: '#000' }}
               onClick={burn}>
               I understand, continue
             </button>
             <button
-              style={{ ...S.mBtn, background:'#333', color:'#fff' }}
-              onClick={()=>setModal(false)}>
+              style={{ ...S.mBtn, background: '#333', color: '#fff' }}
+              onClick={() => setModal(false)}>
               Cancel
             </button>
           </div>
         </div>
       )}
 
-      {/* Main card */}
+      {/* main card */}
       <div style={S.page}>
         <div style={S.card}>
           <h2 style={S.h2}>The Path Begins</h2>
@@ -377,51 +369,57 @@ export default function Path() {
               ⛔ Cursed until {new Date(curse).toLocaleString()}
             </p>
           )}
-          {!msg && !curse && cd>0 && (
+          {!msg && !curse && cd > 0 && (
             <p style={S.stat}>⏳ Next burn in {fmt(cd)}</p>
           )}
 
           <button
-            style={{ ...S.btn, ...S.prim, opacity: disabled?0.6:1 }}
+            style={{ ...S.btn, ...S.prim, opacity: disabled ? 0.6 : 1 }}
             disabled={disabled}
-            onClick={()=>setModal(true)}>
+            onClick={() => setModal(true)}>
             {mainTxt}
           </button>
 
-          {wait && <>
-            {PLATFORM==='android' && ton && (
-              <button style={{...S.btn,...S.sec}} onClick={()=>open(ton)}>
-                Continue in Telegram Wallet
+          {wait && (
+            <>
+              {PLATFORM === 'android' && ton && (
+                <button
+                  style={{ ...S.btn, ...S.sec }}
+                  onClick={() => open(ton)}>
+                  Continue in Telegram Wallet
+                </button>
+              )}
+              <button
+                style={{ ...S.btn, ...S.sec }}
+                onClick={() => open(hub)}>
+                Open in Tonhub
               </button>
-            )}
-            <button style={{...S.btn,...S.sec}} onClick={()=>open(hub)}>
-              Open in Tonhub
-            </button>
-            <button
-              style={{...S.btn,...S.sec, marginTop:0}}
-              onClick={() => {
-                const inv = localStorage.getItem('invoiceId');
-                if (inv) checkStatus(inv);
-              }}>
-              Check status
-            </button>
-          </>}
+              <button
+                style={{ ...S.btn, ...S.sec, marginTop: 0 }}
+                onClick={() => {
+                  const inv = localStorage.getItem('invoiceId');
+                  if (inv) checkStatus(inv);
+                }}>
+                Check status
+              </button>
+            </>
+          )}
 
           <button
-            style={{...S.btn,...S.sec}}
-            onClick={()=>nav('/profile')}>
+            style={{ ...S.btn, ...S.sec }}
+            onClick={() => nav('/profile')}>
             Go to your personal account
           </button>
         </div>
       </div>
 
-      {/* Fragment animation */}
-      {fragUrl && (
+      {/* fragment animation */}
+      {frag && (
         <img
-          src={fragUrl}
+          src={frag}
           alt="fragment"
           style={S.frag}
-          onLoad={()=>setFragLoaded(true)}
+          onLoad={() => setFragLoaded(true)}
         />
       )}
 
