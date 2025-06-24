@@ -1,6 +1,7 @@
-/*  src/screens/Path.jsx – v5.6  (исправлено: не открываем ссылки при ресторе pending) */
+/*  src/screens/Path.jsx – v5.7 (c защитой фрагментов) */
+
 import React, { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate }                      from 'react-router-dom';
 
 /* ---------- config -------------------------------------------------- */
 const BACKEND =
@@ -23,105 +24,70 @@ const FRAG_IMG = {
   8: 'fragment_8_the_gate.webp',
 };
 
+/* ---------- inline-styles ------------------------------------------ */
 const S = {
-  page: {
-    position: 'relative',
-    minHeight: '100vh',
-    background: 'url("/bg-path.webp") center/cover',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: '32px 12px',
-  },
-  card: {
-    width: '100%',
-    maxWidth: 380,
-    textAlign: 'center',
-    color: '#d4af37',
-  },
-  h2:  { margin: 0, fontSize: 28, fontWeight: 700 },
-  sub: { margin: '8px 0 24px', fontSize: 16 },
+  page: { position:'relative', minHeight:'100vh',
+          background:'url("/bg-path.webp") center/cover',
+          display:'flex',justifyContent:'center',alignItems:'center',
+          padding:'32px 12px' },
+  card: { width:'100%', maxWidth:380, textAlign:'center', color:'#d4af37' },
+  h2:   { margin:0, fontSize:28, fontWeight:700 },
+  sub:  { margin:'8px 0 24px', fontSize:16 },
 
-  btn: {
-    display: 'block',
-    width: '100%',
-    padding: 12,
-    fontSize: 16,
-    borderRadius: 6,
-    border: 'none',
-    margin: '12px 0',
-    cursor: 'pointer',
-    transition: 'opacity .2s',
+  btn:  {
+    display:'block', width:'100%', padding:12, fontSize:16,
+    borderRadius:6, border:'none', margin:'12px 0',
+    cursor:'pointer', transition:'opacity .2s',
   },
-  prim: { background: '#d4af37', color: '#000' },
-  sec:  { background: 'transparent', border: '1px solid #d4af37', color: '#d4af37' },
+  prim: { background:'#d4af37', color:'#000' },
+  sec:  {
+    background:'transparent',
+    border:'1px solid #d4af37',
+    color:'#d4af37'
+  },
 
-  stat: { fontSize: 15, minHeight: 22, margin: '12px 0' },
-  ok:   { color: '#6BCB77' },
-  bad:  { color: '#FF6B6B' },
+  stat:{ fontSize:15, minHeight:22, margin:'12px 0' },
+  ok:  { color:'#6BCB77' },
+  bad: { color:'#FF6B6B' },
 
-  modalWrap: {
-    position: 'fixed',
-    inset: 0,
-    background: '#0008',
-    backdropFilter: 'blur(6px)',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 50,
+  modalWrap:{
+    position:'fixed', inset:0, background:'#0008',
+    backdropFilter:'blur(6px)', display:'flex',
+    justifyContent:'center',alignItems:'center', zIndex:50
   },
   modal: {
-    maxWidth: 320,
-    background: '#181818',
-    color: '#fff',
-    padding: 20,
-    borderRadius: 8,
-    boxShadow: '0 0 16px #000',
-    textAlign: 'center',
-    lineHeight: 1.4,
+    maxWidth:320, background:'#181818', color:'#fff',
+    padding:20, borderRadius:8, boxShadow:'0 0 16px #000',
+    textAlign:'center', lineHeight:1.4
   },
-  mBtn: {
-    marginTop: 16,
-    padding: 10,
-    width: '100%',
-    fontSize: 15,
-    border: 'none',
-    borderRadius: 6,
-    cursor: 'pointer',
+  mBtn:{
+    marginTop:16, padding:10, width:'100%', fontSize:15,
+    border:'none', borderRadius:6, cursor:'pointer'
   },
 
-  frag: {
-    position: 'fixed',
-    left: '50%',
-    top: '50%',
-    width: 260,
-    height: 260,
-    transform: 'translate(-50%,-50%)',
-    zIndex: 30,
-    animation: 'fly 2.3s forwards',
+  frag:{
+    position:'fixed', left:'50%', top:'50%',
+    width:260, height:260,
+    transform:'translate(-50%,-50%)',
+    zIndex:30, animation:'fly 2.3s forwards'
   },
 
-  dbg: {
-    position: 'fixed',
-    left: 0, right: 0, bottom: 0,
-    maxHeight: '40vh',
-    background: '#000c',
-    color: '#5cff5c',
-    fontSize: 11,
-    overflowY: 'auto',
-    whiteSpace: 'pre-wrap',
-    padding: '4px 6px',
-    zIndex: 9999,
+  dbg:{
+    position:'fixed', left:0, right:0, bottom:0,
+    maxHeight:'40vh', background:'#000c',
+    color:'#5cff5c', fontSize:11,
+    overflowY:'auto', whiteSpace:'pre-wrap',
+    padding:'4px 6px', zIndex:9999
   },
 };
 
 const styleTag = (
   <style>{`
-    @keyframes fly{
-      0%  {opacity:0;transform:translate(-50%,-50%) scale(.3);}
-      15% {opacity:1;transform:translate(-50%,-50%) scale(1);}
-      65% {opacity:1;transform:translate(-50%,-50%) scale(1);}
-      100%{opacity:0;transform:translate(-50%,280%) scale(.3);}
+    @keyframes fly {
+      0%   { opacity:0; transform:translate(-50%,-50%) scale(.3) }
+      15%  { opacity:1; transform:translate(-50%,-50%) scale(1) }
+      65%  { opacity:1; transform:translate(-50%,-50%) scale(1) }
+      100% { opacity:0; transform:translate(-50%,280%) scale(.3) }
     }
   `}</style>
 );
@@ -144,8 +110,8 @@ const saveToken = res => {
 async function refreshToken(tgId, initData) {
   const r = await fetch(`${BACKEND}/api/init`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tg_id: tgId, initData }),
+    headers:{ 'Content-Type':'application/json' },
+    body: JSON.stringify({ tg_id: tgId, name:'', initData })
   });
   if (!r.ok) return false;
   const j = await r.json();
@@ -157,45 +123,51 @@ export default function Path() {
   const nav     = useNavigate();
   const pollRef = useRef(null);
 
-  const [tgId,    setTgId   ] = useState('');
-  const [rawInit, setRawInit] = useState('');
-  const [cd,      setCd     ] = useState(0);
-  const [curse,   setCurse  ] = useState(null);
+  /* ─── preload protected fragments ────────────────────────── */
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    Object.values(FRAG_IMG).forEach(f => {
+      const img = new Image();
+      img.src = `${BACKEND}/api/fragments/image/${f}`;
+    });
+  }, []);
 
-  const [busy, setBusy]   = useState(false);
-  const [wait, setWait]   = useState(false);
-  const [hub,  setHub ]   = useState('');
-  const [ton,  setTon ]   = useState('');
-  const [msg,  setMsg ]   = useState('');
+  /* ─── state ─────────────────────────────────────────────── */
+  const [tgId,   setTgId]   = useState('');
+  const [raw,    setRaw]    = useState('');
+  const [cd,     setCd]     = useState(0);
+  const [curse,  setCurse]  = useState(null);
 
-  const [showModal, setModal]        = useState(false);
-  const [fragUrl,    setFragUrl]     = useState('');
-  const [fragLoaded, setFragLoaded]  = useState(false);
+  const [busy,   setBusy]   = useState(false);
+  const [wait,   setWait]   = useState(false);
+  const [hub,    setHub]    = useState('');
+  const [ton,    setTon]    = useState('');
+  const [msg,    setMsg]    = useState('');
+
+  const [showModal, setModal]       = useState(false);
+  const [fragUrl,   setFragUrl]     = useState('');
+  const [loaded,    setFragLoaded]  = useState(false);
 
   const COOLDOWN = 120;
   const secLeft  = t => Math.max(0,
     COOLDOWN - Math.floor((Date.now() - new Date(t).getTime())/1000)
   );
   const fmt = s => `${String((s/60)|0).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
-  const open = url => TG?.openLink?.(url,{try_instant_view:false}) || window.open(url,'_blank');
+  const open = url =>
+    TG?.openLink?.(url,{try_instant_view:false}) || window.open(url,'_blank');
 
-  /* mount: restore pending invoice, but DO NOT open links */
+  /* ─── mount + restore pending invoice ─────────────────────── */
   useEffect(() => {
-    const wa = TG?.initDataUnsafe;
-    const user = wa?.user;
-    if (!user?.id) { nav('/init'); return; }
-
-    setTgId(String(user.id));
-    setRawInit(TG?.initData || '');
-    if (!localStorage.getItem('token')) {
-      nav('/init');
-      return;
-    }
+    const wa = TG?.initDataUnsafe, u = wa?.user;
+    if (!u?.id) { nav('/init'); return; }
+    setTgId(String(u.id));
+    setRaw(TG?.initData || '');
+    if (!localStorage.getItem('token')) { nav('/init'); return; }
 
     ;(async () => {
       try {
-        const r = await fetch(`${BACKEND}/api/player/${user.id}`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        const r = await fetch(`${BACKEND}/api/player/${u.id}`, {
+          headers:{ Authorization:`Bearer ${localStorage.getItem('token')}` }
         });
         const j = await r.json();
         if (j.last_burn) setCd(secLeft(j.last_burn));
@@ -204,54 +176,49 @@ export default function Path() {
       } catch {}
     })();
 
-    const invId = localStorage.getItem('invoiceId');
-    if (invId) {
+    const inv = localStorage.getItem('invoiceId');
+    if (inv) {
       setWait(true);
-      setHub(localStorage.getItem('paymentUrl') || '');
-      setTon(localStorage.getItem('tonspaceUrl') || '');
-      pollRef.current = setInterval(() => checkStatus(invId), 5000);
+      setHub(localStorage.getItem('paymentUrl')||'');
+      setTon(localStorage.getItem('tonspaceUrl')||'');
+      pollRef.current = setInterval(() => checkStatus(inv), 5000);
     }
 
-    const timer = setInterval(() => setCd(s => s>0?s-1:0), 1000);
-    return () => {
-      clearInterval(timer);
-      clearInterval(pollRef.current);
-    };
+    const t = setInterval(() => setCd(s=>s>0?s-1:0), 1000);
+    return () => { clearInterval(t); clearInterval(pollRef.current); };
   }, [nav]);
 
-  /* create invoice + auto-open */
-  const createInvoice = async (retry = false) => {
+  /* ─── create invoice + open once ─────────────────────────── */
+  const createInvoice = async (retry=false) => {
     setBusy(true);
     setMsg('');
     try {
       const r = await fetch(`${BACKEND}/api/burn-invoice`, {
-        method: 'POST',
-        headers: {
+        method:'POST',
+        headers:{
           'Content-Type':'application/json',
           'Authorization':`Bearer ${localStorage.getItem('token')}`
         },
-        body: JSON.stringify({ tg_id: tgId }),
+        body: JSON.stringify({ tg_id: tgId })
       });
       if (r.status===401 && !retry) {
-        const ok = await refreshToken(tgId, rawInit);
-        if (ok) return createInvoice(true);
+        if (await refreshToken(tgId, raw)) return createInvoice(true);
       }
       saveToken(r);
       const j = await r.json();
       if (!r.ok) throw new Error(j.error||'invoice');
-
       setHub(j.paymentUrl);
       setTon(j.tonspaceUrl);
       localStorage.setItem('invoiceId',  j.invoiceId);
       localStorage.setItem('paymentUrl', j.paymentUrl);
       localStorage.setItem('tonspaceUrl',j.tonspaceUrl);
 
-      // вот здесь единственный open:
+      // при первом создании:
       if (PLATFORM==='android' && j.tonspaceUrl) open(j.tonspaceUrl);
       else open(j.paymentUrl);
 
       setWait(true);
-      pollRef.current = setInterval(() => checkStatus(j.invoiceId), 5000);
+      pollRef.current = setInterval(()=>checkStatus(j.invoiceId), 5000);
     } catch (e) {
       console.error(e);
       setMsg(e.message);
@@ -259,26 +226,18 @@ export default function Path() {
       setWait(false);
     }
   };
+  const burn = () => { setModal(false); createInvoice(); };
 
-  const burn = () => {
-    setModal(false);
-    createInvoice();
-  };
-
-  /* polling */
+  /* ─── polling ────────────────────────────────────────────── */
   const checkStatus = async id => {
     try {
       const r = await fetch(`${BACKEND}/api/burn-status/${id}`, {
-        headers: { Authorization:`Bearer ${localStorage.getItem('token')}` }
+        headers:{ Authorization:`Bearer ${localStorage.getItem('token')}` }
       });
-      if (r.status===401) {
-        const ok = await refreshToken(tgId, rawInit);
-        if (ok) return checkStatus(id);
-      }
+      if (r.status===401 && await refreshToken(tgId, raw)) return checkStatus(id);
       saveToken(r);
       const j = await r.json();
       if (!r.ok) throw new Error(j.error||'status');
-
       if (j.paid) {
         clearInterval(pollRef.current);
         setBusy(false);
@@ -293,7 +252,7 @@ export default function Path() {
         } else {
           setCurse(null);
           setCd(COOLDOWN);
-          const url = `${BACKEND}/api/fragments/image/${FRAG_IMG[j.newFragment]}`
+          const url = `${BACKEND}/api/fragments/image/${FRAG_IMG[j.newFragment]}`;
           setFragUrl(url);
           setFragLoaded(false);
           setMsg(`🔥 Fragment #${j.newFragment} received!`);
@@ -302,16 +261,19 @@ export default function Path() {
     } catch (e) {
       console.error(e);
       setMsg(e.message);
-      // остаёмся в wait, но без повторного open
+      // остаёмся в wait (не открываем ссылку второй раз)
     }
   };
 
-  const token = localStorage.getItem('token');
-    Object.values(FRAG_IMG).forEach(f => {
-    const img = new Image();
-    img.src = `${BACKEND}/api/fragments/image/${f}`;  // куки или токен передаются автоматически
-    })
+  /* ─── hide animation ─────────────────────────────────────── */
+  useEffect(() => {
+    if (loaded) {
+      const t = setTimeout(()=>{ setFragUrl(''); setFragLoaded(false); },2300);
+      return ()=>clearTimeout(t);
+    }
+  }, [loaded]);
 
+  /* ─── render ────────────────────────────────────────────── */
   const disabled = busy || wait || cd>0 || curse;
   const mainTxt  = busy
     ? 'Creating invoice…'
@@ -326,17 +288,15 @@ export default function Path() {
       <div style={S.modalWrap} onClick={()=>setModal(false)}>
         <div style={S.modal} onClick={e=>e.stopPropagation()}>
           <h3>⚠️ Important</h3>
-          <p>
-            Send <b>exactly 0.5 TON</b>.<br/>
-            Any other amount will <b>not be recognised</b> and will be lost.
-          </p>
+          <p>Send <b>exactly 0.5 TON</b>.<br/>
+             Any other amount will <b>not be recognised</b> and lost.</p>
           <button
-            style={{ ...S.mBtn, background:'#d4af37', color:'#000' }}
+            style={{...S.mBtn,background:'#d4af37',color:'#000'}}
             onClick={burn}>
             I understand, continue
           </button>
           <button
-            style={{ ...S.mBtn, background:'#333', color:'#fff' }}
+            style={{...S.mBtn,background:'#333',color:'#fff'}}
             onClick={()=>setModal(false)}>
             Cancel
           </button>
@@ -350,7 +310,7 @@ export default function Path() {
         <p style={S.sub}>Ready to burn yourself.</p>
 
         {msg && (
-          <p style={{ ...S.stat, ...(msg.startsWith('🔥') ? S.ok : S.bad) }}>
+          <p style={{...S.stat, ...(msg.startsWith('🔥')?S.ok:S.bad)}}>
             {msg}
           </p>
         )}
@@ -364,7 +324,7 @@ export default function Path() {
         )}
 
         <button
-          style={{ ...S.btn, ...S.prim, opacity: disabled?0.6:1 }}
+          style={{...S.btn,...S.prim,opacity:disabled?0.6:1}}
           disabled={disabled}
           onClick={()=>setModal(true)}>
           {mainTxt}
@@ -372,7 +332,8 @@ export default function Path() {
 
         {wait && <>
           {PLATFORM==='android' && ton && (
-            <button style={{...S.btn,...S.sec}} onClick={()=>open(ton)}>
+            <button style={{...S.btn,...S.sec}}
+                    onClick={()=>open(ton)}>
               Continue in Telegram Wallet
             </button>
           )}
@@ -380,10 +341,10 @@ export default function Path() {
             Open in Tonhub
           </button>
           <button
-            style={{...S.btn,...S.sec, marginTop:0}}
-            onClick={() => {
-              const inv = localStorage.getItem('invoiceId');
-              if (inv) checkStatus(inv);
+            style={{...S.btn,...S.sec,marginTop:0}}
+            onClick={()=>{
+              const inv=localStorage.getItem('invoiceId');
+              if(inv) checkStatus(inv);
             }}>
             Check status
           </button>
