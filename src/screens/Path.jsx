@@ -293,7 +293,7 @@ export default function Path() {
         } else {
           setCurse(null);
           setCd(COOLDOWN);
-          const url = `/fragments/${FRAG_IMG[j.newFragment]}`;
+          const url = `${BACKEND}/api/fragments/image/${FRAG_IMG[j.newFragment]}`
           setFragUrl(url);
           setFragLoaded(false);
           setMsg(`🔥 Fragment #${j.newFragment} received!`);
@@ -306,12 +306,11 @@ export default function Path() {
     }
   };
 
-  useEffect(() => {
-    if (fragLoaded) {
-      const t = setTimeout(() => { setFragUrl(''); setFragLoaded(false); }, 2300);
-      return () => clearTimeout(t);
-    }
-  }, [fragLoaded]);
+  const token = localStorage.getItem('token');
+    Object.values(FRAG_IMG).forEach(f => {
+    const img = new Image();
+    img.src = `${BACKEND}/api/fragments/image/${f}`;  // куки или токен передаются автоматически
+    })
 
   const disabled = busy || wait || cd>0 || curse;
   const mainTxt  = busy

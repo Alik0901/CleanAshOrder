@@ -140,9 +140,10 @@ export default function Profile() {
               <div key={id} style={S.slot}>
                 {frags.includes(id) && (
                   <img
-                    src={`/fragments/fragment_${id}_${SLUG[id-1]}.webp`}
+                    src={`${BACKEND}/api/fragments/image/fragment_${id}_${SLUG[id-1]}.webp`}
                     style={S.img}
-                    onClick={() => setZoomSrc(`/fragments/fragment_${id}_${SLUG[id-1]}.webp`)}
+                    onClick={() =>setZoomSrc(`${BACKEND}/api/fragments/image/fragment_${id}_${SLUG[id-1]}.webp`
+                  )}
                   />
                 )}
               </div>
