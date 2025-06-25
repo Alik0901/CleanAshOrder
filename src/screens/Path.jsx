@@ -1,4 +1,4 @@
-/*  src/screens/Path.jsx – v5.6  (исправлено: не открываем ссылки при ресторе pending) */
+// src/screens/Path.jsx
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -7,11 +7,11 @@ const BACKEND =
   import.meta.env.VITE_BACKEND_URL ??
   'https://ash-backend-production.up.railway.app';
 
-const TG        = window.Telegram?.WebApp;
-const PLATFORM  = TG?.platform ?? 'unknown';
-const DEV       = import.meta.env.DEV;
+const TG       = window.Telegram?.WebApp;
+const PLATFORM = TG?.platform ?? 'unknown';
+const DEV      = import.meta.env.DEV;
 
-/* id → файл */
+/* id → имя файла (должно совпадать с бэкендовым FRAG_FILES) */
 const FRAG_IMG = {
   1: 'fragment_1_the_whisper.webp',
   2: 'fragment_2_the_number.webp',
@@ -23,9 +23,8 @@ const FRAG_IMG = {
   8: 'fragment_8_the_gate.webp',
 };
 
-/* ---------- стили (полный объект) ---------------------------------- */
+/* ---------- стили -------------------------------------------------- */
 const S = {
-  /* page bg */
   page: {
     position: 'relative',
     minHeight: '100vh',
@@ -35,7 +34,6 @@ const S = {
     alignItems: 'center',
     padding: '32px 12px',
   },
-  /* main card */
   card: {
     width: '100%',
     maxWidth: 380,
@@ -44,8 +42,6 @@ const S = {
   },
   h2:  { margin: 0, fontSize: 28, fontWeight: 700 },
   sub: { margin: '8px 0 24px', fontSize: 16 },
-
-  /* buttons */
   btn: {
     display: 'block',
     width: '100%',
@@ -59,13 +55,9 @@ const S = {
   },
   prim: { background: '#d4af37', color: '#000' },
   sec:  { background: 'transparent', border: '1px solid #d4af37', color: '#d4af37' },
-
-  /* status text */
   stat: { fontSize: 15, minHeight: 22, margin: '12px 0' },
   ok:   { color: '#6BCB77' },
   bad:  { color: '#FF6B6B' },
-
-  /* modal */
   modalWrap: {
     position: 'fixed',
     inset: 0,
@@ -95,8 +87,6 @@ const S = {
     borderRadius: 6,
     cursor: 'pointer',
   },
-
-  /* fragment animation */
   frag: {
     position: 'fixed',
     left: '50%',
@@ -107,8 +97,6 @@ const S = {
     zIndex: 30,
     animation: 'fly 2.3s forwards',
   },
-
-  /* debug overlay */
   dbg: {
     position: 'fixed',
     left: 0,
@@ -146,11 +134,13 @@ function Debug() {
   return <pre style={S.dbg}>{log.join('\n')}</pre>;
 }
 
+/* Сохраняем новый JWT, если его отдаёт бэкенд */
 const saveToken = res => {
   const h = res.headers.get('Authorization') || '';
   if (h.startsWith('Bearer ')) localStorage.setItem('token', h.slice(7));
 };
 
+/* Для refresh после 401 */
 async function refreshToken(tgId, initData) {
   const r = await fetch(`${BACKEND}/api/init`, {
     method: 'POST',
@@ -163,43 +153,57 @@ async function refreshToken(tgId, initData) {
   return true;
 }
 
-/* =================================================================== */
 export default function Path() {
   const nav     = useNavigate();
   const pollRef = useRef(null);
 
-  /* preload fragments once */
+  // Telegram-пользователь
+  const [tgId, setTgId]   = useState('');
+  const [raw, setRaw]     = useState('');
+  const [cd, setCd]       = useState(0);
+  const [curse, setCurse] = useState(null);
+
+  // Состояние платежей
+  const [busy, setBusy] = useState(false);
+  const [wait, setWait] = useState(false);
+  const [hub, setHub]   = useState('');
+  const [ton, setTon]   = useState('');
+  const [msg, setMsg]   = useState('');
+  const [showModal, setModal] = useState(false);
+
+  // Presigned URLs
+  const [fragUrls, setFragUrls] = useState({});
+  // Показ анимационного фрагмента
+  const [frag, setFrag]               = useState('');
+  const [fragLoaded, setFragLoaded]   = useState(false);
+
+  /* ─── 1. Получаем presigned URLs ────────────────────────────── */
   useEffect(() => {
-    Object.values(FRAG_IMG).forEach(f => {
-      const img = new Image();
-      img.src = `/fragments/${f}`;
-    });
+    (async () => {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      try {
+        const res = await fetch(`${BACKEND}/api/fragments/urls`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error();
+        const { signedUrls } = await res.json();
+        const map = {};
+        Object.entries(FRAG_IMG).forEach(([id, file]) => {
+          if (signedUrls[file]) {
+            map[id] = signedUrls[file];
+            const img = new Image();
+            img.src = signedUrls[file];
+          }
+        });
+        setFragUrls(map);
+      } catch (e) {
+        console.error('Failed to load fragment URLs', e);
+      }
+    })();
   }, []);
 
-  /* ─── state ───────────────────────────────────────────────── */
-  const [tgId,setTgId]   = useState('');
-  const [raw,setRaw]     = useState('');
-  const [cd,setCd]       = useState(0);
-  const [curse,setCurse] = useState(null);
-
-  const [busy,setBusy]   = useState(false);
-  const [wait,setWait]   = useState(false);
-  const [hub,setHub]     = useState('');
-  const [ton,setTon]     = useState('');
-  const [msg,setMsg]     = useState('');
-
-  const [showModal,setModal]         = useState(false);
-  const [frag,setFrag]               = useState('');
-  const [fragLoaded,setFragLoaded]   = useState(false);
-
-  const COOLDOWN = 120;
-  const secLeft = t => Math.max(0,
-    COOLDOWN - Math.floor((Date.now() - new Date(t).getTime()) / 1000));
-  const fmt = s => `${String((s/60)|0).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
-  const open = url =>
-    TG?.openLink?.(url,{try_instant_view:false}) || window.open(url,'_blank');
-
-  /* ─── mount ─────────────────────────────────────────────── */
+  /* ─── 2. Mount: инициализация TG, cooldown, invoice-polling ─── */
   useEffect(() => {
     const wa = TG?.initDataUnsafe;
     const u  = wa?.user;
@@ -207,10 +211,9 @@ export default function Path() {
 
     setTgId(String(u.id));
     setRaw(TG?.initData || '');
-
     if (!localStorage.getItem('token')) { nav('/init'); return; }
 
-    /* load cooldown / curse */
+    // загружаем last_burn + curse
     (async () => {
       try {
         const r = await fetch(`${BACKEND}/api/player/${u.id}`);
@@ -218,9 +221,10 @@ export default function Path() {
         if (j.last_burn) setCd(secLeft(j.last_burn));
         if (j.curse_expires && new Date(j.curse_expires) > new Date())
           setCurse(j.curse_expires);
-      } catch { /* ignore */ }
+      } catch {}
     })();
 
+    // если был незавершенный инвойс
     const invId = localStorage.getItem('invoiceId');
     if (invId) {
       setWait(true);
@@ -229,11 +233,20 @@ export default function Path() {
       pollRef.current = setInterval(() => checkStatus(invId), 5000);
     }
 
+    // тик-кулердаун
     const t = setInterval(() => setCd(s => (s > 0 ? s - 1 : 0)), 1000);
     return () => { clearInterval(t); clearInterval(pollRef.current); };
   }, [nav]);
 
-  /* ─── invoice ---------------------------------------------------- */
+  /* ─── вспомогалки ──────────────────────────────────────────── */
+  const COOLDOWN = 120;
+  const secLeft = t => Math.max(0,
+    COOLDOWN - Math.floor((Date.now() - new Date(t).getTime()) / 1000));
+  const fmt = s => `${String((s/60)|0).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+  const open = url =>
+    TG?.openLink?.(url,{try_instant_view:false}) || window.open(url,'_blank');
+
+  /* ─── инвойс / burn ────────────────────────────────────────── */
   const createInvoice = async (retry = false) => {
     setBusy(true); setMsg(''); setModal(false);
     try {
@@ -258,27 +271,23 @@ export default function Path() {
       setHub(j.paymentUrl);
       setTon(j.tonspaceUrl);
       localStorage.setItem('invoiceId',  j.invoiceId);
-      localStorage.setItem('paymentUrl', j.paymentUrl);
-      localStorage.setItem('tonspaceUrl',j.tonspaceUrl);
+      localStorage.setItem('paymentUrl',  j.paymentUrl);
+      localStorage.setItem('tonspaceUrl', j.tonspaceUrl);
 
       if (PLATFORM === 'android' && j.tonspaceUrl) open(j.tonspaceUrl);
       else open(j.paymentUrl);
 
       setWait(true);
-      pollRef.current = setInterval(() => checkStatus(j.invoiceId), 5_000);
-
+      pollRef.current = setInterval(() => checkStatus(j.invoiceId), 5000);
     } catch (e) {
       setMsg(e.message);
       setBusy(false);
       setWait(false);
     }
   };
+  const burn = () => createInvoice();
 
-  const burn = () => {
-    createInvoice();
-  };
-
-  /* ─── polling ----------------------------------------------------- */
+  /* ─── poll burn-status ──────────────────────────────────────── */
   const checkStatus = async id => {
     try {
       const r = await fetch(`${BACKEND}/api/burn-status/${id}`, {
@@ -290,7 +299,8 @@ export default function Path() {
 
       if (j.paid) {
         clearInterval(pollRef.current);
-        setBusy(false); setWait(false);
+        setBusy(false);
+        setWait(false);
         localStorage.removeItem('invoiceId');
         localStorage.removeItem('paymentUrl');
         localStorage.removeItem('tonspaceUrl');
@@ -299,19 +309,22 @@ export default function Path() {
           setCurse(j.curse_expires);
           setMsg(`⛔ Cursed until ${new Date(j.curse_expires).toLocaleString()}`);
         } else {
-          setCurse(null); setCd(COOLDOWN);
-          const url = `/fragments/${FRAG_IMG[j.newFragment]}`;
-          setFrag(url); setFragLoaded(false);
+          setCurse(null);
+          setCd(COOLDOWN);
+
+          // Показ presigned-фрагмента
+          const url = fragUrls[String(j.newFragment)] || '';
+          setFrag(url);
+          setFragLoaded(false);
           setMsg(`🔥 Fragment #${j.newFragment} received!`);
         }
       }
     } catch (e) {
       setMsg(e.message);
-      // остаёмся в wait без авто-open
     }
   };
 
-  /* ─── fragment hide after animation ──────────────────────────── */
+  /* ─── скрываем анимацию ───────────────────────────────────── */
   useEffect(() => {
     if (fragLoaded) {
       const t = setTimeout(() => { setFrag(''); setFragLoaded(false); }, 2300);
@@ -329,7 +342,6 @@ export default function Path() {
     <>
       {styleTag}
 
-      {/* modal */}
       {showModal && (
         <div style={S.modalWrap} onClick={() => setModal(false)}>
           <div style={S.modal} onClick={e => e.stopPropagation()}>
@@ -353,7 +365,6 @@ export default function Path() {
         </div>
       )}
 
-      {/* main card */}
       <div style={S.page}>
         <div style={S.card}>
           <h2 style={S.h2}>The Path Begins</h2>
@@ -413,7 +424,6 @@ export default function Path() {
         </div>
       </div>
 
-      {/* fragment animation */}
       {frag && (
         <img
           src={frag}

@@ -1,3 +1,4 @@
+// src/screens/Profile.jsx
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { claimReferral } from '../api/referral.js';
@@ -13,30 +14,53 @@ const SLUG = [
 export default function Profile() {
   const nav = useNavigate();
 
-  /* базовый стейт */
   const [loading, setLoading]   = useState(true);
   const [error,   setError]     = useState('');
   const [name,    setName]      = useState('');
   const [frags,   setFrags]     = useState([]);
+  const [total,   setTotal]     = useState(null);
 
-  /* статистика */
-  const [total, setTotal]       = useState(null);
-
-  /* реферальная программа */
   const [refCode, setRefCode]   = useState('');
   const [invCnt,  setInvCnt]    = useState(0);
   const [reward,  setReward]    = useState(false);
   const [claiming,setClaiming]  = useState(false);
   const [copied,  setCopied]    = useState(false);
 
-  /* удаление профиля */
   const [askDelete, setAskDelete] = useState(false);
   const [busyDel,   setBusyDel]   = useState(false);
   const [delError,  setDelError]  = useState('');
 
-  /* зум-фрагмент */
-  const [zoomSrc, setZoomSrc] = useState('');
+  // Presigned URLs
+  const [fragUrls, setFragUrls] = useState({});
+  const [zoomSrc, setZoomSrc]   = useState('');
 
+  /* 1. Получаем presigned URLs */
+  useEffect(() => {
+    (async () => {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      try {
+        const r = await fetch(`${BACKEND}/api/fragments/urls`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!r.ok) throw new Error();
+        const { signedUrls } = await r.json();
+        const map = {};
+        SLUG.forEach((slug, idx) => {
+          const id   = String(idx + 1);
+          const name = `fragment_${id}_${slug}.webp`;
+          if (signedUrls[name]) {
+            map[id] = signedUrls[name];
+          }
+        });
+        setFragUrls(map);
+      } catch (e) {
+        console.error('Failed to load fragment URLs', e);
+      }
+    })();
+  }, []);
+
+  /* 2. Загрузка профиля */
   useEffect(() => {
     const uid   = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
     const token = localStorage.getItem('token');
@@ -48,7 +72,6 @@ export default function Profile() {
 
     (async () => {
       try {
-        // 1) получаем профиль + рефералку
         const resp = await fetch(`${BACKEND}/api/player/${uid}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
@@ -65,17 +88,15 @@ export default function Profile() {
         setLoading(false);
       }
 
-      // 2) общая статистика
       fetch(`${BACKEND}/api/stats/total_users`, {
         headers: { Authorization: `Bearer ${token}` }
       })
         .then(r => r.ok ? r.json() : null)
         .then(j => j && setTotal(j.total))
-        .catch(() => {/* silent */});
+        .catch(() => {});
     })();
   }, [nav]);
 
-  /* копирование кода */
   const copyCode = async () => {
     if (!refCode) return;
     try {
@@ -85,7 +106,6 @@ export default function Profile() {
     } catch {}
   };
 
-  /* выдача бесплатного фрагмента */
   const claim = async () => {
     setClaiming(true);
     try {
@@ -103,7 +123,6 @@ export default function Profile() {
     }
   };
 
-  /* удаление профиля */
   const deleteProfile = async () => {
     setBusyDel(true);
     setDelError('');
@@ -138,11 +157,11 @@ export default function Profile() {
           <div key={i} style={S.row}>
             {r.map(id => (
               <div key={id} style={S.slot}>
-                {frags.includes(id) && (
+                {frags.includes(id) && fragUrls[id] && (
                   <img
-                    src={`/fragments/fragment_${id}_${SLUG[id-1]}.webp`}
+                    src={fragUrls[id]}
                     style={S.img}
-                    onClick={() => setZoomSrc(`/fragments/fragment_${id}_${SLUG[id-1]}.webp`)}
+                    onClick={() => setZoomSrc(fragUrls[id])}
                   />
                 )}
               </div>
@@ -150,9 +169,10 @@ export default function Profile() {
           </div>
         ))}
 
-        <button style={S.act} onClick={() => nav('/path')}>🔥 Burn Again</button>
+        <button style={S.act} onClick={() => nav('/path')}>
+          🔥 Burn Again
+        </button>
 
-        {/* Реферальный блок */}
         <div style={S.refBox}>
           <p style={S.refLabel}>Your referral code</p>
           <div style={S.refCodeRow}>
@@ -175,8 +195,9 @@ export default function Profile() {
         )}
 
         {frags.length === 8 && (
-          <button style={{ ...S.act, marginTop:6, fontSize:16 }}
-                  onClick={() => nav('/final')}>
+          <button
+            style={{ ...S.act, marginTop:6, fontSize:16 }}
+            onClick={() => nav('/final')}>
             🗝 Enter Final Phrase
           </button>
         )}
@@ -187,7 +208,6 @@ export default function Profile() {
         </button>
       </div>
 
-      {/* Модалка удаления */}
       {askDelete && (
         <div style={S.wrap} onClick={() => !busyDel && setAskDelete(false)}>
           <div style={S.box} onClick={e => e.stopPropagation()}>
@@ -198,15 +218,13 @@ export default function Profile() {
             <button style={S.ok} disabled={busyDel} onClick={deleteProfile}>
               {busyDel ? 'Deleting…' : 'Yes, delete'}
             </button>
-            <button style={S.cancel} disabled={busyDel}
-                    onClick={() => setAskDelete(false)}>
+            <button style={S.cancel} disabled={busyDel} onClick={() => setAskDelete(false)}>
               Cancel
             </button>
           </div>
         </div>
       )}
 
-      {/* Зум-оверлей */}
       {zoomSrc && (
         <div style={S.zoomWrap} onClick={() => setZoomSrc('')}>
           <img
@@ -226,17 +244,14 @@ const S = {
          display:'flex',justifyContent:'center',alignItems:'center',
          padding:16,color:'#d4af37',fontFamily:'serif' },
   load:{ fontSize:18 }, err:{ fontSize:16, color:'#f66' },
-
   card:{ width:'100%', maxWidth:360, minHeight:520, background:'rgba(0,0,0,0.55)',
          padding:20, borderRadius:8, display:'flex', flexDirection:'column',
          textAlign:'center' },
   h:{ margin:0, fontSize:26 }, sub:{ fontSize:14, margin:'6px 0 18px', opacity:.85 },
-
   row:{ display:'flex', gap:6, marginBottom:6 },
   slot:{ flex:'1 1 0', aspectRatio:'1/1', background:'#111',
          border:'1px solid #d4af37', borderRadius:6, overflow:'hidden' },
   img:{ width:'100%', height:'100%', objectFit:'cover', cursor:'pointer' },
-
   refBox:{ background:'rgba(0,0,0,0.6)', border:'1px solid #d4af37',
            borderRadius:8, boxShadow:'0 0 8px rgba(0,0,0,0.5)',
            padding:16, display:'flex', flexDirection:'column',
@@ -252,13 +267,11 @@ const S = {
           border:'none', borderRadius:6, background:'#6BCB77',
           color:'#000', cursor:'pointer' },
   claimed:{ marginTop:10, fontSize:13, color:'#6BCB77' },
-
   count:{ fontSize:14, margin:'14px 0 18px', opacity:.85 },
   act:{ padding:10, fontSize:15, borderRadius:6, border:'none',
         background:'#d4af37', color:'#000', cursor:'pointer' },
   del:{ padding:10, fontSize:14, borderRadius:6, border:'none',
         background:'#a00', color:'#fff', cursor:'pointer', marginTop:8 },
-
   wrap:{ position:'fixed', inset:0, background:'#0007',
          backdropFilter:'blur(4px)', display:'flex',
          justifyContent:'center', alignItems:'center', zIndex:40 },
@@ -270,7 +283,6 @@ const S = {
   cancel:{ width:'100%', padding:10, fontSize:14, marginTop:10,
            border:'none', borderRadius:6, background:'#555',
            color:'#fff', cursor:'pointer' },
-
   zoomWrap:{ position:'fixed', inset:0, background:'#000d',
              display:'flex', justifyContent:'center', alignItems:'center',
              zIndex:60 },
