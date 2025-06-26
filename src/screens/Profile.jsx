@@ -49,7 +49,7 @@ export default function Profile() {
         const map = {}
         SLUG.forEach((slug, idx) => {
           const id   = String(idx + 1)
-          const name = `fragment_${id}_${slug}.webp`
+          const name = `fragment_${id}_${slug}.jpg`
           if (signedUrls[name]) map[id] = signedUrls[name]
         })
         setFragUrls(map)
