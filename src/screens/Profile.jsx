@@ -150,7 +150,7 @@ export default function Profile() {
   // полный набор!
   const allGot = frags.length === 8
   // URL финального изображения
-  const finalUrl = `${BACKEND.replace(/\/$/, '')}/fragments/final-image.webp`
+  const finalUrl = `${BACKEND.replace(/\/$/, '')}/fragments/final-image.jpg`
 
   return (
     <div style={S.page}>
