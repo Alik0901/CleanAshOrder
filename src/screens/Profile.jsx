@@ -263,7 +263,7 @@ const S = {
          overflow:'hidden' },
   img:{ width:'100%',height:'100%',objectFit:'cover',
         cursor:'pointer' },
-  finalWrapper:{ width:'100%',marginBottom:6,
+  finalWrapper:{ width:'100%',marginBottom:16,
                  position:'relative',paddingTop:'50%' },
   finalImg:{ position:'absolute',top:0,left:0,
              width:'100%',height:'100%',
