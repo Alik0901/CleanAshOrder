@@ -1,142 +1,146 @@
-import React, { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { claimReferral } from '../api/referral.js'
+import React, { useEffect, useState } from 'react';
+import { useNavigate }               from 'react-router-dom';
+import { claimReferral }             from '../api/referral.js';
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL
-  ?? 'https://ash-backend-production.up.railway.app'
+  ?? 'https://ash-backend-production.up.railway.app';
 
 const SLUG = [
   'the_whisper','the_number','the_language','the_mirror',
   'the_chain','the_hour','the_mark','the_gate'
-]
+];
 
 export default function Profile() {
-  const nav = useNavigate()
+  const nav = useNavigate();
 
-  const [loading, setLoading] = useState(true)
-  const [error,   setError]   = useState('')
-  const [name,    setName]    = useState('')
-  const [frags,   setFrags]   = useState([])
-  const [total,   setTotal]   = useState(null)
+  const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState('');
+  const [name,    setName]    = useState('');
+  const [frags,   setFrags]   = useState([]);
+  const [total,   setTotal]   = useState(null);
 
-  const [refCode, setRefCode] = useState('')
-  const [invCnt,  setInvCnt]  = useState(0)
-  const [reward,  setReward]  = useState(false)
-  const [claiming,setClaiming]= useState(false)
-  const [copied,  setCopied]  = useState(false)
+  const [refCode, setRefCode] = useState('');
+  const [invCnt,  setInvCnt]  = useState(0);
+  const [reward,  setReward]  = useState(false);
+  const [claiming,setClaiming]= useState(false);
+  const [copied,  setCopied]  = useState(false);
 
-  const [askDelete, setAskDelete] = useState(false)
-  const [busyDel,   setBusyDel]   = useState(false)
-  const [delError,  setDelError]  = useState('')
+  const [askDelete, setAskDelete] = useState(false);
+  const [busyDel,   setBusyDel]   = useState(false);
+  const [delError,  setDelError]  = useState('');
 
-  // presigned URLs
-  const [fragUrls, setFragUrls] = useState({})
-  // zoom URL
-  const [zoomSrc , setZoomSrc ] = useState('')
+  const [fragUrls, setFragUrls] = useState({});
+  const [zoomSrc,  setZoomSrc]  = useState('');
 
-  // 1) load presigned
+  const finalUrl = `${BACKEND.replace(/\/$/,'')}/fragments/final-image.jpg`;
+
+  // 1) presigned URLs
   useEffect(() => {
-    ;(async () => {
-      const token = localStorage.getItem('token')
-      if (!token) return
+    (async () => {
+      const token = localStorage.getItem('token');
+      if (!token) return;
       try {
         const r = await fetch(`${BACKEND}/api/fragments/urls`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        if (!r.ok) throw new Error()
-        const { signedUrls } = await r.json()
-        const map = {}
-        SLUG.forEach((slug, idx) => {
-          const id   = String(idx + 1)
-          const name = `fragment_${id}_${slug}.jpg`
-          if (signedUrls[name]) map[id] = signedUrls[name]
-        })
-        setFragUrls(map)
-      } catch (e) {
-        console.error('Failed to load fragment URLs', e)
+          headers:{Authorization:`Bearer ${token}`}
+        });
+        if (!r.ok) throw new Error();
+        const { signedUrls } = await r.json();
+        const map = {};
+        SLUG.forEach((slug,idx)=>{
+          const id = String(idx+1);
+          const name = `fragment_${id}_${slug}.jpg`;
+          if (signedUrls[name]) map[id] = signedUrls[name];
+        });
+        setFragUrls(map);
+      } catch(e){
+        console.error('Failed to load fragment URLs',e);
       }
-    })()
-  }, [])
+    })();
+  },[]);
 
   // 2) load profile
   useEffect(() => {
-    const uid   = window.Telegram?.WebApp?.initDataUnsafe?.user?.id
-    const token = localStorage.getItem('token')
+    const uid   = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+    const token = localStorage.getItem('token');
     if (!uid || !token) {
-      localStorage.removeItem('token')
-      nav('/init')
-      return
+      localStorage.removeItem('token');
+      nav('/init');
+      return;
     }
-
-    ;(async () => {
+    (async () => {
       try {
         const resp = await fetch(`${BACKEND}/api/player/${uid}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        if ([401,403,404].includes(resp.status)) throw new Error()
-        const pj = await resp.json()
-        setName(pj.name || '')
-        setFrags(pj.fragments || [])
-        setRefCode(pj.ref_code || '')
-        setInvCnt(pj.invitedCount || 0)
-        setReward(!!pj.referral_reward_issued)
+          headers:{Authorization:`Bearer ${token}`}
+        });
+        if ([401,403,404].includes(resp.status)) throw new Error();
+        const pj = await resp.json();
+        setName(pj.name||'');
+        setFrags(pj.fragments||[]);
+        setRefCode(pj.ref_code||'');
+        setInvCnt(pj.invitedCount||0);
+        setReward(!!pj.referral_reward_issued);
       } catch {
-        setError('Не удалось загрузить профиль')
+        setError('Не удалось загрузить профиль');
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-
-      fetch(`${BACKEND}/api/stats/total_users`, {
-        headers: { Authorization: `Bearer ${token}` },
+      fetch(`${BACKEND}/api/stats/total_users`,{
+        headers:{Authorization:`Bearer ${token}`}
       })
-        .then(r => r.ok ? r.json() : null)
-        .then(j => j && setTotal(j.total))
-        .catch(() => {})
-    })()
-  }, [nav])
+        .then(r=>r.ok?r.json():null)
+        .then(j=>j&&setTotal(j.total))
+        .catch(()=>{});
+    })();
+  },[nav]);
 
-  // утилиты copy/claim/delete …
   const copyCode = async () => {
-    if (!refCode) return
+    if (!refCode) return;
     try {
-      await navigator.clipboard.writeText(refCode)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
-    } catch {}
-  }
+      await navigator.clipboard.writeText(refCode);
+      setCopied(true);
+      setTimeout(()=>setCopied(false),1500);
+    } catch{}
+  };
+
   const claim = async () => {
-    setClaiming(true)
+    setClaiming(true);
     try {
-      const token = localStorage.getItem('token')
-      const { fragment } = await claimReferral(token)
-      setReward(true)
-      if (fragment!=null) setFrags(prev=>[...prev,fragment])
-      alert('🎉 Бесплатный фрагмент получен!')
-    } catch(e){ alert(e.message) }
-    finally{ setClaiming(false) }
-  }
-  const deleteProfile = async () => {
-    setBusyDel(true); setDelError('')
-    try {
-      const uid   = window.Telegram.WebApp.initDataUnsafe.user.id
-      const token = localStorage.getItem('token')
-      await fetch(`${BACKEND}/api/player/${uid}`, {
-        method:'DELETE',
-        headers:{ Authorization:`Bearer ${token}` }
-      })
-      localStorage.clear(); nav('/')
+      const token = localStorage.getItem('token');
+      const { fragment } = await claimReferral(token);
+      setReward(true);
+      if (fragment!=null) setFrags(prev=>[...prev,fragment]);
+      alert('🎉 Бесплатный фрагмент получен!');
     } catch(e){
-      setDelError(e.message); setBusyDel(false)
+      alert(e.message);
+    } finally {
+      setClaiming(false);
     }
-  }
+  };
 
-  if (loading) return <div style={S.page}><p style={S.load}>Loading…</p></div>
-  if (error)   return <div style={S.page}><p style={S.err}>{error}</p></div>
+  const deleteProfile = async () => {
+    setBusyDel(true);
+    setDelError('');
+    try {
+      const uid   = window.Telegram.WebApp.initDataUnsafe.user.id;
+      const token = localStorage.getItem('token');
+      await fetch(`${BACKEND}/api/player/${uid}`,{
+        method:'DELETE',
+        headers:{Authorization:`Bearer ${token}`}
+      });
+      localStorage.clear();
+      nav('/');
+    } catch(e){
+      setDelError(e.message);
+      setBusyDel(false);
+    }
+  };
 
-  const rows = [[1,2,3,4],[5,6,7,8]]
-  const progress = Math.min(invCnt,3)
-  const allGot = frags.length===8
-  const finalUrl = `${BACKEND}/fragments/final-image.jpg`
+  if (loading) return <div style={S.page}><p style={S.load}>Loading…</p></div>;
+  if (error)   return <div style={S.page}><p style={S.err}>{error}</p></div>;
+
+  const rows     = [[1,2,3,4],[5,6,7,8]];
+  const progress = Math.min(invCnt,3);
+  const allGot   = frags.length===8;
 
   return (
     <div style={S.page}>
@@ -149,30 +153,32 @@ export default function Profile() {
             <img
               src={finalUrl}
               style={S.finalImg}
-              alt="Final"
               onClick={()=>setZoomSrc(finalUrl)}
+              alt="Final Puzzle"
             />
           </div>
-        ) : (
-          rows.map((r,i)=>(
-            <div key={i} style={S.row}>
-              {r.map(id=>(
-                <div key={id} style={S.slot}>
-                  {frags.includes(id)&&fragUrls[id]&&(
-                    <img
-                      src={fragUrls[id]}
-                      style={S.img}
-                      alt={`Frag ${id}`}
-                      onClick={()=>setZoomSrc(fragUrls[id])}
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
-          ))
-        )}
+        ) : rows.map((r,i)=>(
+          <div key={i} style={S.row}>
+            {r.map(id=>(
+              <div key={id} style={S.slot}>
+                {frags.includes(id)&&fragUrls[id]&&(
+                  <img
+                    src={fragUrls[id]}
+                    style={S.img}
+                    onClick={()=>setZoomSrc(fragUrls[id])}
+                    alt={`Fragment ${id}`}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        ))}
 
-        <button style={S.act} onClick={()=>nav('/path')}>
+        <button
+          style={{...S.act,opacity:allGot?0.6:1}}
+          disabled={allGot}
+          onClick={()=>nav('/path')}
+        >
           🔥 Burn Again
         </button>
 
@@ -200,7 +206,8 @@ export default function Profile() {
         {allGot&&(
           <button
             style={{...S.act,marginTop:6,fontSize:16}}
-            onClick={()=>nav('/final')}>
+            onClick={()=>nav('/final')}
+          >
             🗝 Enter Final Phrase
           </button>
         )}
@@ -211,7 +218,6 @@ export default function Profile() {
         </button>
       </div>
 
-      {/* Confirm delete */}
       {askDelete&&(
         <div style={S.wrap} onClick={()=>!busyDel&&setAskDelete(false)}>
           <div style={S.box} onClick={e=>e.stopPropagation()}>
@@ -229,19 +235,18 @@ export default function Profile() {
         </div>
       )}
 
-      {/* Zoom view */}
       {zoomSrc&&(
         <div style={S.zoomWrap} onClick={()=>setZoomSrc('')}>
           <img
             src={zoomSrc}
             style={S.zoomImg}
-            alt="Zoom"
             onClick={()=>setZoomSrc('')}
+            alt="Zoom"
           />
         </div>
       )}
     </div>
-  )
+  );
 }
 
 /* Стили */
@@ -257,7 +262,7 @@ const S = {
          textAlign:'center' },
   h:{ margin:0,fontSize:26 }, sub:{ fontSize:14,
          margin:'6px 0 18px',opacity:.85 },
-  row:{ display:'flex',gap:6,marginBottom:6},
+  row:{ display:'flex',gap:6,marginBottom:6 },
   slot:{ flex:'1 1 0',aspectRatio:'1/1',background:'#111',
          border:'1px solid #d4af37',borderRadius:6,
          overflow:'hidden' },
@@ -267,33 +272,34 @@ const S = {
                  position:'relative',paddingTop:'50%' },
   finalImg:{ position:'absolute',top:0,left:0,
              width:'100%',height:'100%',
-             objectFit:'cover',borderRadius:6,
-             cursor:'pointer',objectFit:'cover',
+             objectFit:'cover',
+             border:'1px solid #d4af37',
              borderRadius:6,
-             border:'1px solid #d4af37',  // ← жёлтая рамка
              cursor:'pointer' },
   act:{ padding:10,fontSize:15,borderRadius:6,
         border:'none',background:'#d4af37',
         color:'#000',cursor:'pointer' },
-  refBox:{ background:'rgba(0,0,0,0.6)',border:'1px solid #d4af37',
+  refBox:{ background:'rgba(0,0,0,0.6)',
+           border:'1px solid #d4af37',
            borderRadius:8,boxShadow:'0 0 8px rgba(0,0,0,0.5)',
-           padding:'8px 16px',display:'flex',flexDirection:'column',
-           alignItems:'center',gap:4,margin:'16px 0' },
+           padding:'8px 16px',display:'flex',
+           flexDirection:'column',alignItems:'center',
+           gap:4,margin:'16px 0' },
   refLabel:{ margin:0,fontSize:14,opacity:.8 },
   refCodeRow:{ display:'flex',alignItems:'center',gap:12 },
   refCode:{ fontSize:18,fontWeight:600,color:'#d4af37' },
   copyBtn:{ padding:'6px 12px',fontSize:13,border:'none',
-            borderRadius:4,background:'#d4af37',color:'#000',
-            cursor:'pointer' },
+            borderRadius:4,background:'#d4af37',
+            color:'#000',cursor:'pointer' },
   progress:{ margin:0,fontSize:13,opacity:.85 },
   claim:{ marginTop:10,padding:10,width:'100%',fontSize:14,
           border:'none',borderRadius:6,background:'#6BCB77',
           color:'#000',cursor:'pointer' },
   claimed:{ marginTop:10,fontSize:13,color:'#6BCB77' },
-  count:{ fontSize:14,margin:'10px 0 14px',opacity:.85 },
-  del:{ padding:10,fontSize:14,borderRadius:6,border:'1px solid #a00',
-        background:'transparent',color:'#a00',cursor:'pointer',
-        marginTop:8 },
+  count:{ fontSize:14,margin:'14px 0 18px',opacity:.85 },
+  del:{ padding:10,fontSize:14,borderRadius:6,
+        border:'1px solid #a00',background:'transparent',
+        color:'#a00',cursor:'pointer',marginTop:8 },
   wrap:{ position:'fixed',inset:0,background:'#0007',
          backdropFilter:'blur(4px)',display:'flex',
          justifyContent:'center',alignItems:'center',zIndex:40 },
@@ -309,4 +315,4 @@ const S = {
              display:'flex',justifyContent:'center',
              alignItems:'center',zIndex:60 },
   zoomImg:{ maxWidth:'90vw',maxHeight:'86vh',borderRadius:10 },
-}
+};
