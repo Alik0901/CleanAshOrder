@@ -1,7 +1,6 @@
-// src/screens/Profile.jsx
 import React, { useEffect, useState } from 'react'
-import { useNavigate }          from 'react-router-dom'
-import { claimReferral }        from '../api/referral.js'
+import { useNavigate } from 'react-router-dom'
+import { claimReferral } from '../api/referral.js'
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL
   ?? 'https://ash-backend-production.up.railway.app'
@@ -30,12 +29,12 @@ export default function Profile() {
   const [busyDel,   setBusyDel]   = useState(false)
   const [delError,  setDelError]  = useState('')
 
-  // presigned URLs для фрагментов
+  // presigned URLs
   const [fragUrls, setFragUrls] = useState({})
-  // URL для зума (фрагмента или финального изображения)
-  const [zoomSrc,  setZoomSrc]  = useState('')
+  // zoom URL
+  const [zoomSrc , setZoomSrc ] = useState('')
 
-  // 1. загрузка presigned URLs
+  // 1) load presigned
   useEffect(() => {
     ;(async () => {
       const token = localStorage.getItem('token')
@@ -59,7 +58,7 @@ export default function Profile() {
     })()
   }, [])
 
-  // 2. загрузка профиля
+  // 2) load profile
   useEffect(() => {
     const uid   = window.Telegram?.WebApp?.initDataUnsafe?.user?.id
     const token = localStorage.getItem('token')
@@ -87,7 +86,6 @@ export default function Profile() {
         setLoading(false)
       }
 
-      // total users
       fetch(`${BACKEND}/api/stats/total_users`, {
         headers: { Authorization: `Bearer ${token}` },
       })
@@ -97,7 +95,7 @@ export default function Profile() {
     })()
   }, [nav])
 
-  // копировать код
+  // утилиты copy/claim/delete …
   const copyCode = async () => {
     if (!refCode) return
     try {
@@ -106,51 +104,39 @@ export default function Profile() {
       setTimeout(() => setCopied(false), 1500)
     } catch {}
   }
-
-  // claim referral
   const claim = async () => {
     setClaiming(true)
     try {
       const token = localStorage.getItem('token')
       const { fragment } = await claimReferral(token)
       setReward(true)
-      if (fragment != null) setFrags(prev => [...prev, fragment])
+      if (fragment!=null) setFrags(prev=>[...prev,fragment])
       alert('🎉 Бесплатный фрагмент получен!')
-    } catch (e) {
-      alert(e.message)
-    } finally {
-      setClaiming(false)
-    }
+    } catch(e){ alert(e.message) }
+    finally{ setClaiming(false) }
   }
-
-  // delete profile
   const deleteProfile = async () => {
     setBusyDel(true); setDelError('')
     try {
       const uid   = window.Telegram.WebApp.initDataUnsafe.user.id
       const token = localStorage.getItem('token')
       await fetch(`${BACKEND}/api/player/${uid}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
+        method:'DELETE',
+        headers:{ Authorization:`Bearer ${token}` }
       })
-      localStorage.clear()
-      nav('/')
-    } catch (e) {
+      localStorage.clear(); nav('/')
+    } catch(e){
       setDelError(e.message); setBusyDel(false)
     }
   }
 
-  // лоадер / ошибка
   if (loading) return <div style={S.page}><p style={S.load}>Loading…</p></div>
   if (error)   return <div style={S.page}><p style={S.err}>{error}</p></div>
 
-  const rows     = [[1,2,3,4], [5,6,7,8]]
-  const progress = Math.min(invCnt, 3)
-
-  // полный набор!
-  const allGot = frags.length === 8
-  // URL финального изображения
-  const finalUrl = `${BACKEND.replace(/\/$/, '')}/fragments/final-image.jpg`
+  const rows = [[1,2,3,4],[5,6,7,8]]
+  const progress = Math.min(invCnt,3)
+  const allGot = frags.length===8
+  const finalUrl = `${BACKEND}/fragments/final-image.jpg`
 
   return (
     <div style={S.page}>
@@ -159,27 +145,25 @@ export default function Profile() {
         <p style={S.sub}>Fragments {frags.length}/8</p>
 
         {allGot ? (
-          // финальное изображение вместо сетки
           <div style={S.finalWrapper}>
             <img
               src={finalUrl}
               style={S.finalImg}
-              onClick={() => setZoomSrc(finalUrl)}
               alt="Final"
+              onClick={()=>setZoomSrc(finalUrl)}
             />
           </div>
         ) : (
-          // привычная сетка 4×2
-          rows.map((r, i) => (
+          rows.map((r,i)=>(
             <div key={i} style={S.row}>
-              {r.map(id => (
+              {r.map(id=>(
                 <div key={id} style={S.slot}>
-                  {frags.includes(id) && fragUrls[id] && (
+                  {frags.includes(id)&&fragUrls[id]&&(
                     <img
                       src={fragUrls[id]}
                       style={S.img}
-                      onClick={() => setZoomSrc(fragUrls[id])}
-                      alt={`Fragment ${id}`}
+                      alt={`Frag ${id}`}
+                      onClick={()=>setZoomSrc(fragUrls[id])}
                     />
                   )}
                 </div>
@@ -188,71 +172,71 @@ export default function Profile() {
           ))
         )}
 
-        <button style={S.act} onClick={() => nav('/path')}>
+        <button style={S.act} onClick={()=>nav('/path')}>
           🔥 Burn Again
         </button>
 
         <div style={S.refBox}>
           <p style={S.refLabel}>Your referral code</p>
           <div style={S.refCodeRow}>
-            <span style={S.refCode}>{refCode || '—'}</span>
+            <span style={S.refCode}>{refCode||'—'}</span>
             <button style={S.copyBtn} onClick={copyCode}>
-              {copied ? 'Copied' : 'Copy'}
+              {copied?'Copied':'Copy'}
             </button>
           </div>
           <p style={S.progress}>Invited {progress}/3</p>
-          {!reward && progress >= 3 && (
+          {!reward&&progress>=3&&(
             <button style={S.claim} disabled={claiming} onClick={claim}>
-              {claiming ? 'Processing…' : 'Claim free fragment'}
+              {claiming?'Processing…':'Claim free fragment'}
             </button>
           )}
-          {reward && <p style={S.claimed}>Reward already claimed ✅</p>}
+          {reward&&<p style={S.claimed}>Reward already claimed ✅</p>}
         </div>
 
-        {total !== null && (
+        {total!=null&&(
           <p style={S.count}>Ash Seekers: {total.toLocaleString()}</p>
         )}
 
-        {allGot && (
+        {allGot&&(
           <button
-            style={{ ...S.act, marginTop:6, fontSize:16 }}
-            onClick={() => nav('/final')}>
+            style={{...S.act,marginTop:6,fontSize:16}}
+            onClick={()=>nav('/final')}>
             🗝 Enter Final Phrase
           </button>
         )}
 
-        <div style={{ flexGrow:1 }} />
-        <button style={S.del} onClick={() => setAskDelete(true)}>
+        <div style={{flexGrow:1}}/>
+        <button style={S.del} onClick={()=>setAskDelete(true)}>
           Delete profile
         </button>
       </div>
 
-      {/* confirm delete */}
-      {askDelete && (
-        <div style={S.wrap} onClick={() => !busyDel && setAskDelete(false)}>
-          <div style={S.box} onClick={e => e.stopPropagation()}>
-            <p style={{ margin:'0 0 12px', fontSize:17 }}>
+      {/* Confirm delete */}
+      {askDelete&&(
+        <div style={S.wrap} onClick={()=>!busyDel&&setAskDelete(false)}>
+          <div style={S.box} onClick={e=>e.stopPropagation()}>
+            <p style={{margin:'0 0 12px',fontSize:17}}>
               Delete profile permanently?
             </p>
-            {delError && <p style={{ color:'#f66', fontSize:14 }}>{delError}</p>}
+            {delError&&<p style={{color:'#f66',fontSize:14}}>{delError}</p>}
             <button style={S.ok} disabled={busyDel} onClick={deleteProfile}>
-              {busyDel ? 'Deleting…' : 'Yes, delete'}
+              {busyDel?'Deleting…':'Yes, delete'}
             </button>
-            <button style={S.cancel} disabled={busyDel} onClick={() => setAskDelete(false)}>
+            <button style={S.cancel} disabled={busyDel} onClick={()=>setAskDelete(false)}>
               Cancel
             </button>
           </div>
         </div>
       )}
 
-      {/* zoom-view */}
-      {zoomSrc && (
-        <div style={S.zoomWrap} onClick={() => setZoomSrc('')}>
+      {/* Zoom view */}
+      {zoomSrc&&(
+        <div style={S.zoomWrap} onClick={()=>setZoomSrc('')}>
           <img
             src={zoomSrc}
             style={S.zoomImg}
-            onClick={() => setZoomSrc('')}
             alt="Zoom"
+            onClick={()=>setZoomSrc('')}
           />
         </div>
       )}
@@ -262,63 +246,64 @@ export default function Profile() {
 
 /* Стили */
 const S = {
-  page: { position:'relative', minHeight:'100vh', background:'url("/profile-bg.webp") center/cover',
-          display:'flex', justifyContent:'center', alignItems:'center',
-          padding:16, color:'#d4af37', fontFamily:'serif' },
-  load:{ fontSize:18 }, err:{ fontSize:16, color:'#f66' },
-  card:{ width:'100%', maxWidth:360, minHeight:520, background:'rgba(0,0,0,0.55)',
-         padding:20, borderRadius:8, display:'flex', flexDirection:'column',
+  page:{ position:'relative',minHeight:'100vh',
+         background:'url("/profile-bg.webp") center/cover',
+         display:'flex',justifyContent:'center',alignItems:'center',
+         padding:16,color:'#d4af37',fontFamily:'serif' },
+  load:{ fontSize:18 }, err:{ fontSize:16,color:'#f66' },
+  card:{ width:'100%',maxWidth:360,minHeight:520,
+         background:'rgba(0,0,0,0.55)',padding:20,
+         borderRadius:8,display:'flex',flexDirection:'column',
          textAlign:'center' },
-  h:{ margin:0, fontSize:26 }, sub:{ fontSize:14, margin:'6px 0 18px', opacity:.85 },
-  row:{ display:'flex', gap:6, marginBottom:6 },
-  slot:{ flex:'1 1 0', aspectRatio:'1/1', background:'#111',
-         border:'1px solid #d4af37', borderRadius:6, overflow:'hidden' },
-  img:{ width:'100%', height:'100%', objectFit:'cover', cursor:'pointer' },
-
-  // обёртка и стили для финального изображения
-  finalWrapper:{
-    width:'100%', marginBottom:6,
-    position:'relative', paddingTop:'50%' /* соотношение 4:2 => 2:1 => 50% */
-  },
-  finalImg:{
-    position:'absolute', top:0, left:0,
-    width:'100%', height:'100%',
-    objectFit:'cover', borderRadius:6, cursor:'pointer'
-  },
-
-  act:{ padding:10, fontSize:15, borderRadius:6, border:'none',
-        background:'#d4af37', color:'#000', cursor:'pointer' },
-  refBox:{ background:'rgba(0,0,0,0.6)', border:'1px solid #d4af37',
-           borderRadius:8, boxShadow:'0 0 8px rgba(0,0,0,0.5)',
-           padding:16, display:'flex', flexDirection:'column',
-           alignItems:'center', gap:8, margin:'24px 0' },
-  refLabel:{ margin:0, fontSize:14, opacity:.8 },
-  refCodeRow:{ display:'flex', alignItems:'center', gap:12 },
-  refCode:{ fontSize:18, fontWeight:600, color:'#d4af37' },
-  copyBtn:{ padding:'6px 12px', fontSize:13, border:'none',
-            borderRadius:4, background:'#d4af37', color:'#000',
+  h:{ margin:0,fontSize:26 }, sub:{ fontSize:14,
+         margin:'6px 0 18px',opacity:.85 },
+  row:{ display:'flex',gap:6,marginBottom:6},
+  slot:{ flex:'1 1 0',aspectRatio:'1/1',background:'#111',
+         border:'1px solid #d4af37',borderRadius:6,
+         overflow:'hidden' },
+  img:{ width:'100%',height:'100%',objectFit:'cover',
+        cursor:'pointer' },
+  finalWrapper:{ width:'100%',marginBottom:6,
+                 position:'relative',paddingTop:'50%' },
+  finalImg:{ position:'absolute',top:0,left:0,
+             width:'100%',height:'100%',
+             objectFit:'cover',borderRadius:6,
+             cursor:'pointer' },
+  act:{ padding:10,fontSize:15,borderRadius:6,
+        border:'none',background:'#d4af37',
+        color:'#000',cursor:'pointer' },
+  refBox:{ background:'rgba(0,0,0,0.6)',border:'1px solid #d4af37',
+           borderRadius:8,boxShadow:'0 0 8px rgba(0,0,0,0.5)',
+           padding:16,display:'flex',flexDirection:'column',
+           alignItems:'center',gap:8,margin:'24px 0' },
+  refLabel:{ margin:0,fontSize:14,opacity:.8 },
+  refCodeRow:{ display:'flex',alignItems:'center',gap:12 },
+  refCode:{ fontSize:18,fontWeight:600,color:'#d4af37' },
+  copyBtn:{ padding:'6px 12px',fontSize:13,border:'none',
+            borderRadius:4,background:'#d4af37',color:'#000',
             cursor:'pointer' },
-  progress:{ margin:0, fontSize:13, opacity:.85 },
-  claim:{ marginTop:10, padding:10, width:'100%', fontSize:14,
-          border:'none', borderRadius:6, background:'#6BCB77',
-          color:'#000', cursor:'pointer' },
-  claimed:{ marginTop:10, fontSize:13, color:'#6BCB77' },
-  count:{ fontSize:14, margin:'14px 0 18px', opacity:.85 },
-  del:{ padding:10, fontSize:14, borderRadius:6, border:'none',
-        background:'#a00', color:'#fff', cursor:'pointer', marginTop:8 },
-  wrap:{ position:'fixed', inset:0, background:'#0007',
-         backdropFilter:'blur(4px)', display:'flex',
-         justifyContent:'center', alignItems:'center', zIndex:40 },
-  box:{ background:'#222', padding:24, borderRadius:10, width:300,
-        color:'#fff', textAlign:'center' },
-  ok:{ width:'100%', padding:10, fontSize:15, border:'none',
-       borderRadius:6, background:'#d4af37', color:'#000',
+  progress:{ margin:0,fontSize:13,opacity:.85 },
+  claim:{ marginTop:10,padding:10,width:'100%',fontSize:14,
+          border:'none',borderRadius:6,background:'#6BCB77',
+          color:'#000',cursor:'pointer' },
+  claimed:{ marginTop:10,fontSize:13,color:'#6BCB77' },
+  count:{ fontSize:14,margin:'14px 0 18px',opacity:.85 },
+  del:{ padding:10,fontSize:14,borderRadius:6,border:'none',
+        background:'#a00',color:'#fff',cursor:'pointer',
+        marginTop:8 },
+  wrap:{ position:'fixed',inset:0,background:'#0007',
+         backdropFilter:'blur(4px)',display:'flex',
+         justifyContent:'center',alignItems:'center',zIndex:40 },
+  box:{ background:'#222',padding:24,borderRadius:10,
+        width:300,color:'#fff',textAlign:'center' },
+  ok:{ width:'100%',padding:10,fontSize:15,border:'none',
+       borderRadius:6,background:'#d4af37',color:'#000',
        cursor:'pointer' },
-  cancel:{ width:'100%', padding:10, fontSize:14, marginTop:10,
-           border:'none', borderRadius:6, background:'#555',
-           color:'#fff', cursor:'pointer' },
-  zoomWrap:{ position:'fixed', inset:0, background:'#000d',
-             display:'flex', justifyContent:'center', alignItems:'center',
-             zIndex:60 },
-  zoomImg:{ maxWidth:'90vw', maxHeight:'86vh', borderRadius:10 },
+  cancel:{ width:'100%',padding:10,fontSize:14,
+           marginTop:10,border:'none',borderRadius:6,
+           background:'#555',color:'#fff',cursor:'pointer' },
+  zoomWrap:{ position:'fixed',inset:0,background:'#000d',
+             display:'flex',justifyContent:'center',
+             alignItems:'center',zIndex:60 },
+  zoomImg:{ maxWidth:'90vw',maxHeight:'86vh',borderRadius:10 },
 }
