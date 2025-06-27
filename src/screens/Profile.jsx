@@ -290,7 +290,7 @@ const S = {
           border:'none',borderRadius:6,background:'#6BCB77',
           color:'#000',cursor:'pointer' },
   claimed:{ marginTop:10,fontSize:13,color:'#6BCB77' },
-  count:{ fontSize:14,margin:'14px 0 18px',opacity:.85 },
+  count:{ fontSize:14,margin:'10px 0 14px',opacity:.85 },
   del:{ padding:10,fontSize:14,borderRadius:6,border:'1px solid #a00',
         background:'transparent',color:'#a00',cursor:'pointer',
         marginTop:8 },
