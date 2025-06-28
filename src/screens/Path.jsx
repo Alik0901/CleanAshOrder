@@ -176,9 +176,9 @@ export default function Path() {
   const [ack,       setAck]       = useState(() => localStorage.getItem('burnAck') === '1');
 
   // presigned fragment URLs
-  const [fragUrls, setFragUrls]   = useState({});
+  const [fragUrls, setFragUrls]     = useState({});
   // анимационный фрагмент
-  const [frag,     setFrag]       = useState('');
+  const [frag,     setFrag]         = useState('');
   const [fragLoaded, setFragLoaded] = useState(false);
 
   /* ─── 1. загрузить presigned URLs ───────────────────────────── */
@@ -193,9 +193,11 @@ export default function Path() {
         if (!res.ok) throw new Error();
         const { signedUrls } = await res.json();
         const map = {};
+        // --- пункт 1: маппинг file → URL напрямую ---
         Object.values(FRAG_IMG).forEach(file => {
           if (signedUrls[file]) {
             map[file] = signedUrls[file];
+            // Предзагрузка
             new Image().src = signedUrls[file];
           }
         });
@@ -256,12 +258,12 @@ export default function Path() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization:  `Bearer ${localStorage.getItem('token')}`
+          Authorization:  `Bearer ${localStorage.getItem('token')}`,
         },
         body: JSON.stringify({ tg_id: tgId }),
       });
 
-      if (resp.status===401 && !retry) {
+      if (resp.status === 401 && !retry) {
         if (await refreshToken(tgId, initData)) return createInvoice(true);
       }
 
@@ -287,7 +289,7 @@ export default function Path() {
     }
   };
 
-  /* ─── кнопка «Burn» с разовой модалкой ───────────────────────── */
+  /* ─── обработка кнопки Burn ───────────────────────────────────── */
   const onBurnClick = () => {
     if (!ack) setModal(true);
     else createInvoice();
@@ -325,6 +327,7 @@ export default function Path() {
           setCd(COOLDOWN);
 
           const filename = FRAG_IMG[j.newFragment];
+          // --- пункт 2: добавить crossOrigin для корректной загрузки на iOS ---
           const url = fragUrls[filename] ?? `${BACKEND}/fragments/${filename}`;
           setFrag(url);
           setFragLoaded(false);
@@ -438,6 +441,7 @@ export default function Path() {
         <img
           src={frag}
           alt="fragment"
+          crossOrigin="anonymous"
           style={S.frag}
           onLoad={()=>setFragLoaded(true)}
         />
