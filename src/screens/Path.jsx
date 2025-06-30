@@ -1,17 +1,16 @@
 // src/screens/Path.jsx
-import React, { useEffect, useRef, useState } from 'react';
-import { createTelegramApp }               from '@telegram-apps/sdk';
-import { useNavigate }                     from 'react-router-dom';
+import React, { useEffect, useRef, useState } from 'react'
+import { useNavigate }                      from 'react-router-dom'
+import { invoice, isInvoiceSupported }      from '@telegram-apps/sdk'
 
 /* ---------- config -------------------------------------------------- */
 const BACKEND =
   import.meta.env.VITE_BACKEND_URL ??
-  'https://ash-backend-production.up.railway.app';
+  'https://ash-backend-production.up.railway.app'
 
-const TG       = window.Telegram?.WebApp;
-const sdk      = createTelegramApp(TG);
-const PLATFORM = TG?.platform ?? 'unknown';
-const DEV      = import.meta.env.DEV;
+const TG       = window.Telegram?.WebApp
+const PLATFORM = TG?.platform ?? 'unknown'
+const DEV      = import.meta.env.DEV
 
 /* id → имя файла (должно совпадать с бэкендовым FRAG_FILES) */
 const FRAG_IMG = {
@@ -23,7 +22,7 @@ const FRAG_IMG = {
   6: 'fragment_6_the_hour.jpg',
   7: 'fragment_7_the_mark.jpg',
   8: 'fragment_8_the_gate.jpg',
-};
+}
 
 /* ---------- стили -------------------------------------------------- */
 const S = {
@@ -55,11 +54,11 @@ const S = {
     cursor: 'pointer',
     transition: 'opacity .2s',
   },
-  prim:      { background: '#d4af37', color: '#000' },
-  sec:       { background: 'transparent', border: '1px solid #d4af37', color: '#d4af37' },
-  stat:      { fontSize: 15, minHeight: 22, margin: '12px 0' },
-  ok:        { color: '#6BCB77' },
-  bad:       { color: '#FF6B6B' },
+  prim: { background: '#d4af37', color: '#000' },
+  sec:  { background: 'transparent', border: '1px solid #d4af37', color: '#d4af37' },
+  stat: { fontSize: 15, minHeight: 22, margin: '12px 0' },
+  ok:   { color: '#6BCB77' },
+  bad:  { color: '#FF6B6B' },
   modalWrap: {
     position: 'fixed', inset: 0,
     background: '#0008', backdropFilter: 'blur(6px)',
@@ -89,7 +88,7 @@ const S = {
     fontSize: 11, overflowY: 'auto', whiteSpace: 'pre-wrap',
     padding: '4px 6px', zIndex: 9999,
   },
-};
+}
 
 /* встроенный `<style>` для анимации */
 const styleTag = (
@@ -101,145 +100,131 @@ const styleTag = (
       100%{opacity:0;transform:translate(-50%,280%) scale(.3);}
     }
   `}</style>
-);
+)
 
-/* простой дебаг лог */
 function Debug() {
-  const [log, setLog] = useState([]);
+  const [log, setLog] = useState([])
   useEffect(() => {
-    const h = e => setLog(l => [...l, JSON.stringify(e)]);
-    TG?.onEvent?.('viewport_changed', h);
-    return () => TG?.offEvent?.('viewport_changed', h);
-  }, []);
-  return <pre style={S.dbg}>{log.join('\n')}</pre>;
+    const h = e => setLog(l => [...l, JSON.stringify(e)])
+    TG?.onEvent?.('viewport_changed', h)
+    return () => TG?.offEvent?.('viewport_changed', h)
+  }, [])
+  return <pre style={S.dbg}>{log.join('\n')}</pre>
 }
 
-/* сохраняем JWT, если бэкенд прислал новый */
 const saveToken = res => {
-  const h = res.headers.get('Authorization')||'';
-  if (h.startsWith('Bearer ')) localStorage.setItem('token', h.slice(7));
-};
+  const h = res.headers.get('Authorization') || ''
+  if (h.startsWith('Bearer ')) localStorage.setItem('token', h.slice(7))
+}
 
-/* обновление токена по 401 */
 async function refreshToken(tgId, initData) {
   const r = await fetch(`${BACKEND}/api/init`, {
     method: 'POST',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({tg_id:tgId,name:'',initData}),
-  });
-  if (!r.ok) return false;
-  const j = await r.json();
-  localStorage.setItem('token', j.token);
-  return true;
+    headers:{ 'Content-Type':'application/json' },
+    body: JSON.stringify({ tg_id: tgId, name:'', initData })
+  })
+  if (!r.ok) return false
+  const j = await r.json()
+  localStorage.setItem('token', j.token)
+  return true
 }
 
 export default function Path() {
-  const nav     = useNavigate();
-  const pollRef = useRef(null);
+  const nav     = useNavigate()
+  const pollRef = useRef(null)
 
   // Telegram
-  const [tgId,      setTgId]    = useState('');
-  const [initData,  setRaw]     = useState('');
+  const [tgId,     setTgId]   = useState('')
+  const [initData, setRaw]   = useState('')
   // cooldown & curse
-  const [cd,        setCd]      = useState(0);
-  const [curse,     setCurse]   = useState(null);
+  const [cd,       setCd]     = useState(0)
+  const [curse,    setCurse]  = useState(null)
 
   // burn/payment
-  const [busy,      setBusy]    = useState(false);
-  const [wait,      setWait]    = useState(false);
-  const [hub,       setHub]     = useState('');
-  const [ton,       setTon]     = useState('');
-  const [msg,       setMsg]     = useState('');
-  const [showModal, setModal]   = useState(false);
-  const [ack,       setAck]     = useState(() => localStorage.getItem('burnAck') === '1');
+  const [busy,     setBusy]   = useState(false)
+  const [wait,     setWait]   = useState(false)
+  const [hub,      setHub]    = useState('')
+  const [ton,      setTon]    = useState('')
+  const [msg,      setMsg]    = useState('')
+  const [showModal,setModal]  = useState(false)
+  const [ack,      setAck]    = useState(() => localStorage.getItem('burnAck') === '1')
 
   // presigned fragment URLs
-  const [fragUrls,    setFragUrls]   = useState({});
+  const [fragUrls,   setFragUrls]   = useState({})
   // анимационный фрагмент
-  const [frag,        setFrag]       = useState('');
-  const [fragLoaded,  setFragLoaded] = useState(false);
+  const [frag,       setFrag]       = useState('')
+  const [fragLoaded, setFragLoaded] = useState(false)
 
-  /* ─── 1. загрузить presigned URLs ───────────────────────────── */
+  /* 1) Загрузка presigned URLs */
   useEffect(() => {
-    (async () => {
-      const token = localStorage.getItem('token');
-      if (!token) return;
+    ;(async() => {
+      const token = localStorage.getItem('token')
+      if (!token) return
       try {
         const res = await fetch(`${BACKEND}/api/fragments/urls`, {
-          headers:{Authorization:`Bearer ${token}`}
-        });
-        if (!res.ok) throw new Error();
-        const { signedUrls } = await res.json();
-        const map = {};
+          headers:{ Authorization:`Bearer ${token}` }
+        })
+        if (!res.ok) throw new Error()
+        const { signedUrls } = await res.json()
+        const map = {}
         Object.values(FRAG_IMG).forEach(file => {
           if (signedUrls[file]) {
-            map[file] = signedUrls[file];
-            new Image().src = signedUrls[file]; // предзагрузка
+            map[file] = signedUrls[file]
+            new Image().src = signedUrls[file]  // предзагрузить
           }
-        });
-        setFragUrls(map);
+        })
+        setFragUrls(map)
       } catch(e) {
-        console.error('Failed to load fragment URLs', e);
+        console.error('Failed to load fragment URLs', e)
       }
-    })();
-  }, []);
+    })()
+  }, [])
 
-  /* ─── 2. монтирование: Telegram, cooldown, незавершённый invoice ─ */
+  /* 2) Mount: Telegram init, cooldown, возобновление polling */
   useEffect(() => {
-    const wa = TG?.initDataUnsafe;
-    const u  = wa?.user;
-    if (!u?.id) { nav('/init'); return; }
+    const wa = TG?.initDataUnsafe
+    const u  = wa?.user
+    if (!u?.id) { nav('/init'); return }
+    setTgId(String(u.id))
+    setRaw(TG?.initData || '')
+    if (!localStorage.getItem('token')) { nav('/init'); return }
 
-    setTgId(String(u.id));
-    setRaw(TG?.initData || '');
-    if (!localStorage.getItem('token')) { nav('/init'); return; }
-
-    // подхват cooldown/curse
-    (async () => {
+    ;(async() => {
       try {
-        const r = await fetch(`${BACKEND}/api/player/${u.id}`);
-        const j = await r.json();
-        if (j.last_burn) setCd(secLeft(j.last_burn));
-        if (j.curse_expires && new Date(j.curse_expires) > new Date()) {
-          setCurse(j.curse_expires);
-        }
+        const r = await fetch(`${BACKEND}/api/player/${u.id}`)
+        const j = await r.json()
+        if (j.last_burn) setCd(secLeft(j.last_burn))
+        if (j.curse_expires && new Date(j.curse_expires) > new Date())
+          setCurse(j.curse_expires)
       } catch {}
-    })();
+    })()
 
-    // если есть незавершённый инвойс — стартим polling
-    const inv = localStorage.getItem('invoiceId');
-    if (inv) {
-      startPolling(inv);
-    }
+    const inv = localStorage.getItem('invoiceId')
+    if (inv) startPolling(inv)
 
-    // тик-кулердаун
-    const timer = setInterval(() => setCd(s => (s>0?s-1:0)), 1000);
+    const timer = setInterval(() => setCd(s => s>0? s-1:0), 1000)
     return () => {
-      clearInterval(timer);
-      clearInterval(pollRef.current);
-    };
-  }, [nav]);
+      clearInterval(timer)
+      clearInterval(pollRef.current)
+    }
+  }, [nav])
 
-  /* ─── вспомогалки ──────────────────────────────────────────── */
-  const COOLDOWN = 120;
-  const secLeft  = t =>
-    Math.max(0, COOLDOWN - Math.floor((Date.now()-new Date(t).getTime())/1000));
-  const fmt = s =>
-    `${String((s/60)|0).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
-  const open = u =>
-    TG?.openLink?.(u,{try_instant_view:false}) || window.open(u,'_blank');
+  /* helpers */
+  const COOLDOWN = 120
+  const secLeft  = t => Math.max(0,
+    COOLDOWN - Math.floor((Date.now() - new Date(t).getTime())/1000))
+  const fmt      = s => `${String((s/60)|0).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`
+  const openUrl  = u => TG?.openLink?.(u,{try_instant_view:false}) || window.open(u,'_blank')
 
-  /* ─── вынесенный polling ───────────────────────────────────── */
+  /* polling вынесен в функцию */
   function startPolling(invoiceId) {
-    setWait(true);
-    pollRef.current = setInterval(() => checkStatus(invoiceId), 5000);
+    setWait(true)
+    pollRef.current = setInterval(()=>checkStatus(invoiceId),5000)
   }
 
-  /* ─── создать invoice ───────────────────────────────────────── */
-  const createInvoice = async (retry = false) => {
-    setBusy(true);
-    setMsg('');
-    setModal(false);
+  /* Billing */
+  const createInvoice = async (retry=false) => {
+    setBusy(true); setMsg(''); setModal(false)
     try {
       const resp = await fetch(`${BACKEND}/api/burn-invoice`, {
         method:'POST',
@@ -247,122 +232,108 @@ export default function Path() {
           'Content-Type':'application/json',
           Authorization:`Bearer ${localStorage.getItem('token')}`
         },
-        body: JSON.stringify({ tg_id: tgId }),
-      });
+        body: JSON.stringify({ tg_id: tgId })
+      })
 
-      if (resp.status === 401 && !retry) {
-        const ok = await refreshToken(tgId, initData);
-        if (ok) return createInvoice(true);
+      if (resp.status===401 && !retry) {
+        if (await refreshToken(tgId, initData))
+          return createInvoice(true)
       }
 
-      saveToken(resp);
-      const j = await resp.json();
-      if (!resp.ok) throw new Error(j.error||'invoice');
+      saveToken(resp)
+      const j = await resp.json()
+      if (!resp.ok) throw new Error(j.error||'invoice')
 
-      // сохраняем иконки
-      setHub(j.paymentUrl);
-      setTon(j.tonspaceUrl);
-      localStorage.setItem('invoiceId', j.invoiceId);
+      setHub(j.paymentUrl)
+      setTon(j.tonspaceUrl)
+      localStorage.setItem('invoiceId', j.invoiceId)
 
-      // 1) нативная оплата через Telegram SDK
-      if (sdk.invoice.supported()) {
+      // нативный invoice через SDK
+      if (isInvoiceSupported()) {
         try {
-          const status = await sdk.invoice.open(j.paymentUrl, 'url');
-          if (status === 'paid') {
-            // сразу показать эффект
-            await checkStatus(j.invoiceId);
-            return;
+          const status = await invoice.open({ url: j.paymentUrl })
+          if (status==='paid') {
+            await checkStatus(j.invoiceId)
+            return
           }
-          // если отменил или ошибка — всё равно стартим polling
-          setMsg('Оплата не завершена.');
-          startPolling(j.invoiceId);
-          return;
-        } catch (err) {
-          console.warn('Invoice.open failed', err);
-          setMsg('Не удалось открыть кошелёк — попробуйте Tonhub.');
-          startPolling(j.invoiceId);
-          return;
+          setMsg('Оплата не завершена.')
+          startPolling(j.invoiceId)
+          return
+        } catch(err) {
+          console.warn('invoice.open failed', err)
+          setMsg('Не удалось открыть кошелёк, попробуйте Tonhub.')
+          startPolling(j.invoiceId)
+          return
         }
       }
 
-      // 2) fallback: Tonhub / Ton.Space
-      if (PLATFORM==='android' && j.tonspaceUrl) {
-        open(j.tonspaceUrl);
-      } else {
-        open(j.paymentUrl);
-      }
-      startPolling(j.invoiceId);
+      // fallback: Tonhub / Ton.Space
+      if (PLATFORM==='android' && j.tonspaceUrl) openUrl(j.tonspaceUrl)
+      else openUrl(j.paymentUrl)
+
+      startPolling(j.invoiceId)
 
     } catch(e) {
-      setMsg(e.message);
-      setBusy(false);
-      setWait(false);
+      setMsg(e.message)
+      setBusy(false)
+      setWait(false)
     }
-  };
+  }
 
-  /* ─── кнопка «Burn» с разовой модалкой ───────────────────────── */
-  const onBurnClick = () => {
-    if (!ack) setModal(true);
-    else createInvoice();
-  };
-  const onAckAndBurn = () => {
-    localStorage.setItem('burnAck','1');
-    setAck(true);
-    setModal(false);
-    createInvoice();
-  };
+  const onBurnClick    = ()=> ack ? createInvoice() : setModal(true)
+  const onAckAndBurn   = ()=>{ localStorage.setItem('burnAck','1'); setAck(true); setModal(false); createInvoice() }
 
-  /* ─── polling статуса ───────────────────────────────────────── */
+  /* polling статуса */
   const checkStatus = async id => {
     try {
-      const resp = await fetch(`${BACKEND}/api/burn-status/${id}`, {
+      const resp = await fetch(`${BACKEND}/api/burn-status/${id}`,{
         headers:{Authorization:`Bearer ${localStorage.getItem('token')}`}
-      });
-      saveToken(resp);
-      const j = await resp.json();
-      if (!resp.ok) throw new Error(j.error||'status');
+      })
+      saveToken(resp)
+      const j = await resp.json()
+      if (!resp.ok) throw new Error(j.error||'status')
 
       if (j.paid) {
-        clearInterval(pollRef.current);
-        setBusy(false);
-        setWait(false);
-        localStorage.removeItem('invoiceId');
-        localStorage.removeItem('paymentUrl');
-        localStorage.removeItem('tonspaceUrl');
+        clearInterval(pollRef.current)
+        setBusy(false)
+        setWait(false)
+        localStorage.removeItem('invoiceId')
+        localStorage.removeItem('paymentUrl')
+        localStorage.removeItem('tonspaceUrl')
 
         if (j.cursed) {
-          setCurse(j.curse_expires);
-          setMsg(`⛔ Cursed until ${new Date(j.curse_expires).toLocaleString()}`);
+          setCurse(j.curse_expires)
+          setMsg(`⛔ Cursed until ${new Date(j.curse_expires).toLocaleString()}`)
         } else {
-          setCurse(null);
-          setCd(COOLDOWN);
-          const filename = FRAG_IMG[j.newFragment];
-          const url      = fragUrls[filename] ?? `${BACKEND}/fragments/${filename}`;
-          setFrag(url);
-          setFragLoaded(false);
-          setMsg(`🔥 Fragment #${j.newFragment} received!`);
+          setCurse(null)
+          setCd(COOLDOWN)
+          const filename = FRAG_IMG[j.newFragment]
+          const url      = fragUrls[filename] ?? `${BACKEND}/fragments/${filename}`
+          setFrag(url)
+          setFragLoaded(false)
+          setMsg(`🔥 Fragment #${j.newFragment} received!`)
         }
       }
     } catch(e) {
-      setMsg(e.message);
+      setMsg(e.message)
     }
-  };
+  }
 
-  /* ─── скрываем анимацию после load ─────────────────────────── */
-  useEffect(() => {
-    if (!fragLoaded) return;
-    const t = setTimeout(() => {
-      setFrag('');
-      setFragLoaded(false);
-    }, 2300);
-    return () => clearTimeout(t);
-  }, [fragLoaded]);
+  /* скрыть анимацию */
+  useEffect(()=>{
+    if(!fragLoaded) return
+    const t = setTimeout(()=>{
+      setFrag('')
+      setFragLoaded(false)
+    },2300)
+    return ()=>clearTimeout(t)
+  },[fragLoaded])
 
-  /* ─── рендер ─────────────────────────────────────────────────── */
-  const disabled = busy || wait || cd>0 || curse;
+  /* render */
+  const disabled = busy||wait||cd>0||curse
   const mainTxt  = busy ? 'Creating invoice…'
                  : wait ? 'Waiting for payment…'
-                 : '🔥 Burn Yourself for 0.5 TON';
+                 : '🔥 Burn Yourself for 0.5 TON'
 
   return (
     <>
@@ -420,18 +391,18 @@ export default function Path() {
           {wait && (
             <>
               {PLATFORM==='android' && ton && (
-                <button style={{...S.btn,...S.sec}} onClick={()=>open(ton)}>
+                <button style={{...S.btn,...S.sec}} onClick={()=>openUrl(ton)}>
                   Continue in Telegram Wallet
                 </button>
               )}
-              <button style={{...S.btn,...S.sec}} onClick={()=>open(hub)}>
+              <button style={{...S.btn,...S.sec}} onClick={()=>openUrl(hub)}>
                 Open in Tonhub
               </button>
               <button
                 style={{...S.btn,...S.sec,marginTop:0}}
                 onClick={()=>{
-                  const inv = localStorage.getItem('invoiceId');
-                  if (inv) checkStatus(inv);
+                  const inv = localStorage.getItem('invoiceId')
+                  if(inv) checkStatus(inv)
                 }}>
                 Check status
               </button>
@@ -458,5 +429,5 @@ export default function Path() {
 
       {DEV && location.search.includes('debug=1') && <Debug />}
     </>
-  );
+  )
 }
