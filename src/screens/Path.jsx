@@ -1,15 +1,15 @@
 // src/screens/Path.jsx
 import React, { useEffect, useRef, useState } from 'react';
-import { useNavigate }                     from 'react-router-dom';
+import { invoice, isInvoiceSupported } from '@telegram-apps/sdk';
 
 /* ---------- config -------------------------------------------------- */
 const BACKEND =
   import.meta.env.VITE_BACKEND_URL ??
   'https://ash-backend-production.up.railway.app';
 
-const TG       = window.Telegram?.WebApp;
+const TG = window.Telegram?.WebApp;
 const PLATFORM = TG?.platform ?? 'unknown';
-const DEV      = import.meta.env.DEV;
+const DEV = import.meta.env.DEV;
 
 /* id → имя файла (должно совпадать с бэкендовым FRAG_FILES) */
 const FRAG_IMG = {
@@ -40,7 +40,7 @@ const S = {
     textAlign: 'center',
     color: '#d4af37',
   },
-  h2:  { margin: 0, fontSize: 28, fontWeight: 700 },
+  h2: { margin: 0, fontSize: 28, fontWeight: 700 },
   sub: { margin: '8px 0 24px', fontSize: 16 },
   btn: {
     display: 'block',
@@ -54,10 +54,10 @@ const S = {
     transition: 'opacity .2s',
   },
   prim: { background: '#d4af37', color: '#000' },
-  sec:  { background: 'transparent', border: '1px solid #d4af37', color: '#d4af37' },
+  sec: { background: 'transparent', border: '1px solid #d4af37', color: '#d4af37' },
   stat: { fontSize: 15, minHeight: 22, margin: '12px 0' },
-  ok:   { color: '#6BCB77' },
-  bad:  { color: '#FF6B6B' },
+  ok: { color: '#6BCB77' },
+  bad: { color: '#FF6B6B' },
   modalWrap: {
     position: 'fixed',
     inset: 0,
@@ -156,29 +156,29 @@ async function refreshToken(tgId, initData) {
 }
 
 export default function Path() {
-  const nav     = useNavigate();
+  const nav = useNavigate();
   const pollRef = useRef(null);
 
   // Telegram
-  const [tgId,    setTgId]    = useState('');
-  const [initData,setRaw]     = useState('');
+  const [tgId, setTgId] = useState('');
+  const [initData, setRaw] = useState('');
   // cooldown & curse
-  const [cd,      setCd]      = useState(0);
-  const [curse,   setCurse]   = useState(null);
+  const [cd, setCd] = useState(0);
+  const [curse, setCurse] = useState(null);
 
   // burn/payment
-  const [busy,      setBusy]      = useState(false);
-  const [wait,      setWait]      = useState(false);
-  const [hub,       setHub]       = useState('');
-  const [ton,       setTon]       = useState('');
-  const [msg,       setMsg]       = useState('');
-  const [showModal, setModal]     = useState(false);
-  const [ack,       setAck]       = useState(() => localStorage.getItem('burnAck') === '1');
+  const [busy, setBusy] = useState(false);
+  const [wait, setWait] = useState(false);
+  const [hub, setHub] = useState('');
+  const [ton, setTon] = useState('');
+  const [msg, setMsg] = useState('');
+  const [showModal, setModal] = useState(false);
+  const [ack, setAck] = useState(() => localStorage.getItem('burnAck') === '1');
 
   // presigned fragment URLs
-  const [fragUrls, setFragUrls]     = useState({});
+  const [fragUrls, setFragUrls] = useState({});
   // анимационный фрагмент
-  const [frag,     setFrag]         = useState('');
+  const [frag, setFrag] = useState('');
   const [fragLoaded, setFragLoaded] = useState(false);
 
   /* ─── 1. загрузить presigned URLs ───────────────────────────── */
@@ -202,7 +202,7 @@ export default function Path() {
           }
         });
         setFragUrls(map);
-      } catch(e) {
+      } catch (e) {
         console.error('Failed to load fragment URLs', e);
       }
     })();
@@ -211,32 +211,32 @@ export default function Path() {
   /* ─── 2. монтирование: Telegram, cooldown, незавершённый invoice ─ */
   useEffect(() => {
     const wa = TG?.initDataUnsafe;
-    const u  = wa?.user;
+    const u = wa?.user;
     if (!u?.id) { nav('/init'); return; }
 
     setTgId(String(u.id));
     setRaw(TG?.initData || '');
     if (!localStorage.getItem('token')) { nav('/init'); return; }
 
-    ;(async () => {
+    ; (async () => {
       try {
         const r = await fetch(`${BACKEND}/api/player/${u.id}`);
         const j = await r.json();
         if (j.last_burn) setCd(secLeft(j.last_burn));
         if (j.curse_expires && new Date(j.curse_expires) > new Date())
           setCurse(j.curse_expires);
-      } catch {}
+      } catch { }
     })();
 
     const inv = localStorage.getItem('invoiceId');
     if (inv) {
       setWait(true);
-      setHub(localStorage.getItem('paymentUrl')  || '');
+      setHub(localStorage.getItem('paymentUrl') || '');
       setTon(localStorage.getItem('tonspaceUrl') || '');
       pollRef.current = setInterval(() => checkStatus(inv), 5000);
     }
 
-    const timer = setInterval(() => setCd(s => (s>0?s-1:0)), 1000);
+    const timer = setInterval(() => setCd(s => (s > 0 ? s - 1 : 0)), 1000);
     return () => {
       clearInterval(timer);
       clearInterval(pollRef.current);
@@ -245,20 +245,20 @@ export default function Path() {
 
   /* ─── хелперы ───────────────────────────────────────────────── */
   const COOLDOWN = 120;
-  const secLeft  = t => Math.max(0,
+  const secLeft = t => Math.max(0,
     COOLDOWN - Math.floor((Date.now() - new Date(t).getTime()) / 1000));
-  const fmt      = s => `${String((s/60)|0).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
-  const open     = url => TG?.openLink?.(url,{try_instant_view:false}) || window.open(url,'_blank');
+  const fmt = s => `${String((s / 60) | 0).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+  const open = url => TG?.openLink?.(url, { try_instant_view: false }) || window.open(url, '_blank');
 
   /* ─── создать invoice ───────────────────────────────────────── */
   const createInvoice = async (retry = false) => {
-    setBusy(true); setMsg('');
+    setBusy(true); setMsg(''); setModal(false);
     try {
       const resp = await fetch(`${BACKEND}/api/burn-invoice`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization:  `Bearer ${localStorage.getItem('token')}`,
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
         },
         body: JSON.stringify({ tg_id: tgId }),
       });
@@ -273,16 +273,40 @@ export default function Path() {
 
       setHub(j.paymentUrl);
       setTon(j.tonspaceUrl);
-      localStorage.setItem('invoiceId',  j.invoiceId);
-      localStorage.setItem('paymentUrl',  j.paymentUrl);
+      localStorage.setItem('invoiceId', j.invoiceId);
+      localStorage.setItem('paymentUrl', j.paymentUrl);
       localStorage.setItem('tonspaceUrl', j.tonspaceUrl);
 
-      if (PLATFORM==='android' && j.tonspaceUrl) open(j.tonspaceUrl);
+      // → пытаемся открыть нативный инвойс в Telegram
+      if (isInvoiceSupported?.()) {
+        try {
+          const status = await invoice.open(j.paymentUrl, 'url');
+          // статус: 'paid' / 'cancelled' / 'failed'
+          if (status === 'paid') {
+            // сразу проверяем статус и показываем эффект на фрагмент/проклятье
+            await checkStatus(j.invoiceId);
+            return;
+          } else {
+            // если юзер отменил — просто ждем, он может нажать кнопки ниже
+            setMsg('Оплата не завершена.');
+            setWait(true);
+            return;
+          }
+        } catch (err) {
+          // не получилось открыть нативно
+          console.warn('Invoice.open failed', err);
+          setMsg('Не удалось открыть кошелёк — попробуйте Tonhub.');
+          setWait(true);
+          return;
+        }
+      }
+
+      if (PLATFORM === 'android' && j.tonspaceUrl) open(j.tonspaceUrl);
       else open(j.paymentUrl);
 
       setWait(true);
       pollRef.current = setInterval(() => checkStatus(j.invoiceId), 5000);
-    } catch(e) {
+    } catch (e) {
       setMsg(e.message);
       setBusy(false);
       setWait(false);
@@ -295,7 +319,7 @@ export default function Path() {
     else createInvoice();
   };
   const onAckAndBurn = () => {
-    localStorage.setItem('burnAck','1');
+    localStorage.setItem('burnAck', '1');
     setAck(true);
     setModal(false);
     createInvoice();
@@ -334,7 +358,7 @@ export default function Path() {
           setMsg(`🔥 Fragment #${j.newFragment} received!`);
         }
       }
-    } catch(e) {
+    } catch (e) {
       setMsg(e.message);
     }
   };
@@ -350,10 +374,10 @@ export default function Path() {
   }, [fragLoaded]);
 
   /* ─── рендер ─────────────────────────────────────────────────── */
-  const disabled = busy || wait || cd>0 || curse;
-  const mainTxt  = busy ? 'Creating invoice…'
-                 : wait ? 'Waiting for payment…'
-                 : '🔥 Burn Yourself for 0.5 TON';
+  const disabled = busy || wait || cd > 0 || curse;
+  const mainTxt = busy ? 'Creating invoice…'
+    : wait ? 'Waiting for payment…'
+      : '🔥 Burn Yourself for 0.5 TON';
 
   return (
     <>
@@ -362,20 +386,20 @@ export default function Path() {
       {showModal && (
         <div style={S.modalWrap} onClick={() => setModal(false)}>
           <div style={S.modal} onClick={e => e.stopPropagation()}>
-            <h3 style={{margin:'0 0 10px'}}>⚠️ Important</h3>
-            <p style={{fontSize:14,opacity:.9}}>
-              Send <b>exactly 0.5 TON</b>.<br/>
-              Any other amount will <b>not be recognised</b><br/>
+            <h3 style={{ margin: '0 0 10px' }}>⚠️ Important</h3>
+            <p style={{ fontSize: 14, opacity: .9 }}>
+              Send <b>exactly 0.5 TON</b>.<br />
+              Any other amount will <b>not be recognised</b><br />
               and <b>will be lost</b>.
             </p>
             <button
-              style={{...S.mBtn,background:'#d4af37',color:'#000'}}
+              style={{ ...S.mBtn, background: '#d4af37', color: '#000' }}
               onClick={onAckAndBurn}>
               I understand, continue
             </button>
             <button
-              style={{...S.mBtn,background:'#333',color:'#fff'}}
-              onClick={()=>setModal(false)}>
+              style={{ ...S.mBtn, background: '#333', color: '#fff' }}
+              onClick={() => setModal(false)}>
               Cancel
             </button>
           </div>
@@ -388,7 +412,7 @@ export default function Path() {
           <p style={S.sub}>Ready to burn yourself.</p>
 
           {msg && (
-            <p style={{...S.stat,...(msg.startsWith('🔥')?S.ok:S.bad)}}>
+            <p style={{ ...S.stat, ...(msg.startsWith('🔥') ? S.ok : S.bad) }}>
               {msg}
             </p>
           )}
@@ -397,12 +421,12 @@ export default function Path() {
               ⛔ Cursed until {new Date(curse).toLocaleString()}
             </p>
           )}
-          {!msg && !curse && cd>0 && (
+          {!msg && !curse && cd > 0 && (
             <p style={S.stat}>⏳ Next burn in {fmt(cd)}</p>
           )}
 
           <button
-            style={{...S.btn,...S.prim,opacity:disabled?0.6:1}}
+            style={{ ...S.btn, ...S.prim, opacity: disabled ? 0.6 : 1 }}
             disabled={disabled}
             onClick={onBurnClick}>
             {mainTxt}
@@ -410,19 +434,19 @@ export default function Path() {
 
           {wait && (
             <>
-              {PLATFORM==='android' && ton && (
-                <button style={{...S.btn,...S.sec}} onClick={()=>open(ton)}>
+              {PLATFORM === 'android' && ton && (
+                <button style={{ ...S.btn, ...S.sec }} onClick={() => open(ton)}>
                   Continue in Telegram Wallet
                 </button>
               )}
-              <button style={{...S.btn,...S.sec}} onClick={()=>open(hub)}>
+              <button style={{ ...S.btn, ...S.sec }} onClick={() => open(hub)}>
                 Open in Tonhub
               </button>
               <button
-                style={{...S.btn,...S.sec,marginTop:0}}
-                onClick={()=>{
+                style={{ ...S.btn, ...S.sec, marginTop: 0 }}
+                onClick={() => {
                   const inv = localStorage.getItem('invoiceId');
-                  if(inv) checkStatus(inv);
+                  if (inv) checkStatus(inv);
                 }}>
                 Check status
               </button>
@@ -430,8 +454,8 @@ export default function Path() {
           )}
 
           <button
-            style={{...S.btn,...S.sec}}
-            onClick={()=>nav('/profile')}>
+            style={{ ...S.btn, ...S.sec }}
+            onClick={() => nav('/profile')}>
             Go to your personal account
           </button>
         </div>
@@ -443,7 +467,7 @@ export default function Path() {
           alt="fragment"
           crossOrigin="anonymous"
           style={S.frag}
-          onLoad={()=>setFragLoaded(true)}
+          onLoad={() => setFragLoaded(true)}
         />
       )}
 
