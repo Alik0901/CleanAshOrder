@@ -8,6 +8,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@telegram-apps/sdk": "^3.11.4",
     "@tonconnect/ui": "^2.1.0",
     "@twa-dev/sdk": "^8.0.2",
     "jsonwebtoken": "^9.0.2",

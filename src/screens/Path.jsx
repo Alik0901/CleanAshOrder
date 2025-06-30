@@ -1,15 +1,16 @@
 // src/screens/Path.jsx
-import React, { useEffect, useRef, useState } from 'react';
-import { invoice, isInvoiceSupported } from '@telegram-apps/sdk';
+import React, { useEffect, useRef, useState } from 'react'
+import { useNavigate }                      from 'react-router-dom'
+import { init, invoice }                    from '@telegram-apps/sdk'
 
 /* ---------- config -------------------------------------------------- */
 const BACKEND =
   import.meta.env.VITE_BACKEND_URL ??
-  'https://ash-backend-production.up.railway.app';
+  'https://ash-backend-production.up.railway.app'
 
-const TG = window.Telegram?.WebApp;
-const PLATFORM = TG?.platform ?? 'unknown';
-const DEV = import.meta.env.DEV;
+const TG       = window.Telegram?.WebApp
+const PLATFORM = TG?.platform ?? 'unknown'
+const DEV      = import.meta.env.DEV
 
 /* id → имя файла (должно совпадать с бэкендовым FRAG_FILES) */
 const FRAG_IMG = {
@@ -21,7 +22,7 @@ const FRAG_IMG = {
   6: 'fragment_6_the_hour.jpg',
   7: 'fragment_7_the_mark.jpg',
   8: 'fragment_8_the_gate.jpg',
-};
+}
 
 /* ---------- стили -------------------------------------------------- */
 const S = {
@@ -40,9 +41,9 @@ const S = {
     textAlign: 'center',
     color: '#d4af37',
   },
-  h2: { margin: 0, fontSize: 28, fontWeight: 700 },
-  sub: { margin: '8px 0 24px', fontSize: 16 },
-  btn: {
+  h2:   { margin: 0, fontSize: 28, fontWeight: 700 },
+  sub:  { margin: '8px 0 24px', fontSize: 16 },
+  btn:  {
     display: 'block',
     width: '100%',
     padding: 12,
@@ -54,10 +55,10 @@ const S = {
     transition: 'opacity .2s',
   },
   prim: { background: '#d4af37', color: '#000' },
-  sec: { background: 'transparent', border: '1px solid #d4af37', color: '#d4af37' },
+  sec:  { background: 'transparent', border: '1px solid #d4af37', color: '#d4af37' },
   stat: { fontSize: 15, minHeight: 22, margin: '12px 0' },
-  ok: { color: '#6BCB77' },
-  bad: { color: '#FF6B6B' },
+  ok:   { color: '#6BCB77' },
+  bad:  { color: '#FF6B6B' },
   modalWrap: {
     position: 'fixed',
     inset: 0,
@@ -111,148 +112,155 @@ const S = {
     padding: '4px 6px',
     zIndex: 9999,
   },
-};
+}
 
-/* встроенный `<style>` для анимации */
 const styleTag = (
   <style>{`
     @keyframes fly {
-      0%  {opacity:0;transform:translate(-50%,-50%) scale(.3);}
-      15% {opacity:1;transform:translate(-50%,-50%) scale(1);}
-      65% {opacity:1;transform:translate(-50%,-50%) scale(1);}
-      100%{opacity:0;transform:translate(-50%,280%) scale(.3);}
+      0%  {opacity:0; transform:translate(-50%,-50%) scale(.3);}
+      15% {opacity:1; transform:translate(-50%,-50%) scale(1);}
+      65% {opacity:1; transform:translate(-50%,-50%) scale(1);}
+      100%{opacity:0; transform:translate(-50%,280%) scale(.3);}
     }
   `}</style>
-);
+)
 
-/* простой дебаг лог */
 function Debug() {
-  const [log, setLog] = useState([]);
+  const [log, setLog] = useState([])
   useEffect(() => {
-    const h = e => setLog(l => [...l, JSON.stringify(e)]);
-    TG?.onEvent?.('viewport_changed', h);
-    return () => TG?.offEvent?.('viewport_changed', h);
-  }, []);
-  return <pre style={S.dbg}>{log.join('\n')}</pre>;
+    const h = e => setLog(l => [...l, JSON.stringify(e)])
+    TG?.onEvent?.('viewport_changed', h)
+    return () => TG?.offEvent?.('viewport_changed', h)
+  }, [])
+  return <pre style={S.dbg}>{log.join('\n')}</pre>
 }
 
-/* сохраняем JWT, если бэкенд прислал новый */
+/* Сохраняем новый JWT, если его отдаёт бэкенд */
 const saveToken = res => {
-  const h = res.headers.get('Authorization') || '';
-  if (h.startsWith('Bearer ')) localStorage.setItem('token', h.slice(7));
-};
+  const h = res.headers.get('Authorization') || ''
+  if (h.startsWith('Bearer ')) localStorage.setItem('token', h.slice(7))
+}
 
-/* обновление токена по 401 */
+/* Для refresh после 401 */
 async function refreshToken(tgId, initData) {
   const r = await fetch(`${BACKEND}/api/init`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ tg_id: tgId, name: '', initData }),
-  });
-  if (!r.ok) return false;
-  const j = await r.json();
-  localStorage.setItem('token', j.token);
-  return true;
+  })
+  if (!r.ok) return false
+  const j = await r.json()
+  localStorage.setItem('token', j.token)
+  return true
 }
 
 export default function Path() {
-  const nav = useNavigate();
-  const pollRef = useRef(null);
+  const nav     = useNavigate()
+  const pollRef = useRef(null)
 
-  // Telegram
-  const [tgId, setTgId] = useState('');
-  const [initData, setRaw] = useState('');
+  // Инициализация Telegram SDK
+  const sdk = init({
+    initDataUnsafe: TG?.initDataUnsafe,
+    version:        TG?.version,
+    platform:       TG?.platform,
+  })
+
+  // Telegram-пользователь
+  const [tgId, setTgId]       = useState('')
+  const [initData, setRaw]    = useState('')
   // cooldown & curse
-  const [cd, setCd] = useState(0);
-  const [curse, setCurse] = useState(null);
+  const [cd, setCd]           = useState(0)
+  const [curse, setCurse]     = useState(null)
 
   // burn/payment
-  const [busy, setBusy] = useState(false);
-  const [wait, setWait] = useState(false);
-  const [hub, setHub] = useState('');
-  const [ton, setTon] = useState('');
-  const [msg, setMsg] = useState('');
-  const [showModal, setModal] = useState(false);
-  const [ack, setAck] = useState(() => localStorage.getItem('burnAck') === '1');
+  const [busy, setBusy]       = useState(false)
+  const [wait, setWait]       = useState(false)
+  const [hub, setHub]         = useState('')
+  const [ton, setTon]         = useState('')
+  const [msg, setMsg]         = useState('')
+  const [showModal, setModal] = useState(false)
+  const [ack, setAck]         = useState(() => localStorage.getItem('burnAck') === '1')
 
   // presigned fragment URLs
-  const [fragUrls, setFragUrls] = useState({});
+  const [fragUrls, setFragUrls]     = useState({})
   // анимационный фрагмент
-  const [frag, setFrag] = useState('');
-  const [fragLoaded, setFragLoaded] = useState(false);
+  const [frag, setFrag]             = useState('')
+  const [fragLoaded, setFragLoaded] = useState(false)
 
-  /* ─── 1. загрузить presigned URLs ───────────────────────────── */
+  /* ─── 1. Получаем presigned URLs ───────────────────────────── */
   useEffect(() => {
-    (async () => {
-      const token = localStorage.getItem('token');
-      if (!token) return;
+    ;(async () => {
+      const token = localStorage.getItem('token')
+      if (!token) return
       try {
         const res = await fetch(`${BACKEND}/api/fragments/urls`, {
           headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) throw new Error();
-        const { signedUrls } = await res.json();
-        const map = {};
-        // --- пункт 1: маппинг file → URL напрямую ---
+        })
+        if (!res.ok) throw new Error()
+        const { signedUrls } = await res.json()
+        const map = {}
         Object.values(FRAG_IMG).forEach(file => {
           if (signedUrls[file]) {
-            map[file] = signedUrls[file];
+            map[file] = signedUrls[file]
             // Предзагрузка
-            new Image().src = signedUrls[file];
+            new Image().src = signedUrls[file]
           }
-        });
-        setFragUrls(map);
+        })
+        setFragUrls(map)
       } catch (e) {
-        console.error('Failed to load fragment URLs', e);
+        console.error('Failed to load fragment URLs', e)
       }
-    })();
-  }, []);
+    })()
+  }, [])
 
-  /* ─── 2. монтирование: Telegram, cooldown, незавершённый invoice ─ */
+  /* ─── 2. Монтирование: Telegram, cooldown, незавершённый invoice ─ */
   useEffect(() => {
-    const wa = TG?.initDataUnsafe;
-    const u = wa?.user;
-    if (!u?.id) { nav('/init'); return; }
+    const wa = TG?.initDataUnsafe
+    const u  = wa?.user
+    if (!u?.id) { nav('/init'); return }
 
-    setTgId(String(u.id));
-    setRaw(TG?.initData || '');
-    if (!localStorage.getItem('token')) { nav('/init'); return; }
+    setTgId(String(u.id))
+    setRaw(TG?.initData || '')
+    if (!localStorage.getItem('token')) { nav('/init'); return }
 
-    ; (async () => {
+    ;(async () => {
       try {
-        const r = await fetch(`${BACKEND}/api/player/${u.id}`);
-        const j = await r.json();
-        if (j.last_burn) setCd(secLeft(j.last_burn));
+        const r = await fetch(`${BACKEND}/api/player/${u.id}`)
+        const j = await r.json()
+        if (j.last_burn) setCd(secLeft(j.last_burn))
         if (j.curse_expires && new Date(j.curse_expires) > new Date())
-          setCurse(j.curse_expires);
-      } catch { }
-    })();
+          setCurse(j.curse_expires)
+      } catch {}
+    })()
 
-    const inv = localStorage.getItem('invoiceId');
+    const inv = localStorage.getItem('invoiceId')
     if (inv) {
-      setWait(true);
-      setHub(localStorage.getItem('paymentUrl') || '');
-      setTon(localStorage.getItem('tonspaceUrl') || '');
-      pollRef.current = setInterval(() => checkStatus(inv), 5000);
+      setWait(true)
+      setHub(localStorage.getItem('paymentUrl')  || '')
+      setTon(localStorage.getItem('tonspaceUrl') || '')
+      pollRef.current = setInterval(() => checkStatus(inv), 5000)
     }
 
-    const timer = setInterval(() => setCd(s => (s > 0 ? s - 1 : 0)), 1000);
+    const timer = setInterval(() => setCd(s => s > 0 ? s - 1 : 0), 1000)
     return () => {
-      clearInterval(timer);
-      clearInterval(pollRef.current);
-    };
-  }, [nav]);
+      clearInterval(timer)
+      clearInterval(pollRef.current)
+    }
+  }, [nav])
 
-  /* ─── хелперы ───────────────────────────────────────────────── */
-  const COOLDOWN = 120;
-  const secLeft = t => Math.max(0,
-    COOLDOWN - Math.floor((Date.now() - new Date(t).getTime()) / 1000));
-  const fmt = s => `${String((s / 60) | 0).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
-  const open = url => TG?.openLink?.(url, { try_instant_view: false }) || window.open(url, '_blank');
+  /* ─── Хелперы ───────────────────────────────────────────────── */
+  const COOLDOWN = 120
+  const secLeft  = t => Math.max(0,
+    COOLDOWN - Math.floor((Date.now() - new Date(t).getTime()) / 1000)
+  )
+  const fmt      = s => `${String((s/60)|0).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`
+  const open     = url => TG?.openLink?.(url,{try_instant_view:false}) || window.open(url,'_blank')
 
-  /* ─── создать invoice ───────────────────────────────────────── */
+  /* ─── 3. Создание инвойса ───────────────────────────────────────── */
   const createInvoice = async (retry = false) => {
-    setBusy(true); setMsg(''); setModal(false);
+    setBusy(true)
+    setMsg('')
+    setModal(false)
     try {
       const resp = await fetch(`${BACKEND}/api/burn-invoice`, {
         method: 'POST',
@@ -261,123 +269,116 @@ export default function Path() {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
         },
         body: JSON.stringify({ tg_id: tgId }),
-      });
+      })
 
       if (resp.status === 401 && !retry) {
-        if (await refreshToken(tgId, initData)) return createInvoice(true);
+        if (await refreshToken(tgId, initData)) return createInvoice(true)
       }
 
-      saveToken(resp);
-      const j = await resp.json();
-      if (!resp.ok) throw new Error(j.error || 'invoice');
+      saveToken(resp)
+      const j = await resp.json()
+      if (!resp.ok) throw new Error(j.error || 'invoice')
 
-      setHub(j.paymentUrl);
-      setTon(j.tonspaceUrl);
-      localStorage.setItem('invoiceId', j.invoiceId);
-      localStorage.setItem('paymentUrl', j.paymentUrl);
-      localStorage.setItem('tonspaceUrl', j.tonspaceUrl);
+      setHub(j.paymentUrl)
+      setTon(j.tonspaceUrl)
+      localStorage.setItem('invoiceId',  j.invoiceId)
+      localStorage.setItem('paymentUrl',  j.paymentUrl)
+      localStorage.setItem('tonspaceUrl', j.tonspaceUrl)
 
-      // → пытаемся открыть нативный инвойс в Telegram
-      if (isInvoiceSupported?.()) {
+      // Попытка открыть нативный инвойс
+      if (sdk.invoice.supported()) {
         try {
-          const status = await invoice.open(j.paymentUrl, 'url');
-          // статус: 'paid' / 'cancelled' / 'failed'
+          const status = await sdk.invoice.open(j.paymentUrl, 'url')
+          // статус может быть 'paid' / 'cancelled' / 'failed'
           if (status === 'paid') {
-            // сразу проверяем статус и показываем эффект на фрагмент/проклятье
-            await checkStatus(j.invoiceId);
-            return;
+            await checkStatus(j.invoiceId)
+            return
           } else {
-            // если юзер отменил — просто ждем, он может нажать кнопки ниже
-            setMsg('Оплата не завершена.');
-            setWait(true);
-            return;
+            setMsg('Оплата не завершена.')
+            setWait(true)
+            return
           }
         } catch (err) {
-          // не получилось открыть нативно
-          console.warn('Invoice.open failed', err);
-          setMsg('Не удалось открыть кошелёк — попробуйте Tonhub.');
-          setWait(true);
-          return;
+          console.warn('Invoice.open failed', err)
+          setMsg('Не удалось открыть кошелёк — попробуйте Tonhub.')
+          setWait(true)
+          return
         }
       }
 
-      if (PLATFORM === 'android' && j.tonspaceUrl) open(j.tonspaceUrl);
-      else open(j.paymentUrl);
+      // Fallback: открыть ссылку вручную
+      if (PLATFORM === 'android' && j.tonspaceUrl) open(j.tonspaceUrl)
+      else open(j.paymentUrl)
 
-      setWait(true);
-      pollRef.current = setInterval(() => checkStatus(j.invoiceId), 5000);
+      setWait(true)
+      pollRef.current = setInterval(() => checkStatus(j.invoiceId), 5000)
     } catch (e) {
-      setMsg(e.message);
-      setBusy(false);
-      setWait(false);
+      setMsg(e.message)
+      setBusy(false)
+      setWait(false)
     }
-  };
+  }
 
-  /* ─── обработка кнопки Burn ───────────────────────────────────── */
-  const onBurnClick = () => {
-    if (!ack) setModal(true);
-    else createInvoice();
-  };
+  /* ─── Обработка кнопки «Burn» ───────────────────────────────────── */
+  const onBurnClick  = () => { if (!ack) setModal(true); else createInvoice() }
   const onAckAndBurn = () => {
-    localStorage.setItem('burnAck', '1');
-    setAck(true);
-    setModal(false);
-    createInvoice();
-  };
+    localStorage.setItem('burnAck', '1')
+    setAck(true)
+    setModal(false)
+    createInvoice()
+  }
 
-  /* ─── поллинг статуса ───────────────────────────────────────── */
+  /* ─── 4. Поллинг статуса ───────────────────────────────────────── */
   const checkStatus = async id => {
     try {
       const resp = await fetch(`${BACKEND}/api/burn-status/${id}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
-      saveToken(resp);
-      const j = await resp.json();
-      if (!resp.ok) throw new Error(j.error || 'status');
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      })
+      saveToken(resp)
+      const j = await resp.json()
+      if (!resp.ok) throw new Error(j.error || 'status')
 
       if (j.paid) {
-        clearInterval(pollRef.current);
-        setBusy(false);
-        setWait(false);
-        localStorage.removeItem('invoiceId');
-        localStorage.removeItem('paymentUrl');
-        localStorage.removeItem('tonspaceUrl');
+        clearInterval(pollRef.current)
+        setBusy(false)
+        setWait(false)
+        localStorage.removeItem('invoiceId')
+        localStorage.removeItem('paymentUrl')
+        localStorage.removeItem('tonspaceUrl')
 
         if (j.cursed) {
-          setCurse(j.curse_expires);
-          setMsg(`⛔ Cursed until ${new Date(j.curse_expires).toLocaleString()}`);
+          setCurse(j.curse_expires)
+          setMsg(`⛔ Cursed until ${new Date(j.curse_expires).toLocaleString()}`)
         } else {
-          setCurse(null);
-          setCd(COOLDOWN);
-
-          const filename = FRAG_IMG[j.newFragment];
-          // --- пункт 2: добавить crossOrigin для корректной загрузки на iOS ---
-          const url = fragUrls[filename] ?? `${BACKEND}/fragments/${filename}`;
-          setFrag(url);
-          setFragLoaded(false);
-          setMsg(`🔥 Fragment #${j.newFragment} received!`);
+          setCurse(null)
+          setCd(COOLDOWN)
+          const fn = FRAG_IMG[j.newFragment]
+          const url = fragUrls[fn] ?? `${BACKEND}/fragments/${fn}`
+          setFrag(url)
+          setFragLoaded(false)
+          setMsg(`🔥 Fragment #${j.newFragment} received!`)
         }
       }
     } catch (e) {
-      setMsg(e.message);
+      setMsg(e.message)
     }
-  };
+  }
 
-  /* ─── скрываем анимацию после load ─────────────────────────── */
+  /* ─── 5. Очистка анимации ───────────────────────────────────────── */
   useEffect(() => {
-    if (!fragLoaded) return;
+    if (!fragLoaded) return
     const t = setTimeout(() => {
-      setFrag('');
-      setFragLoaded(false);
-    }, 2300);
-    return () => clearTimeout(t);
-  }, [fragLoaded]);
+      setFrag('')
+      setFragLoaded(false)
+    }, 2300)
+    return () => clearTimeout(t)
+  }, [fragLoaded])
 
-  /* ─── рендер ─────────────────────────────────────────────────── */
-  const disabled = busy || wait || cd > 0 || curse;
-  const mainTxt = busy ? 'Creating invoice…'
-    : wait ? 'Waiting for payment…'
-      : '🔥 Burn Yourself for 0.5 TON';
+  /* ─── Render ───────────────────────────────────────────────────── */
+  const disabled = busy || wait || cd > 0 || curse
+  const mainTxt  = busy ? 'Creating invoice…'
+                 : wait ? 'Waiting for payment…'
+                 : '🔥 Burn Yourself for 0.5 TON'
 
   return (
     <>
@@ -386,20 +387,22 @@ export default function Path() {
       {showModal && (
         <div style={S.modalWrap} onClick={() => setModal(false)}>
           <div style={S.modal} onClick={e => e.stopPropagation()}>
-            <h3 style={{ margin: '0 0 10px' }}>⚠️ Important</h3>
-            <p style={{ fontSize: 14, opacity: .9 }}>
-              Send <b>exactly 0.5 TON</b>.<br />
-              Any other amount will <b>not be recognised</b><br />
+            <h3 style={{margin:'0 0 10px'}}>⚠️ Important</h3>
+            <p style={{fontSize:14,opacity:.9}}>
+              Send <b>exactly 0.5 TON</b>.<br/>
+              Any other amount will <b>not be recognised</b><br/>
               and <b>will be lost</b>.
             </p>
             <button
-              style={{ ...S.mBtn, background: '#d4af37', color: '#000' }}
-              onClick={onAckAndBurn}>
+              style={{...S.mBtn, background:'#d4af37', color:'#000'}}
+              onClick={onAckAndBurn}
+            >
               I understand, continue
             </button>
             <button
-              style={{ ...S.mBtn, background: '#333', color: '#fff' }}
-              onClick={() => setModal(false)}>
+              style={{...S.mBtn, background:'#333', color:'#fff'}}
+              onClick={()=>setModal(false)}
+            >
               Cancel
             </button>
           </div>
@@ -412,7 +415,7 @@ export default function Path() {
           <p style={S.sub}>Ready to burn yourself.</p>
 
           {msg && (
-            <p style={{ ...S.stat, ...(msg.startsWith('🔥') ? S.ok : S.bad) }}>
+            <p style={{...S.stat, ...(msg.startsWith('🔥') ? S.ok : S.bad)}}>
               {msg}
             </p>
           )}
@@ -426,36 +429,39 @@ export default function Path() {
           )}
 
           <button
-            style={{ ...S.btn, ...S.prim, opacity: disabled ? 0.6 : 1 }}
+            style={{...S.btn, ...S.prim, opacity: disabled?0.6:1}}
             disabled={disabled}
-            onClick={onBurnClick}>
+            onClick={onBurnClick}
+          >
             {mainTxt}
           </button>
 
           {wait && (
             <>
-              {PLATFORM === 'android' && ton && (
-                <button style={{ ...S.btn, ...S.sec }} onClick={() => open(ton)}>
+              {PLATFORM==='android' && ton && (
+                <button style={{...S.btn, ...S.sec}} onClick={()=>open(ton)}>
                   Continue in Telegram Wallet
                 </button>
               )}
-              <button style={{ ...S.btn, ...S.sec }} onClick={() => open(hub)}>
+              <button style={{...S.btn, ...S.sec}} onClick={()=>open(hub)}>
                 Open in Tonhub
               </button>
               <button
-                style={{ ...S.btn, ...S.sec, marginTop: 0 }}
-                onClick={() => {
-                  const inv = localStorage.getItem('invoiceId');
-                  if (inv) checkStatus(inv);
-                }}>
+                style={{...S.btn, ...S.sec, marginTop:0}}
+                onClick={()=>{
+                  const inv = localStorage.getItem('invoiceId')
+                  if (inv) checkStatus(inv)
+                }}
+              >
                 Check status
               </button>
             </>
           )}
 
           <button
-            style={{ ...S.btn, ...S.sec }}
-            onClick={() => nav('/profile')}>
+            style={{...S.btn, ...S.sec}}
+            onClick={()=>nav('/profile')}
+          >
             Go to your personal account
           </button>
         </div>
@@ -467,11 +473,11 @@ export default function Path() {
           alt="fragment"
           crossOrigin="anonymous"
           style={S.frag}
-          onLoad={() => setFragLoaded(true)}
+          onLoad={()=>setFragLoaded(true)}
         />
       )}
 
       {DEV && location.search.includes('debug=1') && <Debug />}
     </>
-  );
+  )
 }
