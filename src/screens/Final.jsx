@@ -1,94 +1,111 @@
 // src/screens/Final.jsx
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate }            from 'react-router-dom';
+import TonProvider                from 'ton-inpage-provider';
 
-const BACKEND_URL =
-  process.env.REACT_APP_BACKEND_URL ||
-  'https://ash-backend-production.up.railway.app';
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL
+  ?? 'https://ash-backend-production.up.railway.app';
+
+// TODO: подставьте реальные адрес и ABI вашего контракта
+const CONTRACT_ADDRESS = 'EQXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX';
+const CONTRACT_ABI     = {/* ... ваш ABI ... */};
 
 export default function Final() {
   const navigate = useNavigate();
-  const [input, setInput] = useState('');
-  const [status, setStatus] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [allowed, setAllowed] = useState(false);
+  const [input,    setInput]    = useState('');
+  const [status,   setStatus]   = useState('');
+  const [loading,  setLoading]  = useState(true);
+  const [allowed,  setAllowed]  = useState(false);
+  const [sending,  setSending]  = useState(false);
 
+  // 1) Проверяем, можно ли сейчас вводить фразу
   useEffect(() => {
-    const unsafe = window.Telegram?.WebApp?.initDataUnsafe || {};
-    const userId = unsafe.user?.id;
-    if (!userId) {
-      navigate('/init');
-      return;
-    }
+    const init = async () => {
+      const userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+      if (!userId) return navigate('/init');
 
-    const token = localStorage.getItem('token');
-    if (!token) {
-      navigate('/init');
-      return;
-    }
+      const token = localStorage.getItem('token');
+      if (!token)    return navigate('/init');
 
-    fetch(`${BACKEND_URL}/api/final/${userId}`, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-    })
-      .then((res) => {
-        // Обновляем токен, если сервер вернул новый
-        const newAuth = res.headers.get('Authorization');
-        if (newAuth?.startsWith('Bearer ')) {
-          localStorage.setItem('token', newAuth.split(' ')[1]);
-        }
-        return res.json();
-      })
-      .then((data) => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/final/${userId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
         if (data.canEnter) {
           setAllowed(true);
           setStatus('🗝 You may now enter your final phrase.');
         } else {
-          setStatus('🕓 Not the time yet.');
+          setStatus('⏳ Not the time yet. Come back at your daily window.');
         }
-      })
-      .catch(() => setStatus('⚠️ Error checking permission.'))
-      .finally(() => setLoading(false));
+      } catch {
+        setStatus('⚠️ Error checking permission.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    init();
   }, [navigate]);
 
-  const handleVerify = async (e) => {
+  // 2) По сабмиту — сначала валидация на сервере, потом tx в контракт
+  const handleVerify = async e => {
     e.preventDefault();
     if (!allowed) return;
-    setLoading(true);
+
+    setSending(true);
     setStatus('');
 
-    const unsafe = window.Telegram.WebApp.initDataUnsafe || {};
-    const userId = unsafe.user?.id;
-    const token = localStorage.getItem('token');
-
+    // 2.1 — проверка по API
     try {
-      const res = await fetch(`${BACKEND_URL}/api/validate-final`, {
+      const userId = window.Telegram.WebApp.initDataUnsafe.user.id;
+      const token  = localStorage.getItem('token');
+      const res    = await fetch(`${BACKEND_URL}/api/validate-final`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          'Content-Type':  'application/json',
+          'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ userId, inputPhrase: input.trim() }),
+        body: JSON.stringify({ userId, inputPhrase: input.trim() })
       });
-      // Обновляем токен, если сервер вернул новый
-      const newAuth = res.headers.get('Authorization');
-      if (newAuth?.startsWith('Bearer ')) {
-        localStorage.setItem('token', newAuth.split(' ')[1]);
-      }
-
       const data = await res.json();
-      if (res.ok && data.ok) {
-        setStatus('✅ Phrase accepted! The Final Shape is yours.');
-        navigate('/congratulations');
-      } else {
+      if (!res.ok || !data.ok) {
         setStatus(data.error || '❌ Incorrect or expired phrase.');
+        setSending(false);
+        return;
       }
     } catch {
       setStatus('⚠️ Network error.');
+      setSending(false);
+      return;
+    }
+
+    // 2.2 — отправка в смарт-контракт
+    try {
+      // инициализируем провайдера (появит диалог в кошельке TON)
+      const provider = new TonProvider();
+      await provider.ensureInitialized(); // запросит у пользователя подключение
+
+      // получаем ваш контракт как JS-объект
+      const contract = provider.openContract({
+        address: CONTRACT_ADDRESS,
+        abi:     CONTRACT_ABI
+      });
+
+      // вызываем публичный метод контракта, например `submitPhrase`
+      // Предположим, в ABI есть метод `submitPhrase(string phrase)`
+      const tx = await contract.methods
+        .submitPhrase(input.trim())
+        .send({ from: (await provider.request({ method: 'ton_requestAccounts' }))[0] });
+
+      setStatus('✅ Phrase submitted on-chain! Transaction: ' + tx.id);
+      // по желанию: ждём подтверждения, или сразу уходим
+      setTimeout(() => navigate('/congratulations'), 2000);
+
+    } catch (err) {
+      console.error(err);
+      setStatus('⚠️ Failed to send on-chain: ' + err.message);
     } finally {
-      setLoading(false);
+      setSending(false);
     }
   };
 
@@ -102,14 +119,6 @@ export default function Final() {
 
   return (
     <div style={styles.page}>
-      {/* ← Кнопка «Назад» */}
-      <button
-        onClick={() => navigate('/profile')}
-        style={styles.backBtn}
-      >
-        ← Назад
-      </button>
-
       <div style={styles.container}>
         <h1 style={styles.title}>The Final Shape</h1>
         <p style={styles.status}>{status}</p>
@@ -117,28 +126,29 @@ export default function Final() {
           <input
             type="text"
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={e => setInput(e.target.value)}
             placeholder="Enter secret phrase..."
             style={styles.input}
-            disabled={!allowed || loading}
+            disabled={!allowed || sending}
             required
           />
           <button
             type="submit"
             style={{
               ...styles.button,
-              opacity: allowed && !loading ? 1 : 0.5,
-              cursor: allowed && !loading ? 'pointer' : 'not-allowed',
+              opacity: allowed && !sending ? 1 : 0.5,
+              cursor: allowed && !sending ? 'pointer' : 'not-allowed',
             }}
-            disabled={!allowed || loading}
+            disabled={!allowed || sending}
           >
-            {loading ? 'Verifying...' : 'Verify Phrase'}
+            {sending ? 'Sending…' : 'Verify & Submit'}
           </button>
         </form>
       </div>
     </div>
   );
 }
+
 
 const styles = {
   page: {
