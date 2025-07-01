@@ -1,3 +1,4 @@
+// src/screens/Final.jsx
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -101,6 +102,14 @@ export default function Final() {
 
   return (
     <div style={styles.page}>
+      {/* ← Кнопка «Назад» */}
+      <button
+        onClick={() => navigate('/profile')}
+        style={styles.backBtn}
+      >
+        ← Назад
+      </button>
+
       <div style={styles.container}>
         <h1 style={styles.title}>The Final Shape</h1>
         <p style={styles.status}>{status}</p>
@@ -140,10 +149,18 @@ const styles = {
     padding: 20,
     display: 'flex',
     flexDirection: 'column',
-    justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center',       // центрируем всё по горизонтали
     fontFamily: 'serif',
     color: '#d4af37',
+  },
+  backBtn: {
+    alignSelf: 'flex-start',     // кнопка слева
+    marginBottom: 12,
+    background: 'transparent',
+    border: 'none',
+    color: '#d4af37',
+    fontSize: 16,
+    cursor: 'pointer',
   },
   container: {
     backgroundColor: 'rgba(0,0,0,0.7)',
@@ -153,8 +170,7 @@ const styles = {
     width: '100%',
     display: 'flex',
     flexDirection: 'column',
-    justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center',       // центрируем всё внутри
     textAlign: 'center',
   },
   title: {
@@ -170,30 +186,31 @@ const styles = {
     marginBottom: 12,
     fontSize: 14,
     color: '#d4af37',
-    textAlign: 'center',
   },
   form: {
-    width: '100%',
     display: 'flex',
     flexDirection: 'column',
+    alignItems: 'center',       // центрируем поля в форме
     gap: 12,
+    width: '100%',
   },
   input: {
-    width: '100%',
+    width: '80%',                // уже не 100%, а 80% контейнера
     padding: 10,
     fontSize: 16,
     borderRadius: 6,
     border: '1px solid #d4af37',
     backgroundColor: '#111',
     color: '#fff',
+    textAlign: 'center',
   },
   button: {
+    width: '80%',                // та же ширина, что и у инпута
     padding: '10px 24px',
     fontSize: 16,
     backgroundColor: '#d4af37',
     color: '#000',
     border: 'none',
     borderRadius: 6,
-    width: '100%',
   },
 };
