@@ -215,7 +215,7 @@ const styles = {
     textAlign: 'center',
   },
   button: {
-    width: '80%',                // та же ширина, что и у инпута
+    width: '80%',                
     padding: '10px 24px',
     fontSize: 16,
     backgroundColor: '#d4af37',
