@@ -6,21 +6,20 @@ import TonProvider                from 'ton-inpage-provider';
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL
   ?? 'https://ash-backend-production.up.railway.app';
 
-// TODO: подставьте реальные адрес и ABI вашего контракта
 const CONTRACT_ADDRESS = 'EQXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX';
 const CONTRACT_ABI     = {/* ... ваш ABI ... */};
 
 export default function Final() {
   const navigate = useNavigate();
-  const [input,    setInput]    = useState('');
-  const [status,   setStatus]   = useState('');
-  const [loading,  setLoading]  = useState(true);
-  const [allowed,  setAllowed]  = useState(false);
-  const [sending,  setSending]  = useState(false);
+  const [input,   setInput]   = useState('');
+  const [status,  setStatus]  = useState('');
+  const [loading, setLoading] = useState(true);
+  const [allowed, setAllowed] = useState(false);
+  const [sending, setSending] = useState(false);
 
-  // 1) Проверяем, можно ли сейчас вводить фразу
+  // 1) Проверяем доступность окна ввода
   useEffect(() => {
-    const init = async () => {
+    (async () => {
       const userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
       if (!userId) return navigate('/init');
 
@@ -28,11 +27,11 @@ export default function Final() {
       if (!token)    return navigate('/init');
 
       try {
-        const res = await fetch(`${BACKEND_URL}/api/final/${userId}`, {
+        const res  = await fetch(`${BACKEND_URL}/api/final/${userId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        const data = await res.json();
-        if (data.canEnter) {
+        const { canEnter } = await res.json();
+        if (canEnter) {
           setAllowed(true);
           setStatus('🗝 You may now enter your final phrase.');
         } else {
@@ -43,11 +42,10 @@ export default function Final() {
       } finally {
         setLoading(false);
       }
-    };
-    init();
+    })();
   }, [navigate]);
 
-  // 2) По сабмиту — сначала валидация на сервере, потом tx в контракт
+  // 2) Сабмит: сначала на API, потом в контракт
   const handleVerify = async e => {
     e.preventDefault();
     if (!allowed) return;
@@ -55,7 +53,7 @@ export default function Final() {
     setSending(true);
     setStatus('');
 
-    // 2.1 — проверка по API
+    // 2.1 Валидация на сервере
     try {
       const userId = window.Telegram.WebApp.initDataUnsafe.user.id;
       const token  = localStorage.getItem('token');
@@ -79,28 +77,23 @@ export default function Final() {
       return;
     }
 
-    // 2.2 — отправка в смарт-контракт
+    // 2.2 Отправка в смарт-контракт
     try {
-      // инициализируем провайдера (появит диалог в кошельке TON)
       const provider = new TonProvider();
-      await provider.ensureInitialized(); // запросит у пользователя подключение
+      await provider.ensureInitialized();
 
-      // получаем ваш контракт как JS-объект
       const contract = provider.openContract({
         address: CONTRACT_ADDRESS,
         abi:     CONTRACT_ABI
       });
 
-      // вызываем публичный метод контракта, например `submitPhrase`
-      // Предположим, в ABI есть метод `submitPhrase(string phrase)`
+      const [account] = await provider.request({ method: 'ton_requestAccounts' });
       const tx = await contract.methods
         .submitPhrase(input.trim())
-        .send({ from: (await provider.request({ method: 'ton_requestAccounts' }))[0] });
+        .send({ from: account });
 
-      setStatus('✅ Phrase submitted on-chain! Transaction: ' + tx.id);
-      // по желанию: ждём подтверждения, или сразу уходим
+      setStatus('✅ Phrase submitted on-chain! Tx ID: ' + tx.id);
       setTimeout(() => navigate('/congratulations'), 2000);
-
     } catch (err) {
       console.error(err);
       setStatus('⚠️ Failed to send on-chain: ' + err.message);
@@ -109,19 +102,30 @@ export default function Final() {
     }
   };
 
+  // 3) Лоадер
   if (loading) {
     return (
       <div style={styles.page}>
+        {/* Кнопка назад тоже доступна во время загрузки */}
+        <button style={styles.backBtn} onClick={() => navigate('/profile')}>
+          ← Back
+        </button>
         <p style={styles.checking}>Checking access...</p>
       </div>
     );
   }
 
+  // 4) Основной рендер
   return (
     <div style={styles.page}>
+      <button style={styles.backBtn} onClick={() => navigate('/profile')}>
+        ← Back
+      </button>
+
       <div style={styles.container}>
         <h1 style={styles.title}>The Final Shape</h1>
         <p style={styles.status}>{status}</p>
+
         <form onSubmit={handleVerify} style={styles.form}>
           <input
             type="text"
@@ -149,7 +153,6 @@ export default function Final() {
   );
 }
 
-
 const styles = {
   page: {
     minHeight: '100vh',
@@ -159,12 +162,12 @@ const styles = {
     padding: 20,
     display: 'flex',
     flexDirection: 'column',
-    alignItems: 'center',       // центрируем всё по горизонтали
+    alignItems: 'center',
     fontFamily: 'serif',
     color: '#d4af37',
   },
   backBtn: {
-    alignSelf: 'flex-start',     // кнопка слева
+    alignSelf: 'flex-start',
     marginBottom: 12,
     background: 'transparent',
     border: 'none',
@@ -180,7 +183,7 @@ const styles = {
     width: '100%',
     display: 'flex',
     flexDirection: 'column',
-    alignItems: 'center',       // центрируем всё внутри
+    alignItems: 'center',
     textAlign: 'center',
   },
   title: {
@@ -200,12 +203,12 @@ const styles = {
   form: {
     display: 'flex',
     flexDirection: 'column',
-    alignItems: 'center',       // центрируем поля в форме
+    alignItems: 'center',
     gap: 12,
     width: '100%',
   },
   input: {
-    width: '80%',                // уже не 100%, а 80% контейнера
+    width: '80%',
     padding: 10,
     fontSize: 16,
     borderRadius: 6,
@@ -215,7 +218,7 @@ const styles = {
     textAlign: 'center',
   },
   button: {
-    width: '80%',                
+    width: '80%',
     padding: '10px 24px',
     fontSize: 16,
     backgroundColor: '#d4af37',
