@@ -1,0 +1,9 @@
+// vercel.json (положить в корень проекта рядом с package.json)
+{
+  "rewrites": [
+    // API-запросы пробрасываем к функциям в папке /api
+    { "source": "/api/:path*", "destination": "/api/:path*" },
+    // Всё остальное отдаём index.html, чтобы React Router мог разбрать путь
+    { "source": "/:path*",       "destination": "/index.html" }
+  ]
+}
