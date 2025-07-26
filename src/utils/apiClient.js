@@ -13,3 +13,9 @@ export async function claimReferral() {
   if (!res.ok) throw new Error('Failed to claim referral reward');
   return res.json();
 }
+
+export async function getLeaderboard(scope = 'global') {
+  const res = await fetch(`/api/leaderboard?scope=${scope}`);
+  if (!res.ok) throw new Error('Failed to fetch leaderboard');
+  return res.json(); // пример: [{ tg_id: '123', name: 'Alice', fragmentsCount: 5 }, ...]
+}
