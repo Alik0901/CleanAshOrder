@@ -1,24 +1,22 @@
+// vercel.json (корень проекта)
 {
   "version": 2,
   "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": { "distDir": "dist" }
+    { 
+      "src": "package.json", 
+      "use": "@vercel/static-build", 
+      "config": { "distDir": "dist" } 
     },
-    {
-      "src": "api/**/*.js",
-      "use": "@vercel/node"
-    }
+    { "src": "api/**/*.js", "use": "@vercel/node" }
   ],
   "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/$1.js"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
-    }
+    // 1) запросы к API → ваши Serverless Functions
+    { "src": "/api/(.*)",     "dest": "/api/$1.js" },
+
+    // 2) отдаём физические файлы (JS, CSS, картинки) из dist
+    { "handle": "filesystem" },
+
+    // 3) всё, что не нашлось выше, → index.html (React Router)
+    { "src": "/(.*)",         "dest": "/index.html" }
   ]
 }
