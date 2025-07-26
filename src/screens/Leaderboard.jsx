@@ -4,51 +4,63 @@ import BackButton from '../components/BackButton';
 import { getLeaderboard } from '../utils/apiClient';
 
 export default function Leaderboard() {
-  const [scope, setScope] = useState<'friends' | 'global'>('friends');
+  const [scope, setScope] = useState('global');      // сразу подгружаем глобальный топ
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    loadBoard(scope);
+    fetchLeaderboard(scope);
   }, [scope]);
 
-  async function loadBoard(scope) {
+  async function fetchLeaderboard(scope) {
     setLoading(true);
+    setError(null);
     try {
       const list = await getLeaderboard(scope);
-      setData(list);
+      // Гарантируем, что data всегда массив
+      setData(Array.isArray(list) ? list : []);
     } catch (err) {
-      console.error(err);
+      console.error('[/screens/Leaderboard] fetch error', err);
+      setError('Failed to load leaderboard');
+      setData([]);
     } finally {
       setLoading(false);
     }
   }
+
+  const tabs = [
+    { key: 'friends', label: 'Friends' },
+    { key: 'global',  label: 'Global' },
+  ];
 
   return (
     <div className="p-4">
       <BackButton />
       <h2 className="text-xl font-semibold mb-4">Leaderboard</h2>
 
-      {/* Таб переключения scope */}
+      {/* Scope tabs */}
       <div className="flex space-x-4 mb-4">
-        {['friends', 'global'].map(s => (
+        {tabs.map(({ key, label }) => (
           <button
-            key={s}
-            onClick={() => setScope(s)}
+            key={key}
+            onClick={() => setScope(key)}
             className={`px-4 py-2 rounded ${
-              scope === s
+              scope === key
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-200 text-gray-700'
             }`}
           >
-            {s === 'friends' ? 'Friends' : 'Global'}
+            {label}
           </button>
         ))}
       </div>
 
-      {/* Список лидеров */}
+      {/* Content */}
       {loading ? (
         <p>Loading…</p>
+      ) : error ? (
+        <p className="text-red-500">{error}</p>
       ) : (
         <ul className="space-y-2">
           {data.map((user, idx) => (
@@ -60,7 +72,9 @@ export default function Leaderboard() {
                 <span className="font-bold">{idx + 1}.</span>
                 <span>{user.name}</span>
               </div>
-              <span className="font-mono">{user.fragmentsCount} / 8</span>
+              <span className="font-mono">
+                {user.fragmentsCount} / 8
+              </span>
             </li>
           ))}
         </ul>
