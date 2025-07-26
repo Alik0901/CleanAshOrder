@@ -1,39 +1,66 @@
 // src/utils/apiClient.js
 
-export async function getReferral() {
-  const res = await fetch('/api/referral');
-  if (!res.ok) throw new Error('Failed to fetch referral info');
-  return res.json(); // { ref_code, invitedCount, referral_reward_issued }
+// Подхватывает токен из localStorage
+function authHeader() {
+  const token = localStorage.getItem('token');
+  return token ? { 'Authorization': `Bearer ${token}` } : {};
 }
 
-export async function claimReferral() {
-  const res = await fetch('/api/referral/claim', {
-    method: 'POST',
-  });
-  if (!res.ok) throw new Error('Failed to claim referral reward');
-  return res.json();
-}
+const API = {
+  init:          body => fetch('/api/init', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                  }).then(r => r.json()),
 
-export async function getLeaderboard(scope = 'global') {
-  const res = await fetch(`/api/leaderboard?scope=${scope}`);
-  if (!res.ok) throw new Error('Failed to fetch leaderboard');
-  return res.json(); // пример: [{ tg_id: '123', name: 'Alice', fragmentsCount: 5 }, ...]
-}
+  getPlayer:     tgId => fetch(`/api/player/${tgId}`, {
+                    headers: authHeader()
+                  }).then(r => r.json()),
 
-export async function getFinalWindow() {
-  const res = await fetch('/api/final-window');
-  if (!res.ok) throw new Error('Failed to load final window');
-  return res.json(); 
-  // должно вернуть { msLeft: number, canSubmit: boolean }
-}
+  getPresigned:  ()   => fetch('/api/fragments/urls', {
+                    headers: authHeader()
+                  }).then(r => r.json()),
 
-export async function submitFinalPhrase(phrase) {
-  const res = await fetch('/api/validate-final', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ phrase }),
-  });
-  if (!res.ok) throw new Error('Failed to submit phrase');
-  const { success } = await res.json(); // { success: true/false }
-  return success;
-}
+  getFragments:  tgId => fetch(`/api/fragments/${tgId}`, {
+                    headers: authHeader()
+                  }).then(r => r.json()),
+
+  createBurn:    tgId => fetch('/api/burn-invoice', {
+                    method: 'POST',
+                    headers: { ...authHeader(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tg_id: tgId })
+                  }).then(r => r.json()),
+
+  getBurnStatus: id   => fetch(`/api/burn-status/${id}`)
+                    .then(r => r.json()),
+
+  getReferral:   ()   => fetch('/api/referral', {
+                    headers: authHeader()
+                  }).then(r => r.json()),
+
+  claimReferral: ()   => fetch('/api/referral/claim', {
+                    method: 'POST',
+                    headers: authHeader()
+                  }).then(r => r.json()),
+
+  validateFinal: phrase => fetch('/api/validate-final', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phrase })
+                  }).then(r => r.json()),
+
+  getFinal:      tgId => fetch(`/api/final/${tgId}`, {
+                    headers: authHeader()
+                  }).then(r => r.json()),
+
+  getStats:      ()   => fetch('/api/stats/total_users', {
+                    headers: authHeader()
+                  }).then(r => r.json()),
+
+  deletePlayer:  tgId => fetch(`/api/player/${tgId}`, {
+                    method: 'DELETE',
+                    headers: authHeader()
+                  }).then(r => r.json()),
+};
+
+export default API;

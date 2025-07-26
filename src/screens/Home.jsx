@@ -1,30 +1,23 @@
 // src/screens/Home.jsx
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useContext } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { AuthContext } from '../context/AuthContext';
 
 export default function Home() {
-  // TODO: заменить заглушку реальными данными из API
-  const collected = 0;
-  const total = 8;
+  const { user, logout } = useContext(AuthContext);
 
   return (
     <div className="p-4">
-      <h1 className="text-2xl font-bold mb-2">Ash Bot</h1>
-      <p className="mb-4">
-        Fragments collected: {collected} / {total}
-      </p>
-      <Link
-        to="/burn"
-        className="inline-block bg-red-500 text-white px-4 py-2 rounded mb-4"
-      >
-        🔥 Burn Yourself (Free)
-      </Link>
-      <div className="mt-6 bg-gray-100 p-3 rounded">
-        <p className="mb-1">Invite friends → +1 guaranteed fragment</p>
-        <Link to="/referral" className="text-blue-600 text-sm">
-          Invite Friends
-        </Link>
-      </div>
+      <h1 className="text-2xl font-bold mb-4">Ash Bot</h1>
+      {user ? (
+        <>
+          <p className="mb-4">Welcome back, {user.name || user.tg_id}!</p>
+          <Link to="/burn" className="btn-primary mb-4">🔥 Burn Yourself</Link>
+          <button onClick={logout} className="text-sm text-red-600">Logout</button>
+        </>
+      ) : (
+        <Link to="/login" className="btn-primary">Login with Telegram ID</Link>
+      )}
     </div>
   );
 }
