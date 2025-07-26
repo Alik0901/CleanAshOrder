@@ -9,7 +9,7 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL
 const CONTRACT_ADDRESS = 'EQXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX';
 const CONTRACT_ABI     = {/* ... ваш ABI ... */};
 
-export default function Final() {
+export default function FinalPhrase() {
   const navigate = useNavigate();
   const [input,   setInput]   = useState('');
   const [status,  setStatus]  = useState('');
