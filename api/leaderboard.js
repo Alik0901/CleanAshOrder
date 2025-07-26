@@ -1,38 +1,40 @@
 // api/leaderboard.js
 import { Pool } from 'pg';
 
+// Подключаемся к БД по переменной окружения
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 export default async function handler(req, res) {
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method Not Allowed' });
+  }
+
   const scope = req.query.scope || 'global';
 
   try {
-    let rows;
     if (scope === 'global') {
-      // глобальный топ по фрагментам
-      const { rows: all } = await pool.query(
-        `SELECT tg_id, name, array_length(fragments, 1) as fragments_count
-         FROM players
-         ORDER BY fragments_count DESC
-         LIMIT 100`
-      );
-      rows = all;
-    } else {
-      // TODO: логика «friends» — если храните рефералов, то join players + referrals
-      const { rows: friends } = await pool.query(
-        `SELECT p.tg_id, p.name, array_length(p.fragments, 1) as fragments_count
-         FROM players p
-         JOIN referrals r ON r.referrer_id = p.id
-         WHERE r.referred_id = $1
-         ORDER BY fragments_count DESC`,
-        [/* ваш текущий user.id */]
-      );
-      rows = friends;
+      // Глобальный топ по числу фрагментов
+      const { rows } = await pool.query(`
+        SELECT
+          tg_id,
+          name,
+          array_length(fragments, 1) AS fragmentsCount
+        FROM players
+        ORDER BY fragmentsCount DESC
+        LIMIT 100
+      `);
+      return res.status(200).json(rows);
     }
 
-    res.status(200).json(rows);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'DB query failed' });
+    if (scope === 'friends') {
+      // Пока не поддерживаем — возвращаем пустой список
+      return res.status(200).json([]);
+    }
+
+    // Неправильный параметр scope
+    return res.status(400).json({ error: 'Invalid scope parameter' });
+  } catch (error) {
+    console.error('[/api/leaderboard] Error:', error);
+    return res.status(500).json({ error: 'Internal Server Error' });
   }
 }
