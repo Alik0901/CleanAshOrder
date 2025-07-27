@@ -10,6 +10,7 @@ export default function Login() {
   const [refCode, setRefCode]   = useState('');
   const [initData, setInitData] = useState('');
   const [error, setError]       = useState('');
+  const [loading, setLoading]   = useState(true);
   const { login }               = useContext(AuthContext);
   const navigate                = useNavigate();
 
@@ -17,22 +18,24 @@ export default function Login() {
     const tg = window.Telegram?.WebApp;
     if (!tg) {
       setError('Запустите бота внутри Telegram.');
+      setLoading(false);
       return;
     }
     tg.ready();
 
-    // Безопасно берём несекьюрные данные
     const unsafe = tg.initDataUnsafe ?? {};
     const user   = unsafe.user ?? {};
 
     if (!user.id) {
       setError('Не удалось получить информацию о пользователе.');
+      setLoading(false);
       return;
     }
 
     setTgId(user.id);
     setName(user.first_name || '');
-    setInitData(tg.initData ?? '');
+    setInitData(tg.initData || '');
+    setLoading(false);
   }, []);
 
   const handleStart = async () => {
@@ -50,15 +53,22 @@ export default function Login() {
         initData,
         referrer_code: refCode.trim() || null,
       });
-
       login(user, token);
       navigate('/burn');
     } catch (e) {
       console.error('[Login] init error', e);
-      // Если у API вернулся объект { error: '...' }
       setError(e.error || e.message || 'Ошибка инициализации');
     }
   };
+
+  // Пока ждём Telegram — показываем простой лоадер или сообщение
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <p>Loading Telegram Web App...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-sm mx-auto p-6">
@@ -89,7 +99,11 @@ export default function Login() {
 
         <button
           onClick={handleStart}
-          className="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          disabled={!tgId || !initData}
+          className={`w-full px-4 py-2 rounded 
+            ${(!tgId || !initData)
+              ? 'bg-gray-400 cursor-not-allowed'
+              : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
         >
           Start Playing
         </button>
