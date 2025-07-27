@@ -1,44 +1,46 @@
 // src/screens/FinalPhrase.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
 import BackButton from '../components/BackButton';
-import Timer from '../components/Timer';
-import { getFinalWindow, submitFinalPhrase } from '../utils/apiClient';
+import API from '../utils/apiClient';
+import { AuthContext } from '../context/AuthContext';
 
 export default function FinalPhrase() {
-  const [msLeft, setMsLeft] = useState(null);     // миллисекунд до открытия
-  const [ready, setReady] = useState(false);      // true, когда можно вводить
+  const { user } = useContext(AuthContext);
+  const navigate = useNavigate();
+
+  const [canEnter, setCanEnter] = useState(false);
   const [phrase, setPhrase] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [result, setResult] = useState(null);     // success / fail message
+  const [result, setResult] = useState(null); // 'success' | 'fail' | 'error'
 
+  // Проверяем, может ли пользователь сейчас ввести фразу
   useEffect(() => {
-    loadWindow();
-  }, []);
-
-  async function loadWindow() {
-    try {
-      const { msLeft: ms, canSubmit } = await getFinalWindow();
-      setMsLeft(ms);
-      setReady(canSubmit);
-    } catch (err) {
-      console.error(err);
-    }
-  }
-
-  function handleExpire() {
-    setReady(true);
-    setMsLeft(0);
-  }
+    if (!user) return;
+    (async () => {
+      try {
+        const { canEnter } = await API.getFinal(user.tg_id);
+        setCanEnter(!!canEnter);
+      } catch (err) {
+        console.error('Failed to load final status', err);
+      }
+    })();
+  }, [user]);
 
   async function handleSubmit(e) {
     e.preventDefault();
     setSubmitting(true);
     setResult(null);
     try {
-      const ok = await submitFinalPhrase(phrase);
-      setResult(ok ? 'success' : 'fail');
+      const { success } = await API.validateFinal(phrase);
+      if (success) {
+        // Успех — редирект на экран поздравления
+        navigate('/congrats');
+      } else {
+        setResult('fail');
+      }
     } catch (err) {
-      console.error(err);
+      console.error('Submit error', err);
       setResult('error');
     } finally {
       setSubmitting(false);
@@ -50,43 +52,29 @@ export default function FinalPhrase() {
       <BackButton />
       <h2 className="text-xl font-semibold mb-4">Final Phrase</h2>
 
-      {!ready && msLeft != null ? (
-        <div className="mb-4">
-          <p>Your window opens in:</p>
-          <Timer msLeft={msLeft} onExpire={handleExpire} />
-        </div>
-      ) : null}
-
-      {ready ? (
+      {canEnter ? (
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <input
-              type="text"
-              value={phrase}
-              onChange={e => setPhrase(e.target.value)}
-              placeholder="Enter secret phrase"
-              className="w-full border px-3 py-2 rounded"
-              disabled={submitting || result === 'success'}
-            />
-          </div>
+          <input
+            type="text"
+            value={phrase}
+            onChange={e => setPhrase(e.target.value)}
+            placeholder="Enter secret phrase"
+            className="w-full border px-3 py-2 rounded"
+            disabled={submitting}
+          />
+
           <button
             type="submit"
-            disabled={submitting || !phrase || result === 'success'}
+            disabled={!phrase || submitting}
             className={`w-full px-4 py-2 rounded ${
-              submitting || !phrase || result === 'success'
-                ? 'bg-gray-400 text-gray-700'
-                : 'bg-green-600 text-white'
+              !phrase || submitting
+                ? 'bg-gray-400 text-gray-700 cursor-not-allowed'
+                : 'bg-green-600 text-white hover:bg-green-700'
             }`}
           >
-            {submitting
-              ? 'Submitting…'
-              : result === 'success'
-              ? 'Submitted'
-              : 'Submit Phrase'}
+            {submitting ? 'Submitting…' : 'Submit Phrase'}
           </button>
-          {result === 'success' && (
-            <p className="text-green-600">🎉 Correct phrase!</p>
-          )}
+
           {result === 'fail' && (
             <p className="text-red-600">❌ Incorrect, try again tomorrow.</p>
           )}
@@ -95,7 +83,9 @@ export default function FinalPhrase() {
           )}
         </form>
       ) : (
-        <p className="text-gray-600">Please wait for your window to open.</p>
+        <p className="text-gray-600">
+          You can only enter the final phrase once you have all fragments.
+        </p>
       )}
     </div>
   );
