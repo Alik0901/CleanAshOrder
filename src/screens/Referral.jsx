@@ -1,7 +1,7 @@
 // src/screens/Referral.jsx
 import React, { useState, useEffect } from 'react';
 import BackButton from '../components/BackButton';
-import { getReferral, claimReferral } from '../utils/apiClient';
+import API from '../utils/apiClient';
 
 export default function Referral() {
   const [refCode, setRefCode] = useState('');
@@ -9,7 +9,7 @@ export default function Referral() {
   const [rewardIssued, setRewardIssued] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Таблица реферальных уровней
+  // Уровни реферальной программы
   const tiers = [
     { label: '1 Friend', requirement: 1, reward: '+1 fragment' },
     { label: '5 Friends', requirement: 5, reward: '2× chance' },
@@ -22,49 +22,60 @@ export default function Referral() {
 
   async function loadReferral() {
     try {
-      const { ref_code, invitedCount, referral_reward_issued } = await getReferral();
-      setRefCode(ref_code);
+      const { refCode, invitedCount, rewardIssued } = await API.getReferral();
+      setRefCode(refCode);
       setInvitedCount(invitedCount);
-      setRewardIssued(referral_reward_issued);
+      setRewardIssued(rewardIssued);
     } catch (err) {
-      console.error(err);
+      console.error('Failed to load referral data', err);
     }
   }
 
   async function handleClaim() {
     setLoading(true);
     try {
-      await claimReferral();
+      const { fragment } = await API.claimReferral();
       setRewardIssued(true);
+      // Можно здесь показать пользователю, какой фрагмент он получил
+      console.log('Claimed fragment:', fragment);
     } catch (err) {
-      console.error(err);
+      console.error('Failed to claim referral reward', err);
     } finally {
       setLoading(false);
     }
   }
 
-  // Ссылка для приглашения в Telegram
-  const botUsername = process.env.REACT_APP_BOT_USERNAME || 'YourBotUsername';
+  // Генерируем deeplink для Telegram
+  const botUsername = import.meta.env.VITE_BOT_USERNAME || 'YourBotUsername';
   const shareLink = `https://t.me/${botUsername}?start=${refCode}`;
 
   return (
     <div className="p-4">
       <BackButton />
+
       <h2 className="text-xl font-semibold mb-4">Invite Friends</h2>
 
-      <p className="mb-2">
-        <span className="font-mono bg-gray-100 px-2 py-1 rounded">{refCode}</span>
+      <p className="mb-4">
+        Your referral code:{' '}
+        <span className="font-mono bg-gray-100 px-2 py-1 rounded">
+          {refCode || '—'}
+        </span>
       </p>
 
-      <div className="grid grid-cols-1 gap-2 mb-4">
+      <div className="grid gap-2 mb-4">
         {tiers.map(({ label, requirement, reward }) => (
-          <div key={label} className="flex justify-between items-center p-2 border rounded">
+          <div
+            key={label}
+            className="flex justify-between items-center p-2 border rounded"
+          >
             <div>
               <div className="font-semibold">{label}</div>
               <div className="text-sm text-gray-600">{reward}</div>
             </div>
             <div className="text-sm">
-              {invitedCount >= requirement ? '✅' : `${requirement - invitedCount} more`}
+              {invitedCount >= requirement
+                ? '✅'
+                : `${requirement - invitedCount} more`}
             </div>
           </div>
         ))}
@@ -72,21 +83,25 @@ export default function Referral() {
 
       <button
         onClick={() => navigator.clipboard.writeText(shareLink)}
-        className="mb-4 w-full bg-blue-600 text-white px-4 py-2 rounded"
+        className="mb-4 w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
       >
         Copy Invite Link
       </button>
 
       <button
         onClick={handleClaim}
-        disabled={invitedCount < tiers[0].requirement || rewardIssued || loading}
+        disabled={invitedCount < tiers[0].requirement || rewardIssued}
         className={`w-full px-4 py-2 rounded ${
           invitedCount < tiers[0].requirement || rewardIssued
             ? 'bg-gray-400 text-gray-700 cursor-not-allowed'
-            : 'bg-green-500 text-white'
+            : 'bg-green-600 text-white hover:bg-green-700'
         }`}
       >
-        {rewardIssued ? 'Reward Claimed' : loading ? 'Claiming…' : 'Claim Reward'}
+        {rewardIssued
+          ? 'Reward Claimed'
+          : loading
+          ? 'Claiming…'
+          : `Claim Reward (${tiers[0].requirement} friends)`}
       </button>
     </div>
   );
