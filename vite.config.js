@@ -4,6 +4,9 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   logLevel: 'info',
   plugins: [react()],
+  css: {
+    postcss: './postcss.config.js'
+  },
   optimizeDeps: {
     include: ['ton-inpage-provider']
   },
