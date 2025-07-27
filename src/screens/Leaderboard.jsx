@@ -1,28 +1,27 @@
 // src/screens/Leaderboard.jsx
 import React, { useState, useEffect } from 'react';
 import BackButton from '../components/BackButton';
-import { getLeaderboard } from '../utils/apiClient';
+import API from '../utils/apiClient';
 
 export default function Leaderboard() {
-  const [scope, setScope] = useState('global');      // сразу подгружаем глобальный топ
+  const [scope, setScope] = useState('global');
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetchLeaderboard(scope);
+    loadLeaderboard(scope);
   }, [scope]);
 
-  async function fetchLeaderboard(scope) {
+  async function loadLeaderboard(scope) {
     setLoading(true);
     setError(null);
     try {
-      const list = await getLeaderboard(scope);
-      // Гарантируем, что data всегда массив
-      setData(Array.isArray(list) ? list : []);
+      const result = await API.getLeaderboard(scope);
+      setData(Array.isArray(result) ? result : []);
     } catch (err) {
-      console.error('[/screens/Leaderboard] fetch error', err);
-      setError('Failed to load leaderboard');
+      console.error('Error loading leaderboard:', err);
+      setError('Unable to load leaderboard. Please try again later.');
       setData([]);
     } finally {
       setLoading(false);
@@ -39,7 +38,7 @@ export default function Leaderboard() {
       <BackButton />
       <h2 className="text-xl font-semibold mb-4">Leaderboard</h2>
 
-      {/* Scope tabs */}
+      {/* Tabs */}
       <div className="flex space-x-4 mb-4">
         {tabs.map(({ key, label }) => (
           <button
@@ -72,9 +71,7 @@ export default function Leaderboard() {
                 <span className="font-bold">{idx + 1}.</span>
                 <span>{user.name}</span>
               </div>
-              <span className="font-mono">
-                {user.fragmentsCount} / 8
-              </span>
+              <span className="font-mono">{user.fragmentsCount} / 8</span>
             </li>
           ))}
         </ul>
