@@ -1,56 +1,61 @@
 // src/screens/Login.jsx
-import React, { useState, useContext } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useContext } from 'react';
 import API from '../utils/apiClient';
 import { AuthContext } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 export default function Login() {
-  const [tgId, setTgId]       = useState('');
-  const [name, setName]       = useState('');
-  const [refCode, setRefCode] = useState('');   // опционально
-  const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState('');
-  const { login }             = useContext(AuthContext);
-  const navigate              = useNavigate();
+  const [tgId, setTgId]           = useState(null);
+  const [name, setName]           = useState('');
+  const [refCode, setRefCode]     = useState('');
+  const [initData, setInitData]   = useState('');
+  const [error, setError]         = useState('');
+  const { login }                 = useContext(AuthContext);
+  const navigate                  = useNavigate();
 
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setError('');
-    if (!tgId.trim()) {
-      setError('Telegram ID обязателен');
+  useEffect(() => {
+    const tg = window.Telegram?.WebApp;
+    if (!tg) {
+      setError('Запустите бота внутри Telegram.');
       return;
     }
-    setLoading(true);
+    tg.ready();
+    const { user } = tg.initDataUnsafe;
+    setTgId(user.id);
+    setName(user.first_name || '');
+    setInitData(tg.initData);
+  }, []);
+
+  async function handleStart() {
+    setError('');
+    if (!tgId || !initData) {
+      setError('Не удалось получить данные от Telegram.');
+      return;
+    }
     try {
-      // initData можно зафиксировать, например, как '' или как tgId
-      const body = { tg_id: tgId.trim(), name: name.trim(), initData: tgId.trim(), referrer_code: refCode.trim() || null };
-      const { user, token } = await API.init(body);
+      const { user, token } = await API.init({
+        tg_id: tgId,
+        name: name.trim(),
+        initData,
+        referrer_code: refCode.trim() || null,
+      });
       login(user, token);
-      navigate('/burn');  // сразу на Burn Screen
-    } catch (err) {
-      console.error('[Login] init error', err);
-      setError(err.error || 'Ошибка инициализации');
-    } finally {
-      setLoading(false);
+      navigate('/burn');
+    } catch (e) {
+      console.error('[Login] init error', e);
+      setError(e.error || 'Ошибка инициализации');
     }
   }
 
   return (
     <div className="max-w-sm mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Welcome to Ash Bot</h1>
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <h1 className="text-2xl font-bold mb-6 text-center">Welcome to Ash Bot</h1>
+
+      {error && <p className="text-red-600 mb-4">{error}</p>}
+
+      <div className="space-y-4">
         <div>
-          <label className="block text-sm">Telegram ID</label>
-          <input
-            type="text"
-            value={tgId}
-            onChange={e => setTgId(e.target.value)}
-            className="w-full border px-3 py-2 rounded"
-            required
-          />
-        </div>
-        <div>
-          <label className="block text-sm">Name (опционально)</label>
+          <label className="block text-sm mb-1">Name (you can edit):</label>
           <input
             type="text"
             value={name}
@@ -58,8 +63,9 @@ export default function Login() {
             className="w-full border px-3 py-2 rounded"
           />
         </div>
+
         <div>
-          <label className="block text-sm">Referral Code (опционально)</label>
+          <label className="block text-sm mb-1">Referral Code (optional):</label>
           <input
             type="text"
             value={refCode}
@@ -67,17 +73,14 @@ export default function Login() {
             className="w-full border px-3 py-2 rounded"
           />
         </div>
-        {error && <p className="text-red-600">{error}</p>}
+
         <button
-          type="submit"
-          disabled={loading}
-          className={`w-full py-2 rounded text-white ${
-            loading ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'
-          }`}
+          onClick={handleStart}
+          className="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
         >
-          {loading ? 'Loading…' : 'Start Playing'}
+          Start Playing
         </button>
-      </form>
+      </div>
     </div>
   );
 }
