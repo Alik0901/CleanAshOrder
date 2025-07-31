@@ -9,7 +9,7 @@ export default function Gallery() {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
 
-  const [fragments, setFragments] = useState([]);      // массив ID или путей собранных фрагментов
+  const [fragments, setFragments] = useState([]);      // массив ID собранных фрагментов
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState('');
 
@@ -43,35 +43,6 @@ export default function Gallery() {
     }
   }, [loading, fragments, navigate]);
 
-  // 3) Отрисовка 4×2 сетки
-  const renderGrid = () => {
-    const cells = [];
-    for (let i = 1; i <= 8; i++) {
-      const collected = fragments.includes(i);
-      cells.push(
-        <div
-          key={i}
-          className={`w-24 h-24 m-2 rounded-lg overflow-hidden border-2 ${
-            collected ? 'border-red-600' : 'border-gray-400'
-          }`}
-        >
-          {collected ? (
-            <img
-              src={`/images/fragments/fragment-${i}.webp`}
-              alt={`Fragment ${i}`}
-              className="object-cover w-full h-full"
-            />
-          ) : (
-            <div className="w-full h-full bg-gray-300 flex items-center justify-center text-gray-600">
-              ?
-            </div>
-          )}
-        </div>
-      );
-    }
-    return <div className="flex flex-wrap justify-center">{cells}</div>;
-  };
-
   return (
     <div
       className="relative min-h-screen flex flex-col items-center pt-8 bg-cover bg-center"
@@ -86,10 +57,36 @@ export default function Gallery() {
         <h2 className="text-2xl font-bold text-gray-900">Your Fragments</h2>
 
         {loading && <p className="text-gray-700">Loading fragments...</p>}
-
         {error && <p className="text-red-600">{error}</p>}
 
-        {!loading && !error && renderGrid()}
+        {!loading && !error && (
+          <div className="grid grid-cols-4 gap-4 justify-items-center">
+            {Array.from({ length: 8 }, (_, idx) => {
+              const i = idx + 1;
+              const collected = fragments.includes(i);
+              return (
+                <div
+                  key={i}
+                  className={`w-20 h-20 rounded-lg overflow-hidden border-2 ${
+                    collected ? 'border-red-600' : 'border-gray-400'
+                  }`}
+                >
+                  {collected ? (
+                    <img
+                      src={`/images/fragments/fragment-${i}.webp`}
+                      alt={`Fragment ${i}`}
+                      className="object-cover w-full h-full"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gray-300 flex items-center justify-center text-gray-600 text-xl font-bold">
+                      ?
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         <div className="flex justify-around mt-4">
           <button
