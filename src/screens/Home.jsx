@@ -1,11 +1,11 @@
 // src/screens/Home.jsx
 import React, { useContext } from 'react';
-import { useNavigate }    from 'react-router-dom';
-import { AuthContext }    from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import { AuthContext } from '../context/AuthContext';
 
 export default function Home() {
   const { user, logout } = useContext(AuthContext);
-  const navigate         = useNavigate();
+  const navigate = useNavigate();
 
   return (
     <div
