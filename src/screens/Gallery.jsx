@@ -20,7 +20,7 @@ export default function Gallery() {
       try {
         // TODO: заменить на API.getFragments(user.tg_id)
         await new Promise(res => setTimeout(res, 500));
-        setFragments([1, 2, 3]); // заглушка
+        setFragments([1,2,3]); // заглушка
       } catch (e) {
         console.error(e);
         setError('Не удалось загрузить фрагменты');
@@ -42,45 +42,48 @@ export default function Gallery() {
       className="relative min-h-screen bg-cover bg-center"
       style={{ backgroundImage: "url('/images/bg-path.webp')" }}
     >
-      {/* более лёгкий оверлей */}
       <div className="absolute inset-0 bg-black opacity-30" />
 
-      <div className="relative z-10 mx-auto my-12 w-full max-w-lg bg-white bg-opacity-90 backdrop-blur-md rounded-2xl shadow-xl p-6 space-y-6">
-        {/* Шапка с Back */}
-        <div className="flex items-center justify-between">
+      <div className="relative z-10 mx-auto my-12 w-full max-w-lg bg-white bg-opacity-90 backdrop-blur-md rounded-2xl shadow-xl p-6">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4">
           <BackButton />
           <h2 className="text-2xl font-bold text-gray-900">Your Fragments</h2>
-          {/* пустой блок для выравнивания заголовка */}
+          {/* Пустой элемент для баланса */}
           <div style={{ width: 32 }} />
         </div>
 
+        {/* Content */}
         {loading && <p className="text-gray-700">Loading fragments...</p>}
-        {error && <p className="text-red-600">{error}</p>}
+        {error   && <p className="text-red-600">{error}</p>}
 
-        {/* Сетка 4×2 */}
         {!loading && !error && (
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-4 gap-4 mb-6">
             {Array.from({ length: 8 }, (_, idx) => {
               const i = idx + 1;
-              const collected = fragments.includes(i);
+              const got = fragments.includes(i);
               return (
                 <div
                   key={i}
-                  className={`relative w-full pb-full rounded-lg overflow-hidden border-2 ${
-                    collected ? 'border-red-600' : 'border-gray-400'
-                  }`}
+                  className="w-24 h-24 flex items-center justify-center rounded-lg border-2
+                             bg-gray-100 overflow-hidden
+                             transition-colors"
+                  style={{
+                    borderColor: got ? '#dc2626' : '#9ca3af' /* red-600 or gray-400 */
+                  }}
                 >
-                  {collected ? (
+                  {got ? (
                     <img
                       src={`/images/fragments/fragment-${i}.webp`}
                       alt={`Fragment ${i}`}
-                      className="absolute top-0 left-0 w-full h-full object-cover"
-                      onError={e => { e.currentTarget.onerror = null; e.currentTarget.src = '/images/fragments/placeholder.webp'; }}
+                      className="object-cover w-full h-full"
+                      onError={e => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = '/images/fragments/placeholder.webp';
+                      }}
                     />
                   ) : (
-                    <div className="absolute inset-0 bg-gray-200 flex items-center justify-center text-gray-500 text-2xl font-bold">
-                      ?
-                    </div>
+                    <span className="text-gray-500 text-2xl font-bold">?</span>
                   )}
                 </div>
               );
@@ -88,17 +91,17 @@ export default function Gallery() {
           </div>
         )}
 
-        {/* Нижние кнопки */}
-        <div className="flex justify-around mt-4">
+        {/* Footer Buttons */}
+        <div className="flex justify-between">
           <button
             onClick={() => navigate('/referral')}
-            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition"
+            className="flex-1 py-2 mr-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
           >
             Referral
           </button>
           <button
             onClick={() => navigate('/leaderboard')}
-            className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition"
+            className="flex-1 py-2 ml-2 bg-green-600 hover:bg-green-700 text-white rounded-lg"
           >
             Leaderboard
           </button>
