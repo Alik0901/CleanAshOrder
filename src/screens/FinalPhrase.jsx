@@ -1,92 +1,77 @@
 // src/screens/FinalPhrase.jsx
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BackButton from '../components/BackButton';
-import API from '../utils/apiClient';
 import { AuthContext } from '../context/AuthContext';
+import API from '../utils/apiClient';
 
 export default function FinalPhrase() {
-  const { user } = useContext(AuthContext);
-  const navigate = useNavigate();
+  const { user }     = useContext(AuthContext);
+  const navigate     = useNavigate();
 
-  const [canEnter, setCanEnter] = useState(false);
-  const [phrase, setPhrase] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [result, setResult] = useState(null); // 'success' | 'fail' | 'error'
+  const [phrase, setPhrase]   = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState('');
 
-  // Проверяем, может ли пользователь сейчас ввести фразу
-  useEffect(() => {
-    if (!user) return;
-    (async () => {
-      try {
-        const { canEnter } = await API.getFinal(user.tg_id);
-        setCanEnter(!!canEnter);
-      } catch (err) {
-        console.error('Failed to load final status', err);
-      }
-    })();
-  }, [user]);
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setSubmitting(true);
-    setResult(null);
+  const handleSubmit = async () => {
+    if (!phrase.trim()) return;
+    setLoading(true);
+    setError('');
     try {
-      const { success } = await API.validateFinal(phrase);
-      if (success) {
-        // Успех — редирект на экран поздравления
-        navigate('/congrats');
-      } else {
-        setResult('fail');
-      }
-    } catch (err) {
-      console.error('Submit error', err);
-      setResult('error');
+      // TODO: заменить на реальный вызов API.validateFinal
+      // await API.validateFinal(user.tg_id, phrase);
+      await new Promise(res => setTimeout(res, 500));
+      // если прошло успешно
+      navigate('/congrats');
+    } catch (e) {
+      console.error(e);
+      setError(e.error || e.message || 'Неверная фраза');
     } finally {
-      setSubmitting(false);
+      setLoading(false);
     }
-  }
+  };
 
   return (
-    <div className="p-4">
-      <BackButton />
-      <h2 className="text-xl font-semibold mb-4">Final Phrase</h2>
+    <div
+      className="relative min-h-screen bg-cover bg-center"
+      style={{ backgroundImage: "url('/images/bg-final.webp')" }}
+    >
+      <div className="absolute inset-0 bg-black opacity-60" />
 
-      {canEnter ? (
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <input
-            type="text"
+      <div className="relative z-10 container mx-auto px-4 py-8">
+        <BackButton />
+
+        <div className="mx-auto max-w-lg bg-gray-800 bg-opacity-90 backdrop-blur-sm rounded-2xl p-6 space-y-6 text-white">
+          <h2 className="text-2xl font-bold text-center">Enter Final Phrase</h2>
+
+          <p className="text-gray-300 text-sm text-center">
+            Combine the secret words from your 8 fragments.
+          </p>
+
+          <textarea
             value={phrase}
             onChange={e => setPhrase(e.target.value)}
-            placeholder="Enter secret phrase"
-            className="w-full border px-3 py-2 rounded"
-            disabled={submitting}
+            rows={4}
+            placeholder="Type your final phrase here..."
+            className="w-full px-4 py-2 bg-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-600 resize-none"
           />
 
-          <button
-            type="submit"
-            disabled={!phrase || submitting}
-            className={`w-full px-4 py-2 rounded ${
-              !phrase || submitting
-                ? 'bg-gray-400 text-gray-700 cursor-not-allowed'
-                : 'bg-green-600 text-white hover:bg-green-700'
-            }`}
-          >
-            {submitting ? 'Submitting…' : 'Submit Phrase'}
-          </button>
+          {error && (
+            <p className="text-red-400 text-center text-sm">{error}</p>
+          )}
 
-          {result === 'fail' && (
-            <p className="text-red-600">❌ Incorrect, try again tomorrow.</p>
-          )}
-          {result === 'error' && (
-            <p className="text-red-600">⚠️ Server error, please retry later.</p>
-          )}
-        </form>
-      ) : (
-        <p className="text-gray-600">
-          You can only enter the final phrase once you have all fragments.
-        </p>
-      )}
+          <button
+            onClick={handleSubmit}
+            disabled={loading || !phrase.trim()}
+            className={`w-full py-3 rounded-lg font-semibold transition
+              ${phrase.trim() && !loading
+                ? 'bg-red-600 hover:bg-red-700 text-white'
+                : 'bg-gray-600 text-gray-300 cursor-not-allowed'}`}
+          >
+            {loading ? 'Submitting…' : 'Submit'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
