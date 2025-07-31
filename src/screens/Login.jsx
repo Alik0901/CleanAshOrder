@@ -15,42 +15,42 @@ export default function Login() {
   const { login }               = useContext(AuthContext);
   const navigate                = useNavigate();
 
-  // Утилита для добавления лога
+  // Добавить строку в лог
   const addLog = (msg) => {
     setLogs((prev) => [...prev, `${new Date().toLocaleTimeString()}: ${msg}`]);
   };
 
   useEffect(() => {
-    addLog('Инициализация Login.jsx');
+    addLog('Инициализация Login.jsx...');
     const tg = window.Telegram?.WebApp;
     if (!tg) {
-      addLog('❌ window.Telegram.WebApp не найден');
+      addLog('❌ Telegram WebApp SDK не найден');
       setError('Запустите бота внутри Telegram.');
       setLoading(false);
       return;
     }
     addLog('✅ Telegram WebApp SDK найден');
     tg.ready();
-    addLog('Вызван tg.ready()');
+    addLog('tg.ready() вызван');
 
     const unsafe = tg.initDataUnsafe ?? {};
-    addLog(`initDataUnsafe получен: ${JSON.stringify(unsafe)}`);
+    addLog(`initDataUnsafe: ${JSON.stringify(unsafe)}`);
 
     const user = unsafe.user ?? {};
     if (!user.id) {
-      addLog('❌ user.id отсутствует в initDataUnsafe');
-      setError('Не удалось получить информацию о пользователе.');
+      addLog('❌ user.id отсутствует');
+      setError('Не удалось получить идентификатор пользователя.');
       setLoading(false);
       return;
     }
     addLog(`user.id = ${user.id}`);
-    addLog(`user.first_name = ${user.first_name}`);
+    addLog(`user.first_name = ${user.first_name ?? '<пусто>'}`);
 
     setTgId(user.id);
     setName(user.first_name || '');
-    
+
     const data = tg.initData || '';
-    addLog(`initData (signed) = ${data.substring(0, 50)}…`);
+    addLog(`initData (signed) length = ${data.length}`);
     setInitData(data);
 
     setLoading(false);
@@ -58,16 +58,16 @@ export default function Login() {
   }, []);
 
   const handleStart = async () => {
-    addLog('Нажата кнопка Start Playing');
+    addLog('Нажата кнопка "Start Playing"');
     setError('');
 
     if (!tgId || !initData) {
-      addLog('❌ tgId или initData отсутствуют');
-      setError('Не удалось получить данные от Telegram. Повторно откройте Web App.');
+      addLog('❌ Недостаточно данных для инициализации');
+      setError('Нет данных от Telegram. Повторите вход через Web App.');
       return;
     }
-    addLog(`Отправка на API.init: tg_id=${tgId}, name=${name}, refCode=${refCode}`);
 
+    addLog(`Отправляем API.init: tg_id=${tgId}, name="${name}", refCode="${refCode}"`);
     try {
       const { user, token } = await API.init({
         tg_id: tgId,
@@ -75,10 +75,10 @@ export default function Login() {
         initData,
         referrer_code: refCode.trim() || null,
       });
-      addLog('✅ Успешный ответ от API.init');
-      addLog(`Получен user.tg_id=${user.tg_id}, token.length=${token.length}`);
+      addLog('✅ API.init вернул успешный ответ');
+      addLog(`Получен user.tg_id=${user.tg_id}, token length=${token.length}`);
       login(user, token);
-      addLog('Вызван login() и навигация на /burn');
+      addLog('Пользователь залогинен, переходим на /burn');
       navigate('/burn');
     } catch (e) {
       console.error('[Login] init error', e);
@@ -89,34 +89,40 @@ export default function Login() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen p-4">
-        <p className="mb-4">Loading Telegram Web App...</p>
-        <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      <div className="flex items-center justify-center h-screen p-4 bg-gray-900 text-white">
+        <div className="text-center">
+          <p className="mb-2">Loading Telegram Web App...</p>
+          <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto" />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-md mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-4 text-center">Welcome to Order of Ash</h1>
+    <div className="min-h-screen flex flex-col items-center justify-start bg-gray-900 p-6 text-white">
+      <h1 className="text-3xl font-bold mb-6">Welcome to Order of Ash</h1>
 
-      {/* Логи */}
-      <div className="mb-4 p-2 bg-gray-800 text-gray-200 text-xs h-32 overflow-y-auto rounded">
+      {/* Логирование */}
+      <div className="w-full max-w-md h-40 mb-4 p-2 bg-gray-800 text-xs overflow-y-auto rounded">
         {logs.map((line, idx) => (
           <div key={idx}>{line}</div>
         ))}
       </div>
 
-      {error && <p className="text-red-600 mb-4">{error}</p>}
+      {error && (
+        <div className="w-full max-w-md mb-4 p-3 bg-red-600 text-white rounded">
+          {error}
+        </div>
+      )}
 
-      <div className="space-y-4">
+      <div className="w-full max-w-md space-y-4">
         <div>
           <label className="block text-sm mb-1">Name (you can edit):</label>
           <input
             type="text"
             value={name}
             onChange={e => setName(e.target.value)}
-            className="w-full border px-3 py-2 rounded"
+            className="w-full bg-gray-800 border border-gray-700 px-3 py-2 rounded text-white"
           />
         </div>
 
@@ -126,17 +132,18 @@ export default function Login() {
             type="text"
             value={refCode}
             onChange={e => setRefCode(e.target.value)}
-            className="w-full border px-3 py-2 rounded"
+            className="w-full bg-gray-800 border border-gray-700 px-3 py-2 rounded text-white"
           />
         </div>
 
         <button
           onClick={handleStart}
           disabled={!tgId || !initData}
-          className={`w-full px-4 py-2 rounded 
-            ${(!tgId || !initData)
-              ? 'bg-gray-400 cursor-not-allowed'
-              : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
+          className={`w-full py-2 rounded text-white font-medium transition ${
+            tgId && initData
+              ? 'bg-blue-600 hover:bg-blue-700'
+              : 'bg-gray-600 cursor-not-allowed'
+          }`}
         >
           Start Playing
         </button>
