@@ -4,9 +4,6 @@ import API from '../utils/apiClient';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
-import bgImage from '../assets/images/bg-welcome.webp';
-import logo    from '../assets/images/logo.png';
-
 export default function Login() {
   const [tgId, setTgId]         = useState(null);
   const [name, setName]         = useState('');
@@ -62,15 +59,17 @@ export default function Login() {
   return (
     <div
       className="min-h-screen flex items-center justify-center bg-cover bg-center"
-      style={{ backgroundImage: `url(${bgImage})` }}
+      style={{ backgroundImage: "url('/images/bg-welcome.webp')" }}
     >
       <div className="absolute inset-0 bg-black opacity-70" />
-
       <div className="relative z-10 w-full max-w-md bg-gray-900 bg-opacity-90 rounded-xl shadow-xl p-8 space-y-6">
         <div className="flex justify-center">
-          <img src={logo} alt="Order of Ash" className="h-16" />
+          <img
+            src="/images/logo.png"
+            alt="Order of Ash"
+            className="h-16"
+          />
         </div>
-
         <h1 className="text-2xl font-extrabold text-center text-white">
           Welcome to Order of Ash
         </h1>
@@ -92,8 +91,8 @@ export default function Login() {
                   type="text"
                   value={name}
                   onChange={e => setName(e.target.value)}
-                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-600"
                   placeholder="Enter your name"
+                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-600"
                 />
               </div>
               <div>
@@ -104,12 +103,11 @@ export default function Login() {
                   type="text"
                   value={refCode}
                   onChange={e => setRefCode(e.target.value)}
-                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-600"
                   placeholder="ABC123"
+                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-600"
                 />
               </div>
             </div>
-
             <button
               onClick={handleStart}
               disabled={!tgId || !initData}
