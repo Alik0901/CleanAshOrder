@@ -1,11 +1,11 @@
 // src/screens/Home.jsx
 import React, { useContext } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { AuthContext } from '../context/AuthContext';
+import { useNavigate }    from 'react-router-dom';
+import { AuthContext }    from '../context/AuthContext';
 
 export default function Home() {
   const { user, logout } = useContext(AuthContext);
-  const navigate = useNavigate();
+  const navigate         = useNavigate();
 
   return (
     <div
@@ -34,7 +34,7 @@ export default function Home() {
           )}
         </div>
 
-        {/* Кнопки */}
+        {/* Основные кнопки */}
         <div className="w-full max-w-xs space-y-4">
           {user ? (
             <>
@@ -49,6 +49,20 @@ export default function Home() {
                 className="w-full py-3 bg-transparent border border-red-600 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition"
               >
                 Logout
+              </button>
+
+              {/* DEBUG-кнопки для прямого перехода */}
+              <button
+                onClick={() => navigate('/final')}
+                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition"
+              >
+                DEBUG: Go to Final
+              </button>
+              <button
+                onClick={() => navigate('/congrats')}
+                className="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition"
+              >
+                DEBUG: Go to Congrats
               </button>
             </>
           ) : (
