@@ -1,81 +1,100 @@
 // src/screens/Leaderboard.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
 import BackButton from '../components/BackButton';
+import { AuthContext } from '../context/AuthContext';
 import API from '../utils/apiClient';
 
 export default function Leaderboard() {
-  const [scope, setScope] = useState('global');
-  const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const { user } = useContext(AuthContext);
+  const navigate = useNavigate();
+
+  const [leaders, setLeaders] = useState([]); // [{ rank, name, amount }]
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState('');
 
   useEffect(() => {
-    loadLeaderboard(scope);
-  }, [scope]);
-
-  async function loadLeaderboard(scope) {
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await API.getLeaderboard(scope);
-      setData(Array.isArray(result) ? result : []);
-    } catch (err) {
-      console.error('Error loading leaderboard:', err);
-      setError('Unable to load leaderboard. Please try again later.');
-      setData([]);
-    } finally {
-      setLoading(false);
+    async function fetchLeaders() {
+      setLoading(true);
+      setError('');
+      try {
+        // TODO: заменить на реальный вызов API.getStats()
+        // const data = await API.getStats();
+        // setLeaders(data.top10);
+        await new Promise(res => setTimeout(res, 500));
+        setLeaders([
+          { rank: 1, name: 'Alice',   amount: 12.5 },
+          { rank: 2, name: 'Bob',     amount: 11.0 },
+          { rank: 3, name: 'Carol',   amount: 9.8 },
+          { rank: 4, name: 'Dave',    amount: 8.2 },
+          { rank: 5, name: 'Eve',     amount: 7.3 },
+          { rank: 6, name: 'Frank',   amount: 6.5 },
+          { rank: 7, name: 'Grace',   amount: 5.9 },
+          { rank: 8, name: 'Heidi',   amount: 5.0 },
+          { rank: 9, name: 'Ivan',    amount: 4.6 },
+          { rank: 10, name: 'Judy',   amount: 4.2 },
+        ]);
+      } catch (e) {
+        console.error(e);
+        setError('Не удалось загрузить таблицу лидеров');
+      } finally {
+        setLoading(false);
+      }
     }
-  }
-
-  const tabs = [
-    { key: 'friends', label: 'Friends' },
-    { key: 'global',  label: 'Global' },
-  ];
+    fetchLeaders();
+  }, []);
 
   return (
-    <div className="p-4">
-      <BackButton />
-      <h2 className="text-xl font-semibold mb-4">Leaderboard</h2>
+    <div
+      className="relative min-h-screen bg-cover bg-center"
+      style={{ backgroundImage: "url('/images/profile-bg.webp')" }}
+    >
+      {/* Тёмный оверлей */}
+      <div className="absolute inset-0 bg-black opacity-60" />
 
-      {/* Tabs */}
-      <div className="flex space-x-4 mb-4">
-        {tabs.map(({ key, label }) => (
+      <div className="relative z-10 container mx-auto px-4 py-8">
+        <BackButton />
+
+        <div className="mx-auto max-w-lg bg-white bg-opacity-90 backdrop-blur-sm rounded-xl shadow-lg p-6">
+          <h2 className="text-2xl font-bold text-gray-900 text-center mb-4">
+            Leaderboard
+          </h2>
+
+          {loading && (
+            <p className="text-gray-700 text-center">Loading leaderboard…</p>
+          )}
+          {error && (
+            <p className="text-red-600 text-center">{error}</p>
+          )}
+
+          {!loading && !error && (
+            <ol className="space-y-2">
+              {leaders.map(({ rank, name, amount }) => (
+                <li
+                  key={rank}
+                  className={`flex justify-between items-center px-4 py-2 rounded-lg
+                    ${user.name === name ? 'bg-yellow-100' : 'bg-gray-100'}
+                  `}
+                >
+                  <span className="font-semibold">
+                    #{rank} {name}
+                  </span>
+                  <span className="text-gray-700">
+                    {amount.toFixed(1)} TON
+                  </span>
+                </li>
+              ))}
+            </ol>
+          )}
+
           <button
-            key={key}
-            onClick={() => setScope(key)}
-            className={`px-4 py-2 rounded ${
-              scope === key
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-200 text-gray-700'
-            }`}
+            onClick={() => navigate('/gallery')}
+            className="mt-6 w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold"
           >
-            {label}
+            Back to Gallery
           </button>
-        ))}
+        </div>
       </div>
-
-      {/* Content */}
-      {loading ? (
-        <p>Loading…</p>
-      ) : error ? (
-        <p className="text-red-500">{error}</p>
-      ) : (
-        <ul className="space-y-2">
-          {data.map((user, idx) => (
-            <li
-              key={user.tg_id}
-              className="flex justify-between items-center p-2 border rounded"
-            >
-              <div className="flex items-center space-x-2">
-                <span className="font-bold">{idx + 1}.</span>
-                <span>{user.name}</span>
-              </div>
-              <span className="font-mono">{user.fragmentsCount} / 8</span>
-            </li>
-          ))}
-        </ul>
-      )}
     </div>
   );
 }
