@@ -9,23 +9,18 @@ export default function Gallery() {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
 
-  const [fragments, setFragments] = useState([]);      // массив ID собранных фрагментов
+  const [fragments, setFragments] = useState([]); // собранные фрагменты
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState('');
 
-  // 1) Получаем список фрагментов
   useEffect(() => {
     async function fetchFragments() {
       setLoading(true);
       setError('');
       try {
-        // TODO: заменить на реальный вызов API.getFragments(user.tg_id)
-        // const data = await API.getFragments(user.tg_id);
-        // setFragments(data.fragments);
-
-        // Заглушка: имитируем, что игрок собрал 3 фрагмента с ID 1,2,3
+        // TODO: заменить на API.getFragments(user.tg_id)
         await new Promise(res => setTimeout(res, 500));
-        setFragments([1, 2, 3]);
+        setFragments([1, 2, 3]); // заглушка
       } catch (e) {
         console.error(e);
         setError('Не удалось загрузить фрагменты');
@@ -36,7 +31,6 @@ export default function Gallery() {
     fetchFragments();
   }, [user]);
 
-  // 2) Если собрано 8, переходим на FinalPhrase
   useEffect(() => {
     if (!loading && fragments.length >= 8) {
       navigate('/final');
@@ -45,29 +39,34 @@ export default function Gallery() {
 
   return (
     <div
-      className="relative min-h-screen flex flex-col items-center pt-8 bg-cover bg-center"
+      className="relative min-h-screen bg-cover bg-center"
       style={{ backgroundImage: "url('/images/bg-path.webp')" }}
     >
-      {/* Полупрозрачный оверлей */}
-      <div className="absolute inset-0 bg-black opacity-50" />
+      {/* более лёгкий оверлей */}
+      <div className="absolute inset-0 bg-black opacity-30" />
 
-      <div className="relative z-10 w-full max-w-lg bg-white bg-opacity-90 backdrop-blur-sm rounded-2xl shadow-lg p-6 space-y-6 text-center">
-        <BackButton />
-
-        <h2 className="text-2xl font-bold text-gray-900">Your Fragments</h2>
+      <div className="relative z-10 mx-auto my-12 w-full max-w-lg bg-white bg-opacity-90 backdrop-blur-md rounded-2xl shadow-xl p-6 space-y-6">
+        {/* Шапка с Back */}
+        <div className="flex items-center justify-between">
+          <BackButton />
+          <h2 className="text-2xl font-bold text-gray-900">Your Fragments</h2>
+          {/* пустой блок для выравнивания заголовка */}
+          <div style={{ width: 32 }} />
+        </div>
 
         {loading && <p className="text-gray-700">Loading fragments...</p>}
         {error && <p className="text-red-600">{error}</p>}
 
+        {/* Сетка 4×2 */}
         {!loading && !error && (
-          <div className="grid grid-cols-4 gap-4 justify-items-center">
+          <div className="grid grid-cols-4 gap-4">
             {Array.from({ length: 8 }, (_, idx) => {
               const i = idx + 1;
               const collected = fragments.includes(i);
               return (
                 <div
                   key={i}
-                  className={`w-20 h-20 rounded-lg overflow-hidden border-2 ${
+                  className={`relative w-full pb-full rounded-lg overflow-hidden border-2 ${
                     collected ? 'border-red-600' : 'border-gray-400'
                   }`}
                 >
@@ -75,10 +74,11 @@ export default function Gallery() {
                     <img
                       src={`/images/fragments/fragment-${i}.webp`}
                       alt={`Fragment ${i}`}
-                      className="object-cover w-full h-full"
+                      className="absolute top-0 left-0 w-full h-full object-cover"
+                      onError={e => { e.currentTarget.onerror = null; e.currentTarget.src = '/images/fragments/placeholder.webp'; }}
                     />
                   ) : (
-                    <div className="w-full h-full bg-gray-300 flex items-center justify-center text-gray-600 text-xl font-bold">
+                    <div className="absolute inset-0 bg-gray-200 flex items-center justify-center text-gray-500 text-2xl font-bold">
                       ?
                     </div>
                   )}
@@ -88,16 +88,17 @@ export default function Gallery() {
           </div>
         )}
 
+        {/* Нижние кнопки */}
         <div className="flex justify-around mt-4">
           <button
             onClick={() => navigate('/referral')}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition"
           >
             Referral
           </button>
           <button
             onClick={() => navigate('/leaderboard')}
-            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg"
+            className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition"
           >
             Leaderboard
           </button>
