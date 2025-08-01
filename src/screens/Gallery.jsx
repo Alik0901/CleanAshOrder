@@ -29,7 +29,9 @@ export default function Gallery() {
       setLoading(true);
       setError('');
       try {
-        const { fragments: fetched } = await API.getFragments(user.tg_id);
+        const resp = await API.getFragments(user.tg_id);
+        console.log('[Gallery] getFragments response:', resp);
+        const { fragments: fetched } = resp;
         setFragments(fetched || []);
       } catch (e) {
         console.error('[Gallery] getFragments error', e);

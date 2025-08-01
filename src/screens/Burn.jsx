@@ -18,7 +18,9 @@ export default function Burn() {
     setError('');
     setStatus('pending');
     try {
-      const { invoiceId: id, paymentUrl: url } = await API.createBurn(user.tg_id);
+      const resp = await API.createBurn(user.tg_id);
+      console.log('[Burn] createBurn response:', resp);
+      const { invoiceId: id, paymentUrl: url } = resp;
       setInvoiceId(id);
       setPaymentUrl(url);
     } catch (e) {
@@ -34,7 +36,9 @@ export default function Burn() {
 
     const timer = setInterval(async () => {
       try {
-        const { paid, newFragment, cursed, curse_expires } = await API.getBurnStatus(invoiceId);
+        const resp = await API.getBurnStatus(invoiceId);
+        console.log('[Burn] getBurnStatus response:', resp);
+        const { paid, newFragment, cursed, curse_expires } = resp;
 
         if (paid) {
           clearInterval(timer);
