@@ -78,7 +78,7 @@ export default function Gallery() {
                   >
                     {owned ? (
                       <img
-                        src={`/fragments/${FRAGMENT_FILES[id]}`}
+                        src={`${import.meta.env.VITE_API_BASE_URL}/fragments/${FRAGMENT_FILES[id]}`}
                         alt={`Fragment ${id}`}
                         className="object-cover w-full h-full rounded"
                         onError={e => {
