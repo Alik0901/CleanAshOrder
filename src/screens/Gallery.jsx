@@ -9,7 +9,7 @@ export default function Gallery() {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
 
-  const [fragments, setFragments] = useState([]); // собранные фрагменты
+  const [fragments, setFragments] = useState([]);   // собранные фрагменты
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState('');
 
@@ -18,12 +18,12 @@ export default function Gallery() {
       setLoading(true);
       setError('');
       try {
-        // TODO: заменить на API.getFragments(user.tg_id)
-        await new Promise(res => setTimeout(res, 500));
-        setFragments([1, 2, 3]); // заглушка
+        // Реальный вызов к вашему бэку
+        const { fragments: fetched } = await API.getFragments(user.tg_id);
+        setFragments(fetched || []);
       } catch (e) {
-        console.error(e);
-        setError('Не удалось загрузить фрагменты');
+        console.error('[Gallery] getFragments error', e);
+        setError(e.message || 'Не удалось загрузить фрагменты');
       } finally {
         setLoading(false);
       }
@@ -31,6 +31,7 @@ export default function Gallery() {
     fetchFragments();
   }, [user]);
 
+  // Переходим на финальный экран, когда все 8 фрагментов собраны
   useEffect(() => {
     if (!loading && fragments.length >= 8) {
       navigate('/final');
@@ -42,41 +43,33 @@ export default function Gallery() {
       className="relative min-h-screen bg-cover bg-center"
       style={{ backgroundImage: "url('/images/bg-path.webp')" }}
     >
-      {/* Тёмный оверлей */}
       <div className="absolute inset-0 bg-black opacity-60" />
 
-      {/* Контейнер */}
       <div className="relative z-10 container mx-auto px-4 py-8">
         <BackButton />
 
-        {/* Тёмная панель */}
-        <div className="mx-auto max-w-lg bg-gray-800 bg-opacity-80 backdrop-blur-sm rounded-xl p-6 space-y-6">
-          {/* Заголовок */}
-          <h2 className="text-white text-3xl font-bold text-center drop-shadow">
-            Your Fragments
-          </h2>
+        <div className="mx-auto max-w-lg bg-gray-800 bg-opacity-90 backdrop-blur-sm rounded-xl p-6 space-y-6 text-white">
+          <h2 className="text-2xl font-bold text-center">Your Fragments</h2>
 
-          {/* Статусы */}
           {loading && <p className="text-gray-300 text-center">Loading fragments…</p>}
-          {error   && <p className="text-red-400 text-center">{error}</p>}
+          {error && <p className="text-red-400 text-center">{error}</p>}
 
-          {/* Сетка 4×2 */}
           {!loading && !error && (
             <div className="grid grid-cols-4 gap-4">
               {Array.from({ length: 8 }, (_, idx) => {
-                const i = idx + 1;
-                const got = fragments.includes(i);
+                const id = idx + 1;
+                const owned = fragments.includes(id);
                 return (
                   <div
-                    key={i}
+                    key={id}
                     className={`w-20 h-20 flex items-center justify-center rounded-lg border-2 ${
-                      got ? 'border-red-500' : 'border-gray-600'
+                      owned ? 'border-red-500' : 'border-gray-600'
                     } bg-gray-700`}
                   >
-                    {got ? (
+                    {owned ? (
                       <img
-                        src={`/images/fragments/fragment-${i}.webp`}
-                        alt={`Fragment ${i}`}
+                        src={`/images/fragments/fragment-${id}.webp`}
+                        alt={`Fragment ${id}`}
                         className="object-cover w-full h-full rounded"
                         onError={e => {
                           e.currentTarget.onerror = null;
@@ -92,17 +85,16 @@ export default function Gallery() {
             </div>
           )}
 
-          {/* Кнопки */}
           <div className="flex space-x-4">
             <button
               onClick={() => navigate('/referral')}
-              className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
+              className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
             >
               Referral
             </button>
             <button
               onClick={() => navigate('/leaderboard')}
-              className="flex-1 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium"
+              className="flex-1 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg"
             >
               Leaderboard
             </button>
