@@ -9,7 +9,7 @@ export default function Gallery() {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
 
-  const [fragments, setFragments] = useState([]);   // собранные фрагменты
+  const [fragments, setFragments] = useState([]);   // сюда API возвращает числа 1–8
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState('');
 
@@ -18,7 +18,6 @@ export default function Gallery() {
       setLoading(true);
       setError('');
       try {
-        // Реальный вызов к вашему бэку
         const { fragments: fetched } = await API.getFragments(user.tg_id);
         setFragments(fetched || []);
       } catch (e) {
@@ -31,7 +30,6 @@ export default function Gallery() {
     fetchFragments();
   }, [user]);
 
-  // Переходим на финальный экран, когда все 8 фрагментов собраны
   useEffect(() => {
     if (!loading && fragments.length >= 8) {
       navigate('/final');
@@ -52,7 +50,7 @@ export default function Gallery() {
           <h2 className="text-2xl font-bold text-center">Your Fragments</h2>
 
           {loading && <p className="text-gray-300 text-center">Loading fragments…</p>}
-          {error && <p className="text-red-400 text-center">{error}</p>}
+          {error   && <p className="text-red-400 text-center">{error}</p>}
 
           {!loading && !error && (
             <div className="grid grid-cols-4 gap-4">
@@ -68,12 +66,13 @@ export default function Gallery() {
                   >
                     {owned ? (
                       <img
+                        // здесь берём реальный файл
                         src={`/images/fragments/fragment-${id}.webp`}
                         alt={`Fragment ${id}`}
                         className="object-cover w-full h-full rounded"
                         onError={e => {
                           e.currentTarget.onerror = null;
-                          e.currentTarget.src = '/images/fragments/placeholder.webp';
+                          e.currentTarget.src = '/images/fragments/placeholder.png';
                         }}
                       />
                     ) : (
