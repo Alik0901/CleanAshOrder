@@ -20,30 +20,36 @@ export default function Gallery() {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
 
-  const [fragments, setFragments] = useState([]);   // собранные фрагменты
-  const [loading, setLoading]     = useState(true);
-  const [error, setError]         = useState('');
+  const [signedUrls, setSignedUrls] = useState({});
+  const [fragments, setFragments]   = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState('');
 
   useEffect(() => {
-    async function fetchFragments() {
+    async function load() {
       setLoading(true);
       setError('');
+
       try {
-        const resp = await API.getFragments(user.tg_id);
-        console.log('[Gallery] getFragments response:', resp);
-        const { fragments: fetched } = resp;
-        setFragments(fetched || []);
+        // 1) Получаем подписанные URL фрагментов
+        const { signedUrls } = await API.getSignedFragmentUrls();
+        setSignedUrls(signedUrls);
+
+        // 2) Получаем, какие фрагменты у игрока
+        const { fragments: owned } = await API.getFragments(user.tg_id);
+        setFragments(owned || []);
       } catch (e) {
-        console.error('[Gallery] getFragments error', e);
-        setError(e.message || 'Не удалось загрузить фрагменты');
+        console.error('[Gallery] error loading fragments', e);
+        setError(e.message || 'Ошибка загрузки фрагментов');
       } finally {
         setLoading(false);
       }
     }
-    fetchFragments();
+
+    load();
   }, [user]);
 
-  // Авто-переход на финальный экран, когда все 8 фрагментов
+  // Авто-переход на финальный экран, когда все 8 фрагментов получены
   useEffect(() => {
     if (!loading && fragments.length >= 8) {
       navigate('/final');
@@ -63,14 +69,21 @@ export default function Gallery() {
         <div className="mx-auto max-w-lg bg-gray-800 bg-opacity-90 backdrop-blur-sm rounded-xl p-6 space-y-6 text-white">
           <h2 className="text-2xl font-bold text-center">Your Fragments</h2>
 
-          {loading && <p className="text-gray-300 text-center">Loading fragments…</p>}
-          {error   && <p className="text-red-400 text-center">{error}</p>}
+          {loading && (
+            <p className="text-gray-300 text-center">Loading fragments…</p>
+          )}
+          {error && (
+            <p className="text-red-400 text-center">{error}</p>
+          )}
 
           {!loading && !error && (
             <div className="grid grid-cols-4 gap-4">
               {Array.from({ length: 8 }, (_, idx) => {
                 const id = idx + 1;
                 const owned = fragments.includes(id);
+                const filename = FRAGMENT_FILES[id];
+                const url = signedUrls[filename];
+
                 return (
                   <div
                     key={id}
@@ -78,14 +91,14 @@ export default function Gallery() {
                       owned ? 'border-red-500' : 'border-gray-600'
                     } bg-gray-700`}
                   >
-                    {owned ? (
+                    {owned && url ? (
                       <img
-                        src={`${import.meta.env.VITE_API_BASE_URL}/fragments/${FRAGMENT_FILES[id]}`}
+                        src={url}
                         alt={`Fragment ${id}`}
                         className="object-cover w-full h-full rounded"
-                        onError={e => {
+                        onError={(e) => {
                           e.currentTarget.onerror = null;
-                          e.currentTarget.src = '/fragments/placeholder.webo';
+                          e.currentTarget.src = '/images/placeholder.jpg';
                         }}
                       />
                     ) : (
@@ -97,7 +110,7 @@ export default function Gallery() {
             </div>
           )}
 
-          <div className="flex space-x-4">
+          <div className="flex space-x-4 pt-6">
             <button
               onClick={() => navigate('/referral')}
               className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"

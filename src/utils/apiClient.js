@@ -47,6 +47,13 @@ const API = {
     return handleResponse(res);
   },
 
+  getSignedFragmentUrls: async () => {
+    const res = await fetch(`${BASE}/api/fragments/urls`, {
+      headers: authHeader(),
+    });
+    return handleResponse(res); // ожидаем { signedUrls: { [name]: url } }
+  },
+
   createBurn: async (tgId) => {
     const res = await fetch(`${BASE}/api/burn-invoice`, {
       method: 'POST',
