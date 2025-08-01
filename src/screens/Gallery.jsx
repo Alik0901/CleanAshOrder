@@ -6,14 +6,14 @@ import { AuthContext } from '../context/AuthContext';
 import API from '../utils/apiClient';
 
 const FRAGMENT_FILES = {
-  1: 'fragment_1_the_whisper.webp',
-  2: 'fragment_2_the_number.webp',
-  3: 'fragment_3_the_language.webp',
-  4: 'fragment_4_the_mirror.webp',
-  5: 'fragment_5_the_chain.webp',
-  6: 'fragment_6_the_hour.webp',
-  7: 'fragment_7_the_mark.webp',
-  8: 'fragment_8_the_gate.webp',
+  1: 'fragment_1_the_whisper.jpg',
+  2: 'fragment_2_the_number.jpg',
+  3: 'fragment_3_the_language.jpg',
+  4: 'fragment_4_the_mirror.jpg',
+  5: 'fragment_5_the_chain.jpg',
+  6: 'fragment_6_the_hour.jpg',
+  7: 'fragment_7_the_mark.jpg',
+  8: 'fragment_8_the_gate.jpg',
 };
 
 export default function Gallery() {
