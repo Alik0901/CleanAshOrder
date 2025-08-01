@@ -1,46 +1,53 @@
 // src/screens/Burn.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BackButton from '../components/BackButton';
+import { AuthContext } from '../context/AuthContext';
+import API from '../utils/apiClient';
 
 export default function Burn() {
-  const navigate = useNavigate();
+  const { user }       = useContext(AuthContext);
+  const navigate       = useNavigate();
+  const [invoiceId, setInvoiceId]     = useState(null);
+  const [paymentUrl, setPaymentUrl]   = useState('');
+  const [status, setStatus]           = useState('idle'); // idle | pending | confirmed | error
+  const [error, setError]             = useState('');
 
-  const [invoiceId, setInvoiceId]       = useState(null);
-  const [paymentLink, setPaymentLink]   = useState('');
-  const [status, setStatus]             = useState('idle'); // 'idle' | 'pending' | 'confirmed' | 'error'
-  const [error, setError]               = useState('');
-
-  // Заглушка для создания инвойса — позже заменим на API.createBurn
+  // 1) Создаём инвойс
   const startBurn = async () => {
     setError('');
     setStatus('pending');
-
-    // TODO: здесь нужно будет вызвать API.createBurn({ amount: 0.5 })
-    // и подставить реальный id и ссылку из ответа сервера.
-    // Пример: const { id, link } = await API.createBurn({ amount: 0.5 });
-    // setInvoiceId(id);
-    // setPaymentLink(link);
-
-    // Сейчас — заглушка:
-    setInvoiceId('stub-invoice-123');
-    setPaymentLink('https://t.me/your_bot?start=stub-invoice-123');
+    try {
+      const { invoiceId: id, paymentUrl: url } = await API.createBurn(user.tg_id);
+      setInvoiceId(id);
+      setPaymentUrl(url);
+    } catch (e) {
+      console.error(e);
+      setError(e.message);
+      setStatus('error');
+    }
   };
 
-  // Опрос статуса инвойса:
+  // 2) Ожидаем оплаты
   useEffect(() => {
     if (status !== 'pending' || !invoiceId) return;
 
-    const timer = setInterval(() => {
-      // TODO: здесь нужно будет вызывать API.getBurnStatus(invoiceId)
-      // и проверять { status } === 'confirmed'
-      // Если подтверждён — clearInterval(timer) и navigate('/gallery')
+    const timer = setInterval(async () => {
+      try {
+        const { paid, newFragment, cursed, curse_expires } = await API.getBurnStatus(invoiceId);
 
-      // Пока что — имитация мгновенного подтверждения
-      clearInterval(timer);
-      setStatus('confirmed');
-      navigate('/gallery');
-    }, 5000);
+        if (paid) {
+          clearInterval(timer);
+          // Можно здесь показать анимацию получения фрагмента / проклятия
+          navigate('/gallery');
+        }
+      } catch (e) {
+        console.error(e);
+        clearInterval(timer);
+        setError('Ошибка проверки статуса оплаты');
+        setStatus('error');
+      }
+    }, 3000); // опрашиваем каждые 3 секунды
 
     return () => clearInterval(timer);
   }, [status, invoiceId, navigate]);
@@ -50,46 +57,39 @@ export default function Burn() {
       className="relative min-h-screen flex items-center justify-center bg-cover bg-center"
       style={{ backgroundImage: "url('/images/bg-burn.webp')" }}
     >
-      {/* Тёмный полупрозрачный оверлей */}
-      <div className="absolute inset-0 bg-black opacity-50" />
+      <div className="absolute inset-0 bg-black opacity-60" />
 
-      {/* Основная карточка */}
-      <div className="relative z-10 w-full max-w-md bg-white bg-opacity-80 backdrop-blur-sm rounded-2xl shadow-lg p-8 space-y-6 text-center">
-        {/* Кнопка «назад» */}
+      <div className="relative z-10 w-full max-w-md bg-gray-900 bg-opacity-90 backdrop-blur-sm rounded-2xl p-8 space-y-6 text-white">
         <BackButton />
 
-        <h2 className="text-2xl font-bold text-gray-900">Burn Yourself</h2>
+        <h2 className="text-2xl font-bold text-center">Burn Yourself</h2>
 
         {status === 'idle' && (
           <button
             onClick={startBurn}
-            className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition"
+            className="w-full py-3 bg-red-600 hover:bg-red-700 rounded-lg font-semibold transition"
           >
             🔥 Burn for 0.5 TON
           </button>
         )}
 
         {status === 'pending' && (
-          <>
-            <p className="text-gray-800">Invoice created:</p>
+          <div className="space-y-4 text-center">
+            <p>Invoice created. Complete payment:</p>
             <a
-              href={paymentLink}
+              href={paymentUrl}
               target="_blank"
               rel="noreferrer"
-              className="block text-blue-600 underline mb-4"
+              className="block text-blue-400 underline"
             >
-              Open TonHub to pay
+              Open TonHub
             </a>
-            <p className="text-sm text-gray-700">Waiting for confirmation...</p>
-          </>
-        )}
-
-        {status === 'confirmed' && (
-          <p className="text-green-600 font-semibold">Payment confirmed! Redirecting…</p>
+            <p className="text-sm text-gray-300">Waiting for confirmation...</p>
+          </div>
         )}
 
         {status === 'error' && (
-          <p className="text-red-600">{error}</p>
+          <p className="text-red-500 text-center">{error}</p>
         )}
       </div>
     </div>
