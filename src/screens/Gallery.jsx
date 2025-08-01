@@ -5,11 +5,22 @@ import BackButton from '../components/BackButton';
 import { AuthContext } from '../context/AuthContext';
 import API from '../utils/apiClient';
 
+const FRAGMENT_FILES = {
+  1: 'fragment_1_the_whisper.jpg',
+  2: 'fragment_2_the_number.jpg',
+  3: 'fragment_3_the_language.jpg',
+  4: 'fragment_4_the_mirror.jpg',
+  5: 'fragment_5_the_chain.jpg',
+  6: 'fragment_6_the_hour.jpg',
+  7: 'fragment_7_the_mark.jpg',
+  8: 'fragment_8_the_gate.jpg',
+};
+
 export default function Gallery() {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
 
-  const [fragments, setFragments] = useState([]);   // сюда API возвращает числа 1–8
+  const [fragments, setFragments] = useState([]);   // собранные фрагменты
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState('');
 
@@ -30,6 +41,7 @@ export default function Gallery() {
     fetchFragments();
   }, [user]);
 
+  // Авто-переход на финальный экран, когда все 8 фрагментов
   useEffect(() => {
     if (!loading && fragments.length >= 8) {
       navigate('/final');
@@ -66,13 +78,12 @@ export default function Gallery() {
                   >
                     {owned ? (
                       <img
-                        // здесь берём реальный файл
-                        src={`/images/fragments/fragment-${id}.webp`}
+                        src={`/fragments/${FRAGMENT_FILES[id]}`}
                         alt={`Fragment ${id}`}
                         className="object-cover w-full h-full rounded"
                         onError={e => {
                           e.currentTarget.onerror = null;
-                          e.currentTarget.src = '/images/fragments/placeholder.png';
+                          e.currentTarget.src = '/fragments/placeholder.jpg';
                         }}
                       />
                     ) : (
