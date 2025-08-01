@@ -38,23 +38,32 @@ export default function Login() {
 
   const handleStart = async () => {
     if (!tgId || !initData) {
-      setError('Нет данных от Telegram, повторите вход через Web App.');
+      setError('Нет данных от Telegram. Повторите вход через Web App.');
       return;
     }
     setError('');
     try {
-      const { user, token } = await API.init({
+      const { user: userObj, token } = await API.init({
         tg_id: tgId,
         name: name.trim(),
         initData,
-        referrer_code: refCode.trim() || null,
+        referrer_code: refCode.trim() || null
       });
-      login(user, token);
+      login(userObj, token);
       navigate('/burn');
     } catch (e) {
-      setError(e.error || e.message || 'Ошибка регистрации');
+      console.error('[Login] init error', e);
+      setError(e.message);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-900 text-white">
+        <p>Loading Telegram Web App…</p>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -62,65 +71,44 @@ export default function Login() {
       style={{ backgroundImage: "url('/images/bg-welcome.webp')" }}
     >
       <div className="absolute inset-0 bg-black opacity-70" />
-      <div className="relative z-10 w-full max-w-md bg-gray-900 bg-opacity-90 rounded-xl shadow-xl p-8 space-y-6">
-        <div className="flex justify-center">
-          <img
-            src="/images/logo.png"
-            alt="Order of Ash"
-            className="h-16"
-          />
-        </div>
-        <h1 className="text-2xl font-extrabold text-center text-white">
-          Welcome to Order of Ash
-        </h1>
 
-        {error && (
-          <p className="text-center text-red-400 text-sm">{error}</p>
-        )}
+      <div className="relative z-10 w-full max-w-md bg-gray-900 bg-opacity-90 rounded-xl p-8 space-y-6 text-white">
+        <h1 className="text-2xl font-bold text-center">Welcome to Order of Ash</h1>
 
-        {loading ? (
-          <div className="flex justify-center py-4">
-            <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
+        {error && <p className="text-red-400 text-center">{error}</p>}
+
+        <div className="space-y-4">
+          <div>
+            <label className="block mb-1">Name</label>
+            <input
+              type="text"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              className="w-full px-4 py-2 bg-gray-800 rounded text-white"
+            />
           </div>
-        ) : (
-          <>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-gray-300 mb-1">Name</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  placeholder="Enter your name"
-                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-600"
-                />
-              </div>
-              <div>
-                <label className="block text-gray-300 mb-1">
-                  Referral Code (optional)
-                </label>
-                <input
-                  type="text"
-                  value={refCode}
-                  onChange={e => setRefCode(e.target.value)}
-                  placeholder="ABC123"
-                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-600"
-                />
-              </div>
-            </div>
-            <button
-              onClick={handleStart}
-              disabled={!tgId || !initData}
-              className={`w-full py-3 rounded-lg font-semibold transition ${
-                tgId && initData
-                  ? 'bg-red-600 hover:bg-red-700 text-white'
-                  : 'bg-gray-600 cursor-not-allowed text-gray-300'
-              }`}
-            >
-              Start Playing
-            </button>
-          </>
-        )}
+          <div>
+            <label className="block mb-1">Referral Code (optional)</label>
+            <input
+              type="text"
+              value={refCode}
+              onChange={e => setRefCode(e.target.value)}
+              className="w-full px-4 py-2 bg-gray-800 rounded text-white"
+            />
+          </div>
+        </div>
+
+        <button
+          onClick={handleStart}
+          disabled={!tgId || !initData}
+          className={`w-full py-3 rounded-lg font-semibold ${
+            tgId && initData
+              ? 'bg-red-600 hover:bg-red-700'
+              : 'bg-gray-600 cursor-not-allowed'
+          } text-white`}
+        >
+          Start Playing
+        </button>
       </div>
     </div>
   );
