@@ -88,7 +88,7 @@ export default function Burn() {
   const chances = computeChances();
 
   return (
-    <div className="relative min-h-screen bg-cover bg-center text-white" style={{ backgroundImage: "url('/images/bg-burn.webp')" }}>
+    <div className="relative min-h-screen text-white">
       <div className="absolute inset-0 bg-black opacity-60" />
       <div className="relative z-10 mx-auto max-w-md p-6 bg-gray-900 bg-opacity-80 backdrop-blur-lg rounded-2xl space-y-6">
         <BackButton className="text-white" />
