@@ -29,17 +29,15 @@ export default function Gallery() {
     async function load() {
       setLoading(true);
       setError('');
-
       try {
-        // 1) Получаем подписанные URL фрагментов
-        const presigned = await API.getSignedFragmentUrls();
+        // Получаем подписанные ссылки
+        const presigned = await API.getPresigned();
         setSignedUrls(presigned.signedUrls || {});
-
-        // 2) Получаем, какие фрагменты у игрока
+        // Получаем список owned фрагментов
         const fragData = await API.getFragments(user.tg_id);
         setFragments(fragData.fragments || []);
       } catch (e) {
-        console.error('[Gallery] error loading fragments', e);
+        console.error('[Gallery] load error', e);
         if (e.message.toLowerCase().includes('invalid token')) {
           logout();
           navigate('/login');
@@ -50,16 +48,22 @@ export default function Gallery() {
         setLoading(false);
       }
     }
-
     load();
   }, [user.tg_id, logout, navigate]);
 
-  // Авто-переход на финальный экран, когда все 8 фрагментов у пользователя
+  // Автопереход на final
   useEffect(() => {
     if (!loading && fragments.length >= 8) {
       navigate('/final');
     }
   }, [loading, fragments, navigate]);
+
+  if (loading) {
+    return <p className="text-white p-6">Loading gallery...</p>;
+  }
+  if (error) {
+    return <p className="text-red-500 p-6">{error}</p>;
+  }
 
   return (
     <div
@@ -67,70 +71,57 @@ export default function Gallery() {
       style={{ backgroundImage: "url('/images/bg-path.webp')" }}
     >
       <div className="absolute inset-0 bg-black opacity-60" />
-
       <div className="relative z-10 max-w-lg mx-auto px-4 py-8">
         <BackButton className="text-white mb-4" />
-
-        <div className="bg-gray-800 bg-opacity-90 backdrop-blur-sm rounded-xl p-6 space-y-6">
-          <h2 className="text-2xl font-bold text-center font-montserrat">Your Fragments</h2>
-
-          {loading && (
-            <p className="text-gray-300 text-center">Loading fragments…</p>
-          )}
-          {error && (
-            <p className="text-red-400 text-center">{error}</p>
-          )}
-
-          {!loading && !error && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {Array.from({ length: 8 }, (_, idx) => {
-                const id = idx + 1;
-                const owned = fragments.includes(id);
-                const filename = FRAGMENT_FILES[id];
-                const url = signedUrls[filename];
-
-                return (
-                  <div
-                    key={id}
-                    className={`relative w-full pb-full rounded-lg overflow-hidden shadow-lg transition-transform ${
-                      owned ? 'border-2 border-[#FF6B6B]' : 'border-2 border-gray-600'
-                    }`}
+        <h2 className="text-3xl font-bold font-montserrat mb-6 text-center">Your Fragments</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {Array.from({ length: 8 }, (_, idx) => {
+            const id = idx + 1;
+            const owned = fragments.includes(id);
+            const filename = FRAGMENT_FILES[id];
+            const url = signedUrls[filename];
+            return (
+              <div
+                key={id}
+                className={`w-28 h-28 bg-gray-800 rounded-lg overflow-hidden shadow-lg flex items-center justify-center ${
+                  owned ? 'border-4 border-[#FF6B6B]' : 'border-4 border-gray-700'
+                }`}
+              >
+                {owned && url ? (
+                  <img
+                    src={`${url}&dummy=${Date.now()}`}  // prevent caching
+                    alt={`Fragment ${id}`}
+                    className="object-cover w-full h-full"
+                    onError={e => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = '/images/placeholder.jpg';
+                    }}
+                  />
+                ) : (
+                  <button
+                    onClick={() => navigate('/burn')}
+                    className="text-4xl font-bold text-gray-400 hover:text-gray-200"
                   >
-                    <div className="absolute inset-0 flex items-center justify-center bg-gray-700">
-                      {owned && url ? (
-                        <img
-                          src={`${url}&dummy=${Date.now()}`}  // предотвращаем кеш
-                          alt={`Fragment ${id}`}
-                          className="object-cover w-full h-full"
-                          onError={(e) => {
-                            e.currentTarget.onerror = null;
-                            e.currentTarget.src = '/images/placeholder.jpg';
-                          }}
-                        />
-                      ) : (
-                        <span className="text-gray-400 text-3xl font-bold">?</span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          <div className="flex flex-col sm:flex-row sm:space-x-4 space-y-4 sm:space-y-0 pt-6">
-            <button
-              onClick={() => navigate('/referral')}
-              className="flex-1 py-3 bg-[#4ECDC4] hover:bg-[#48C9B0] rounded-lg font-inter font-semibold transition"
-            >
-              Referral
-            </button>
-            <button
-              onClick={() => navigate('/leaderboard')}
-              className="flex-1 py-3 bg-[#FF6B6B] hover:bg-[#FF4757] rounded-lg font-inter font-semibold transition"
-            >
-              Leaderboard
-            </button>
-          </div>
+                    ?
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <div className="flex flex-col sm:flex-row sm:justify-between space-y-4 sm:space-y-0 mt-8">
+          <button
+            onClick={() => navigate('/referral')}
+            className="flex-1 py-3 bg-[#4ECDC4] hover:bg-[#48C9B0] rounded-lg font-inter font-semibold"
+          >
+            Referral
+          </button>
+          <button
+            onClick={() => navigate('/leaderboard')}
+            className="flex-1 py-3 bg-[#FF6B6B] hover:bg-[#FF4757] rounded-lg font-inter font-semibold"
+          >
+            Leaderboard
+          </button>
         </div>
       </div>
     </div>
