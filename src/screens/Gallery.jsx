@@ -30,10 +30,8 @@ export default function Gallery() {
       setLoading(true);
       setError('');
       try {
-        // Подгружаем все подписанные URL
         const presigned = await API.getSignedFragmentUrls();
         setSignedUrls(presigned.signedUrls || {});
-        // Подгружаем owned фрагменты
         const fragData = await API.getFragments(user.tg_id);
         setFragments(fragData.fragments || []);
       } catch (e) {
@@ -51,7 +49,6 @@ export default function Gallery() {
     load();
   }, [user.tg_id, logout, navigate]);
 
-  // Автопереход, если все фрагменты получены
   useEffect(() => {
     if (!loading && fragments.length >= 8) {
       navigate('/final');
@@ -71,8 +68,8 @@ export default function Gallery() {
         <BackButton className="text-white mb-4" />
         <h2 className="text-3xl font-bold font-montserrat mb-6 text-center">Your Fragments</h2>
 
-        {/* Горизонтальная прокручиваемая полоса фрагментов */}
-        <div className="flex space-x-4 overflow-x-auto pb-4">
+        {/* Сетка 2 строки x 4 столбца */}
+        <div className="grid grid-cols-4 grid-rows-2 gap-4">
           {Array.from({ length: 8 }, (_, idx) => {
             const id = idx + 1;
             const owned = fragments.includes(id);
@@ -81,12 +78,12 @@ export default function Gallery() {
             return (
               <div
                 key={id}
-                className="flex-shrink-0 w-24 h-24 bg-gray-800 rounded-lg overflow-hidden shadow-lg border-4 transition-transform hover:scale-105"
+                className="aspect-square bg-gray-800 rounded-lg overflow-hidden shadow-lg border-4 flex items-center justify-center transition-transform hover:scale-105"
                 style={owned ? { borderColor: '#FF6B6B' } : { borderColor: '#4A4A4A' }}
               >
                 {owned && url ? (
                   <img
-                    src={`${url}&dummy=${Date.now()}`} // prevent caching
+                    src={`${url}&dummy=${Date.now()}`}  // prevent caching
                     alt={`Fragment ${id}`}
                     className="object-cover w-full h-full"
                     onError={e => {
@@ -97,7 +94,7 @@ export default function Gallery() {
                 ) : (
                   <button
                     onClick={() => navigate('/burn')}
-                    className="w-full h-full flex items-center justify-center text-3xl text-gray-500 font-bold hover:text-gray-200"
+                    className="text-4xl font-bold text-gray-500 hover:text-gray-200"
                   >
                     ?
                   </button>
@@ -107,7 +104,6 @@ export default function Gallery() {
           })}
         </div>
 
-        {/* Кнопки действий */}
         <div className="flex flex-col space-y-4 mt-8">
           <button
             onClick={() => navigate('/referral')}
