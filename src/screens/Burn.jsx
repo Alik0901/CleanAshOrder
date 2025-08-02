@@ -24,22 +24,19 @@ export default function Burn() {
   const [invoiceId, setInvoiceId]   = useState(null);
   const [paymentUrl, setPaymentUrl] = useState('');
 
-  const [fragmentId, setFragmentId] = useState(null);
-  const [category, setCategory]     = useState('');
+  const [fragmentId, setFragmentId]   = useState(null);
+  const [category, setCategory]       = useState('');
   const [pityCounter, setPityCounter] = useState(0);
 
   const computeChances = () => {
     const boost = Math.min(pityCounter * PITY_BOOST_PER, PITY_CAP);
-    const totalRL = CATEGORIES.find(c => c.key === 'rare').baseChance +
-                    CATEGORIES.find(c => c.key === 'legendary').baseChance + boost;
+    const baseR = CATEGORIES.find(c => c.key === 'rare').baseChance;
+    const baseL = CATEGORIES.find(c => c.key === 'legendary').baseChance;
+    const sumRL = baseR + baseL;
     return CATEGORIES.map(c => {
       let chance = c.baseChance;
       if (c.key === 'rare' || c.key === 'legendary') {
-        // пропорционально добавляем boost
-        const baseRL = CATEGORIES.find(x => x.key === c.key).baseChance;
-        const sumBaseRL = CATEGORIES.find(x => x.key === 'rare').baseChance +
-                          CATEGORIES.find(x => x.key === 'legendary').baseChance;
-        chance += boost * (baseRL / sumBaseRL);
+        chance += boost * (c.baseChance / sumRL);
       }
       return { ...c, chance };
     });
@@ -90,30 +87,30 @@ export default function Burn() {
   const chances = computeChances();
 
   return (
-    <div className="relative min-h-screen bg-cover bg-center" style={{ backgroundImage: "url('/images/bg-burn.webp')" }}>
+    <div className="relative min-h-screen bg-cover bg-center text-white" style={{ backgroundImage: "url('/images/bg-burn.webp')" }}>
       <div className="absolute inset-0 bg-black opacity-60" />
-      <div className="relative z-10 mx-auto max-w-md p-6 bg-gray-900 bg-opacity-90 backdrop-blur-sm rounded-xl space-y-6 text-white">
-        <BackButton />
-        <h2 className="text-2xl font-bold text-center">Burn Yourself</h2>
+      <div className="relative z-10 mx-auto max-w-md p-6 bg-gray-900 bg-opacity-90 backdrop-blur-sm rounded-xl space-y-6">
+        <BackButton className="text-white" />
+        <h2 className="text-2xl font-bold text-center text-white">Burn Yourself</h2>
 
         {status === 'idle' && (
           <>
             <div className="space-y-2">
               {chances.map(c => (
-                <div key={c.key} className="flex justify-between text-sm">
+                <div key={c.key} className="flex justify-between text-sm text-white">
                   <span>{c.label}</span>
                   <span>{c.chance.toFixed(1)}%</span>
                 </div>
               ))}
               {pityCounter > 0 && (
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-gray-300 text-white">
                   Вы получили {pityCounter} попыток без Rare/Legendary — +{Math.min(pityCounter, PITY_CAP)}% к шансам.
                 </p>
               )}
             </div>
             <button
               onClick={startBurn}
-              className="w-full py-3 bg-red-600 hover:bg-red-700 rounded-lg font-semibold"
+              className="w-full py-3 bg-red-600 hover:bg-red-700 rounded-lg font-semibold text-white"
             >
               🔥 Burn for 0.5 TON
             </button>
@@ -122,28 +119,28 @@ export default function Burn() {
 
         {status === 'pending' && (
           <div className="space-y-4 text-center">
-            <p>Счёт создан. Оплатите по ссылке:</p>
-            <a href={paymentUrl} target="_blank" rel="noreferrer" className="text-blue-400 underline">
+            <p className="text-white">Счёт создан. Оплатите по ссылке:</p>
+            <a href={paymentUrl} target="_blank" rel="noreferrer" className="text-blue-300 underline">
               {paymentUrl}
             </a>
-            <p className="text-gray-300 text-sm">Ожидаем подтверждения...</p>
+            <p className="text-gray-300 text-sm text-white">Ожидаем подтверждения...</p>
           </div>
         )}
 
         {status === 'success' && (
           <div className="space-y-4 text-center">
-            <p className="text-lg">Вы получили <span className="font-bold">{category}</span> фрагмент</p>
-            <p className="text-2xl">#{fragmentId}</p>
+            <p className="text-lg text-white">Вы получили <span className="font-bold text-white">{category}</span> фрагмент</p>
+            <p className="text-2xl text-white">#{fragmentId}</p>
             <div className="flex space-x-4 justify-center">
               <button
                 onClick={() => setStatus('idle')}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded"
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded text-white"
               >
                 Burn again
               </button>
               <button
                 onClick={() => navigate('/gallery')}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-white"
               >
                 View Gallery
               </button>
@@ -152,7 +149,7 @@ export default function Burn() {
         )}
 
         {status === 'error' && (
-          <p className="text-red-500 text-center">{error}</p>
+          <p className="text-red-500 text-center text-white">{error}</p>
         )}
       </div>
     </div>
