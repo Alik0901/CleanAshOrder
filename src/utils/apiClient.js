@@ -40,6 +40,11 @@ const API = {
     return handleResponse(res);
   },
 
+  getLeaderboard: async () => {
+  const res = await fetch(`${BASE}/api/leaderboard`, { headers: authHeader() });
+  return handleResponse(res);
+  },
+
   getFragments: async (tgId) => {
     const res = await fetch(`${BASE}/api/fragments/${tgId}`, {
       headers: authHeader(),
