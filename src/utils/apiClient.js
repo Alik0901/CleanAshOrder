@@ -59,6 +59,11 @@ const API = {
     return handleResponse(res);
   },
 
+  getUserStats: async (tgId) => {
+  const res = await fetch(`${BASE}/api/stats/${tgId}`, { headers: authHeader() });
+  return handleResponse(res);
+  },
+
   createBurn: async (tgId) => {
     const res = await fetch(`${BASE}/api/burn-invoice`, {
       method: 'POST',

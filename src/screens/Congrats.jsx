@@ -1,80 +1,65 @@
-// src/screens/Congrats.jsx
-import React, { useState, useContext } from 'react';
+// файл: src/screens/Congrats.jsx
+import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
+import BackButton from '../components/BackButton';
 import { AuthContext } from '../context/AuthContext';
-
-// Замените на реальный плейсхолдер вашей NFT или URL из API
-const NFT_PLACEHOLDER = '/images/final-nft-placeholder.webp';
+import API from '../utils/apiClient';
 
 export default function Congrats() {
-  const { user } = useContext(AuthContext);
+  const { logout } = useContext(AuthContext);
   const navigate = useNavigate();
-  const [message, setMessage] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+  const [error, setError] = useState('');
 
-  const handleShare = async () => {
-    const shareData = {
-      title: 'I completed the Order of Ash',
-      text: 'I just forged my final NFT in Order of Ash! 🔥',
-      url: window.location.href,
-    };
-    try {
-      if (navigator.share) {
-        await navigator.share(shareData);
-      } else {
-        await navigator.clipboard.writeText(`${shareData.title}\n${shareData.text}\n${shareData.url}`);
-        setMessage('Link copied to clipboard!');
-      }
-    } catch {
-      setMessage('Unable to share at this time.');
-    }
-  };
+  useEffect(() => {
+    // Загружаем подписанный URL для финального изображения (NFT)
+    API.getPresigned()
+      .then(data => {
+        const url = data.signedUrls['final-image.jpg'];
+        setImageUrl(url);
+      })
+      .catch(err => {
+        const msg = err.message || 'Не удалось загрузить изображение';
+        setError(msg);
+        if (msg.toLowerCase().includes('invalid token')) {
+          logout();
+          navigate('/login');
+        }
+      });
+  }, [logout, navigate]);
 
   return (
     <div
-      className="relative min-h-screen bg-cover bg-center"
-      style={{ backgroundImage: "url('/images/bg-ash.webp')" }}
+      className="relative min-h-screen bg-cover bg-center text-white"
+      style={{ backgroundImage: "url('/images/bg-final.webp')" }}
     >
-      {/* Оверлей */}
-      <div className="absolute inset-0 bg-black opacity-60" />
+      <div className="absolute inset-0 bg-black opacity-70" />
+      <div className="relative z-10 mx-auto max-w-lg p-6 bg-gray-900 bg-opacity-90 rounded-xl space-y-6">
+        <BackButton className="text-white" />
+        <h1 className="text-3xl font-bold text-center">Congratulations!</h1>
 
-      <div className="relative z-10 container mx-auto px-4 py-12 flex flex-col items-center space-y-8">
-        <h2 className="text-4xl font-extrabold text-white drop-shadow-lg text-center">
-          Congratulations!
-        </h2>
-        <p className="text-lg text-white/90 text-center max-w-md">
-          You have collected all fragments and forged your Final NFT.
-        </p>
-
-        <div className="w-64 h-64 bg-gray-800 rounded-xl overflow-hidden shadow-lg">
+        {imageUrl && (
           <img
-            src={NFT_PLACEHOLDER}
-            alt="Your Final NFT"
-            className="object-cover w-full h-full"
-            onError={e => {
-              e.currentTarget.onerror = null;
-              e.currentTarget.src = '/images/fragments/placeholder.webp';
-            }}
+            src={imageUrl}
+            alt="Final Puzzle"
+            className="w-full rounded-lg shadow-lg"
           />
-        </div>
-
-        {message && (
-          <p className="text-sm text-yellow-300">{message}</p>
         )}
 
-        <div className="flex flex-col sm:flex-row gap-4 w-full max-w-xs">
-          <button
-            onClick={handleShare}
-            className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition"
-          >
-            Share Your Victory
-          </button>
-          <button
-            onClick={() => navigate('/profile')}
-            className="flex-1 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition"
-          >
-            Go to Profile
-          </button>
-        </div>
+        {!imageUrl && !error && (
+          <p className="text-center">Generating your NFT...</p>
+        )}
+
+        {error && (
+          <p className="text-red-500 text-center">{error}</p>
+        )}
+
+        <button
+          onClick={() => navigate('/profile')}
+          className="w-full py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold text-white"
+        >
+          Go to Profile
+        </button>
       </div>
     </div>
   );
