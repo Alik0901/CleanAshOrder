@@ -60,7 +60,9 @@ const API = {
   },
 
   getUserStats: async (tgId) => {
-  const res = await fetch(`${BASE}/api/stats/${tgId}`, { headers: authHeader() });
+  const res = await fetch(`${BASE}/api/stats/${tgId}`, {
+    headers: authHeader()
+  });
   return handleResponse(res);
   },
 
