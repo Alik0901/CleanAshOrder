@@ -14,7 +14,6 @@ export default function FinalPhrase() {
   const [phrase, setPhrase] = useState('');
   const [error, setError] = useState('');
 
-  // Проверяем, можно ли вводить финальную фразу
   useEffect(() => {
     API.getFinal(user.tg_id)
       .then(res => {
@@ -22,6 +21,7 @@ export default function FinalPhrase() {
         setLoading(false);
       })
       .catch(e => {
+        console.error('[FinalPhrase] load error', e);
         if (e.message.toLowerCase().includes('invalid token')) {
           logout();
           navigate('/login');
@@ -32,7 +32,7 @@ export default function FinalPhrase() {
       });
   }, [user.tg_id, logout, navigate]);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async e => {
     e.preventDefault();
     setError('');
     try {
@@ -46,37 +46,38 @@ export default function FinalPhrase() {
   };
 
   if (loading) {
-    return <p className="text-white p-4">Loading...</p>;
+    return <p className="text-white p-6">Loading...</p>;
   }
 
   if (!canEnter) {
     return (
-      <div className="p-6 text-white">
-        <BackButton className="text-white" />
-        <p className="mt-4">Финальная фраза пока недоступна. Соберите все 8 фрагментов и введите в свою минуту очищения.</p>
+      <div className="relative min-h-screen bg-gradient-to-br from-[#1A1A2E] to-[#16213E] text-white flex items-center justify-center">
+        <div className="bg-gray-800 bg-opacity-90 backdrop-blur-sm rounded-xl p-6 max-w-sm text-center">
+          <BackButton className="text-white mb-4" />
+          <p className="text-lg font-inter">Final phrase is not available yet.<br/>Collect all 8 fragments and return during your cleansing hour.</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="relative min-h-screen bg-cover bg-center text-white" style={{ backgroundImage: "url('/images/bg-final.webp')" }}>
-      <div className="absolute inset-0 bg-black opacity-60" />
-      <div className="relative z-10 mx-auto max-w-md p-6 bg-gray-900 bg-opacity-90 rounded-xl space-y-4">
+    <div className="relative min-h-screen bg-gradient-to-br from-[#1A1A2E] to-[#16213E] text-white flex items-center justify-center">
+      <div className="bg-gray-800 bg-opacity-90 backdrop-blur-sm rounded-xl p-6 w-full max-w-md space-y-6">
         <BackButton className="text-white" />
-        <h2 className="text-2xl font-bold text-center">Enter Final Phrase</h2>
+        <h2 className="text-2xl font-bold text-center font-montserrat">Enter Final Phrase</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
             type="text"
             value={phrase}
             onChange={e => setPhrase(e.target.value)}
             placeholder="Your secret phrase"
-            className="w-full px-4 py-2 bg-gray-800 rounded text-white"
+            className="w-full px-4 py-2 bg-gray-700 rounded-lg font-inter text-white focus:outline-none focus:ring-2 focus:ring-[#FF6B6B]"
             required
           />
-          {error && <p className="text-red-500 text-sm">{error}</p>}
+          {error && <p className="text-red-400 text-center font-inter">{error}</p>}
           <button
             type="submit"
-            className="w-full py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold"
+            className="w-full py-3 bg-gradient-to-r from-[#FF6B6B] to-[#FF4757] rounded-lg font-semibold transition hover:opacity-90"
           >
             Submit Phrase
           </button>
