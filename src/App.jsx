@@ -1,6 +1,7 @@
 // src/App.jsx
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import NavBar from './components/NavBar';
 
 import Login       from './screens/Login';
 import Home        from './screens/Home';
@@ -17,8 +18,15 @@ import ProtectedRoute from './components/ProtectedRoute';
 
 export default function App() {
   return (
-    <Routes>
-      {/* Public */}
+    <BrowserRouter>
+      <AuthProvider>
+        {/* Навбар на всех страницах */}
+        <NavBar />
+
+        {/* Основной контейнер с отступом сверху под высоту NavBar */}
+        <div className="pt-16 pb-16 min-h-screen bg-[#0F0F1F]">
+          <Routes>
+         {/* Public */}
       <Route path="/login" element={<Login />} />
       <Route path="/"      element={<Home />} />
 
@@ -35,5 +43,11 @@ export default function App() {
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+        </div>
+      </AuthProvider>
+    </BrowserRouter>
   );
 }
+
+
+
