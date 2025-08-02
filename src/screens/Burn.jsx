@@ -18,13 +18,11 @@ export default function Burn() {
   const [error, setError]           = useState('');
   const [invoiceId, setInvoiceId]   = useState(null);
   const [paymentUrl, setPaymentUrl] = useState('');
-
   const [fragmentId, setFragmentId]   = useState(null);
   const [category, setCategory]       = useState('');
   const [pityCounter, setPityCounter] = useState(0);
-
-  // Загружаем купон
   const [coupon, setCoupon] = useState(0);
+
   useEffect(() => {
     API.getDailyQuest()
       .then(data => setCoupon(data.coupon || 0))
@@ -35,11 +33,9 @@ export default function Burn() {
       });
   }, [logout, navigate]);
 
-  // Считаем цену в nano
   const discountedNano = Math.floor(BASE_AMOUNT_NANO * (100 - coupon) / 100);
   const priceTON = (discountedNano / 1e9).toFixed(3);
 
-  // Расчет шансов
   const computeChances = () => {
     const boost = Math.min(pityCounter * PITY_BOOST_PER, PITY_CAP);
     const baseRare = 15;
@@ -80,6 +76,7 @@ export default function Burn() {
         clearInterval(timer);
         setError(e.message || 'Error checking payment');
         setStatus('error');
+        if (e.message.toLowerCase().includes('invalid token')) logout(), navigate('/login');
       }
     }, 3000);
     return () => clearInterval(timer);
@@ -88,10 +85,9 @@ export default function Burn() {
   const chances = computeChances();
 
   return (
-    <div className="relative min-h-screen text-white">
-      <div className="absolute inset-0 bg-black opacity-60" />
-      <div className="relative z-10 mx-auto max-w-md p-6 bg-gray-900 bg-opacity-80 backdrop-blur-lg rounded-2xl space-y-6">
-        <BackButton className="text-white" />
+    <div className="relative min-h-screen bg-gradient-to-br from-[#1A1A2E] to-[#16213E] text-white">
+      <BackButton className="absolute top-4 left-4 text-white z-10" />
+      <div className="mt-24 mx-auto max-w-md p-6 bg-gray-900 bg-opacity-80 backdrop-blur-lg rounded-2xl shadow-xl space-y-6">
         <h2 className="text-3xl font-bold text-center font-montserrat">Burn Yourself</h2>
 
         {status === 'idle' && (
