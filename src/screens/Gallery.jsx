@@ -1,4 +1,4 @@
-// src/screens/Gallery.jsx
+// файл: src/screens/Gallery.jsx
 import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BackButton from '../components/BackButton';
@@ -17,7 +17,7 @@ const FRAGMENT_FILES = {
 };
 
 export default function Gallery() {
-  const { user } = useContext(AuthContext);
+  const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
 
   const [signedUrls, setSignedUrls] = useState({});
@@ -32,24 +32,29 @@ export default function Gallery() {
 
       try {
         // 1) Получаем подписанные URL фрагментов
-        const { signedUrls } = await API.getSignedFragmentUrls();
-        setSignedUrls(signedUrls);
+        const presigned = await API.getSignedFragmentUrls();
+        setSignedUrls(presigned.signedUrls || {});
 
         // 2) Получаем, какие фрагменты у игрока
-        const { fragments: owned } = await API.getFragments(user.tg_id);
-        setFragments(owned || []);
+        const fragData = await API.getFragments(user.tg_id);
+        setFragments(fragData.fragments || []);
       } catch (e) {
         console.error('[Gallery] error loading fragments', e);
-        setError(e.message || 'Ошибка загрузки фрагментов');
+        if (e.message.toLowerCase().includes('invalid token')) {
+          logout();
+          navigate('/login');
+        } else {
+          setError(e.message || 'Ошибка загрузки фрагментов');
+        }
       } finally {
         setLoading(false);
       }
     }
 
     load();
-  }, [user]);
+  }, [user.tg_id, logout, navigate]);
 
-  // Авто-переход на финальный экран, когда все 8 фрагментов получены
+  // Авто-переход на финальный экран, когда все 8 фрагментов у пользователя
   useEffect(() => {
     if (!loading && fragments.length >= 8) {
       navigate('/final');
@@ -58,16 +63,16 @@ export default function Gallery() {
 
   return (
     <div
-      className="relative min-h-screen bg-cover bg-center"
+      className="relative min-h-screen bg-cover bg-center text-white"
       style={{ backgroundImage: "url('/images/bg-path.webp')" }}
     >
       <div className="absolute inset-0 bg-black opacity-60" />
 
-      <div className="relative z-10 container mx-auto px-4 py-8">
-        <BackButton />
+      <div className="relative z-10 max-w-lg mx-auto px-4 py-8">
+        <BackButton className="text-white mb-4" />
 
-        <div className="mx-auto max-w-lg bg-gray-800 bg-opacity-90 backdrop-blur-sm rounded-xl p-6 space-y-6 text-white">
-          <h2 className="text-2xl font-bold text-center">Your Fragments</h2>
+        <div className="bg-gray-800 bg-opacity-90 backdrop-blur-sm rounded-xl p-6 space-y-6">
+          <h2 className="text-2xl font-bold text-center font-montserrat">Your Fragments</h2>
 
           {loading && (
             <p className="text-gray-300 text-center">Loading fragments…</p>
@@ -77,7 +82,7 @@ export default function Gallery() {
           )}
 
           {!loading && !error && (
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {Array.from({ length: 8 }, (_, idx) => {
                 const id = idx + 1;
                 const owned = fragments.includes(id);
@@ -87,39 +92,41 @@ export default function Gallery() {
                 return (
                   <div
                     key={id}
-                    className={`w-20 h-20 flex items-center justify-center rounded-lg border-2 ${
-                      owned ? 'border-red-500' : 'border-gray-600'
-                    } bg-gray-700`}
+                    className={`relative w-full pb-full rounded-lg overflow-hidden shadow-lg transition-transform ${
+                      owned ? 'border-2 border-[#FF6B6B]' : 'border-2 border-gray-600'
+                    }`}
                   >
-                    {owned && url ? (
-                      <img
-                        src={url}
-                        alt={`Fragment ${id}`}
-                        className="object-cover w-full h-full rounded"
-                        onError={(e) => {
-                          e.currentTarget.onerror = null;
-                          e.currentTarget.src = '/images/placeholder.jpg';
-                        }}
-                      />
-                    ) : (
-                      <span className="text-gray-400 text-2xl font-bold">?</span>
-                    )}
+                    <div className="absolute inset-0 flex items-center justify-center bg-gray-700">
+                      {owned && url ? (
+                        <img
+                          src={`${url}&dummy=${Date.now()}`}  // предотвращаем кеш
+                          alt={`Fragment ${id}`}
+                          className="object-cover w-full h-full"
+                          onError={(e) => {
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = '/images/placeholder.jpg';
+                          }}
+                        />
+                      ) : (
+                        <span className="text-gray-400 text-3xl font-bold">?</span>
+                      )}
+                    </div>
                   </div>
                 );
               })}
             </div>
           )}
 
-          <div className="flex space-x-4 pt-6">
+          <div className="flex flex-col sm:flex-row sm:space-x-4 space-y-4 sm:space-y-0 pt-6">
             <button
               onClick={() => navigate('/referral')}
-              className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+              className="flex-1 py-3 bg-[#4ECDC4] hover:bg-[#48C9B0] rounded-lg font-inter font-semibold transition"
             >
               Referral
             </button>
             <button
               onClick={() => navigate('/leaderboard')}
-              className="flex-1 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg"
+              className="flex-1 py-3 bg-[#FF6B6B] hover:bg-[#FF4757] rounded-lg font-inter font-semibold transition"
             >
               Leaderboard
             </button>
