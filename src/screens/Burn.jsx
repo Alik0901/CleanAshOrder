@@ -28,6 +28,30 @@ export default function Burn() {
   const [category, setCategory]       = useState('');
   const [pityCounter, setPityCounter] = useState(0);
 
+  const [coupon, setCoupon]       = useState(0);
+  const [priceNano, setPriceNano] = useState(500_000_000); // базовая цена nano
+
+  // Загрузка ежедневного купона
+  useEffect(() => {
+    API.getDailyQuest()
+      .then(data => setCoupon(data.coupon || 0))
+      .catch(e => {
+        console.error('[Burn] daily-quest error', e);
+        if (e.message.toLowerCase().includes('invalid token')) {
+          logout();
+          navigate('/login');
+        }
+      });
+  }, [logout, navigate]);
+
+  // Пересчет цены с учётом купона
+  useEffect(() => {
+    const base = 500_000_000;
+    const discount = Math.floor(base * (coupon / 100));
+    setPriceNano(base - discount);
+  }, [coupon]);
+
+  // Вычисление шансов
   const computeChances = () => {
     const boost = Math.min(pityCounter * PITY_BOOST_PER, PITY_CAP);
     const baseR = CATEGORIES.find(c => c.key === 'rare').baseChance;
@@ -42,11 +66,13 @@ export default function Burn() {
     });
   };
 
+  // Старт burn
   const startBurn = async () => {
     setError('');
     setStatus('pending');
     try {
-      const resp = await API.createBurn(user.tg_id);
+      // Передаем скидку серверу в теле
+      const resp = await API.createBurn(user.tg_id, { discount: coupon });
       setInvoiceId(resp.invoiceId);
       setPaymentUrl(resp.paymentUrl);
     } catch (e) {
@@ -59,6 +85,7 @@ export default function Burn() {
     }
   };
 
+  // Опрос статуса оплаты
   useEffect(() => {
     if (status !== 'pending' || !invoiceId) return;
     const timer = setInterval(async () => {
@@ -85,6 +112,7 @@ export default function Burn() {
   }, [status, invoiceId, logout, navigate]);
 
   const chances = computeChances();
+  const priceTON = (priceNano / 1e9).toFixed(3);
 
   return (
     <div className="relative min-h-screen bg-cover bg-center text-white" style={{ backgroundImage: "url('/images/bg-burn.webp')" }}>
@@ -95,24 +123,16 @@ export default function Burn() {
 
         {status === 'idle' && (
           <>
-            <div className="space-y-2">
-              {chances.map(c => (
-                <div key={c.key} className="flex justify-between text-sm text-white">
-                  <span>{c.label}</span>
-                  <span>{c.chance.toFixed(1)}%</span>
-                </div>
-              ))}
-              {pityCounter > 0 && (
-                <p className="text-xs text-gray-300 text-white">
-                  Вы получили {pityCounter} попыток без Rare/Legendary — +{Math.min(pityCounter, PITY_CAP)}% к шансам.
-                </p>
-              )}
-            </div>
+            {coupon > 0 && (
+              <p className="text-sm text-green-400">
+                Daily coupon: {coupon}% off → {priceTON} TON
+              </p>
+            )}
             <button
               onClick={startBurn}
               className="w-full py-3 bg-red-600 hover:bg-red-700 rounded-lg font-semibold text-white"
             >
-              🔥 Burn for 0.5 TON
+              🔥 Burn for {priceTON} TON
             </button>
           </>
         )}

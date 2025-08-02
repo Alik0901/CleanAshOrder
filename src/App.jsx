@@ -11,6 +11,7 @@ import Leaderboard from './screens/Leaderboard';
 import FinalPhrase from './screens/FinalPhrase';
 import Congrats    from './screens/Congrats';
 import Profile     from './screens/Profile';
+import DailyQuest  from './screens/DailyQuest';
 
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -29,6 +30,7 @@ export default function App() {
       <Route path="/final"       element={<ProtectedRoute><FinalPhrase/></ProtectedRoute>} />
       <Route path="/congrats"    element={<ProtectedRoute><Congrats/></ProtectedRoute>} />
       <Route path="/profile"     element={<ProtectedRoute><Profile/></ProtectedRoute>} />
+      <Route path="/daily-quest" element={<DailyQuest />} />
 
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />

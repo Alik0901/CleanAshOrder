@@ -59,6 +59,18 @@ const API = {
     return handleResponse(res);
   },
 
+  getDailyQuest: async () => {
+    const res = await fetch(`${BASE}/api/daily-quest`, { headers: authHeader() });
+    return handleResponse(res);
+  },
+  claimDailyQuest: async () => {
+    const res = await fetch(`${BASE}/api/daily-quest/claim`, {
+    method: 'POST',
+    headers: { ...authHeader(), 'Content-Type': 'application/json' },
+  });
+    return handleResponse(res);
+  },
+
   getUserStats: async (tgId) => {
   const res = await fetch(`${BASE}/api/stats/${tgId}`, {
     headers: authHeader()
