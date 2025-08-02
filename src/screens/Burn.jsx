@@ -98,7 +98,7 @@ export default function Burn() {
   // Отображаем кнопку с учётом скидки
   const renderBurnButtonText = () => {
     if (user.daily_coupon_percent) {
-      return `🔥 Burn for ${((discountedAmountNano) / 1e9).toFixed(3)} TON (${user.daily_coupon_percent}% off)`;
+      return `🔥 Burn for ${(discountedAmountNano / 1e9).toFixed(3)} TON (${user.daily_coupon_percent}% off)`;
     }
     return '🔥 Burn for 0.5 TON';
   };
@@ -136,7 +136,7 @@ export default function Burn() {
 
         {status === 'pending' && (
           <div className="space-y-4 text-center">
-            <p>Счёт создан. Оплатите по ссылке:</p>
+            <p>Счёт создан. Оплатите по ссылке:</p>
             <a href={paymentUrl} target="_blank" rel="noreferrer" className="text-blue-300 underline">
               {paymentUrl}
             </a>
