@@ -28,21 +28,21 @@ const API = {
 
   getPlayer: async (tgId) => {
     const res = await fetch(`${BASE}/api/player/${tgId}`, {
-      headers: { ...authHeader() },
+      headers: authHeader(),
     });
     return handleResponse(res);
   },
 
   getPresigned: async () => {
     const res = await fetch(`${BASE}/api/fragments/urls`, {
-      headers: { ...authHeader() },
+      headers: authHeader(),
     });
     return handleResponse(res);
   },
 
   getFragments: async (tgId) => {
     const res = await fetch(`${BASE}/api/fragments/${tgId}`, {
-      headers: { ...authHeader() },
+      headers: authHeader(),
     });
     return handleResponse(res);
   },
@@ -51,13 +51,16 @@ const API = {
     const res = await fetch(`${BASE}/api/fragments/urls`, {
       headers: authHeader(),
     });
-    return handleResponse(res); // ожидаем { signedUrls: { [name]: url } }
+    return handleResponse(res);
   },
 
   createBurn: async (tgId) => {
     const res = await fetch(`${BASE}/api/burn-invoice`, {
       method: 'POST',
-      headers: { ...authHeader(), 'Content-Type': 'application/json' },
+      headers: {
+        ...authHeader(),
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({ tg_id: tgId }),
     });
     return handleResponse(res);
@@ -65,14 +68,14 @@ const API = {
 
   getBurnStatus: async (invoiceId) => {
     const res = await fetch(`${BASE}/api/burn-status/${invoiceId}`, {
-      headers: { ...authHeader() },
+      headers: authHeader(),
     });
     return handleResponse(res);
   },
 
   getReferral: async () => {
     const res = await fetch(`${BASE}/api/referral`, {
-      headers: { ...authHeader() },
+      headers: authHeader(),
     });
     return handleResponse(res);
   },
@@ -80,7 +83,10 @@ const API = {
   claimReferral: async () => {
     const res = await fetch(`${BASE}/api/referral/claim`, {
       method: 'POST',
-      headers: { ...authHeader(), 'Content-Type': 'application/json' },
+      headers: {
+        ...authHeader(),
+        'Content-Type': 'application/json',
+      },
     });
     return handleResponse(res);
   },
@@ -88,7 +94,10 @@ const API = {
   validateFinal: async (phrase) => {
     const res = await fetch(`${BASE}/api/validate-final`, {
       method: 'POST',
-      headers: { ...authHeader(), 'Content-Type': 'application/json' },
+      headers: {
+        ...authHeader(),
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({ phrase }),
     });
     return handleResponse(res);
@@ -96,14 +105,14 @@ const API = {
 
   getFinal: async (tgId) => {
     const res = await fetch(`${BASE}/api/final/${tgId}`, {
-      headers: { ...authHeader() },
+      headers: authHeader(),
     });
     return handleResponse(res);
   },
 
   getStats: async () => {
     const res = await fetch(`${BASE}/api/stats/total_users`, {
-      headers: { ...authHeader() },
+      headers: authHeader(),
     });
     return handleResponse(res);
   },
@@ -111,7 +120,7 @@ const API = {
   deletePlayer: async (tgId) => {
     const res = await fetch(`${BASE}/api/player/${tgId}`, {
       method: 'DELETE',
-      headers: { ...authHeader() },
+      headers: authHeader(),
     });
     return handleResponse(res);
   },

@@ -1,3 +1,5 @@
+// src/context/AuthContext.jsx
+
 import React, { createContext, useState, useEffect } from 'react';
 import API from '../utils/apiClient';
 
@@ -9,30 +11,31 @@ export function AuthProvider({ children }) {
     return saved ? JSON.parse(saved) : null;
   });
 
-  // При монтировании проверяем, есть ли токен, и подгружаем профиль
-  useEffect(() => {
-    if (user?.tg_id && localStorage.getItem('token')) {
-      API.getPlayer(user.tg_id).then(data => {
-        setUser({ ...data });
-        localStorage.setItem('user', JSON.stringify(data));
-      }).catch(() => {
-        // если токен просрочен — выходим
-        logout();
-      });
-    }
-  }, []);
-
-  function login(userData, token) {
+  const login = (userData, token) => {
     localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
-  }
+  };
 
-  function logout() {
+  const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
-  }
+  };
+
+  useEffect(() => {
+    if (user?.tg_id && localStorage.getItem('token')) {
+      API.getPlayer(user.tg_id)
+        .then(data => {
+          setUser(data);
+          localStorage.setItem('user', JSON.stringify(data));
+        })
+        .catch(() => {
+          // если токен просрочен или неверен — выходим
+          logout();
+        });
+    }
+  }, [user?.tg_id]);
 
   return (
     <AuthContext.Provider value={{ user, login, logout }}>
