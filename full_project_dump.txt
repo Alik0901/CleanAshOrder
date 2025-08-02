@@ -3305,6 +3305,7 @@
     import FinalPhrase from './screens/FinalPhrase';
     import Congrats    from './screens/Congrats';
     import Profile     from './screens/Profile';
+    import DailyQuest  from './screens/DailyQuest';
     
     import ProtectedRoute from './components/ProtectedRoute';
     
@@ -3323,6 +3324,7 @@
           <Route path="/final"       element={<ProtectedRoute><FinalPhrase/></ProtectedRoute>} />
           <Route path="/congrats"    element={<ProtectedRoute><Congrats/></ProtectedRoute>} />
           <Route path="/profile"     element={<ProtectedRoute><Profile/></ProtectedRoute>} />
+          <Route path="/daily-quest" element={<DailyQuest />} />
     
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
@@ -3482,6 +3484,8 @@
     export const API_URL = "https://ash-backend-production.up.railway.app";
 
 ===== FILE: src\context\AuthContext.jsx =====
+    // src/context/AuthContext.jsx
+    
     import React, { createContext, useState, useEffect } from 'react';
     import API from '../utils/apiClient';
     
@@ -3493,30 +3497,31 @@
         return saved ? JSON.parse(saved) : null;
       });
     
-      // РџСЂРё РјРѕРЅС‚РёСЂРѕРІР°РЅРёРё РїСЂРѕРІРµСЂСЏРµРј, РµСЃС‚СЊ Р»Рё С‚РѕРєРµРЅ, Рё РїРѕРґРіСЂСѓР¶Р°РµРј РїСЂРѕС„РёР»СЊ
-      useEffect(() => {
-        if (user?.tg_id && localStorage.getItem('token')) {
-          API.getPlayer(user.tg_id).then(data => {
-            setUser({ ...data });
-            localStorage.setItem('user', JSON.stringify(data));
-          }).catch(() => {
-            // РµСЃР»Рё С‚РѕРєРµРЅ РїСЂРѕСЃСЂРѕС‡РµРЅ вЂ” РІС‹С…РѕРґРёРј
-            logout();
-          });
-        }
-      }, []);
-    
-      function login(userData, token) {
+      const login = (userData, token) => {
         localStorage.setItem('token', token);
         localStorage.setItem('user', JSON.stringify(userData));
         setUser(userData);
-      }
+      };
     
-      function logout() {
+      const logout = () => {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         setUser(null);
-      }
+      };
+    
+      useEffect(() => {
+        if (user?.tg_id && localStorage.getItem('token')) {
+          API.getPlayer(user.tg_id)
+            .then(data => {
+              setUser(data);
+              localStorage.setItem('user', JSON.stringify(data));
+            })
+            .catch(() => {
+              // РµСЃР»Рё С‚РѕРєРµРЅ РїСЂРѕСЃСЂРѕС‡РµРЅ РёР»Рё РЅРµРІРµСЂРµРЅ вЂ” РІС‹С…РѕРґРёРј
+              logout();
+            });
+        }
+      }, [user?.tg_id]);
     
       return (
         <AuthContext.Provider value={{ user, login, logout }}>
@@ -3542,120 +3547,178 @@
     );
 
 ===== FILE: src\screens\Burn.jsx =====
-    // src/screens/Burn.jsx
+    // С„Р°Р№Р»: src/screens/Burn.jsx
     import React, { useState, useEffect, useContext } from 'react';
-    import { useNavigate }               from 'react-router-dom';
-    import BackButton                    from '../components/BackButton';
-    import { AuthContext }               from '../context/AuthContext';
-    import API                           from '../utils/apiClient';
+    import { useNavigate } from 'react-router-dom';
+    import BackButton from '../components/BackButton';
+    import { AuthContext } from '../context/AuthContext';
+    import API from '../utils/apiClient';
+    
+    // РљРѕРЅС„РёРіСѓСЂР°С†РёСЏ РєР°С‚РµРіРѕСЂРёР№ Рё Р±Р°Р·РѕРІС‹С… С€Р°РЅСЃРѕРІ
+    const CATEGORIES = [
+      { key: 'legendary', label: 'Legendary', baseChance: 5 },
+      { key: 'rare',      label: 'Rare',      baseChance: 15 },
+      { key: 'uncommon',  label: 'Uncommon',  baseChance: 30 },
+      { key: 'common',    label: 'Common',    baseChance: 50 },
+    ];
+    const PITY_BOOST_PER = 1;  // +1% Р·Р° РєР°Р¶РґС‹Р№ РЅРµСѓРґР°С‡РЅС‹Р№ burn
+    const PITY_CAP        = 20; // РјР°РєСЃРёРјСѓРј +20%
     
     export default function Burn() {
       const { user, logout } = useContext(AuthContext);
-      const navigate         = useNavigate();
+      const navigate = useNavigate();
     
+      const [status, setStatus]         = useState('idle'); // idle | pending | success | error
+      const [error, setError]           = useState('');
       const [invoiceId, setInvoiceId]   = useState(null);
       const [paymentUrl, setPaymentUrl] = useState('');
-      const [status, setStatus]         = useState('idle'); // idle | pending | confirmed | error
-      const [error, setError]           = useState('');
-      const [logs, setLogs]             = useState([]);
     
-      const addLog = msg => setLogs(l => [...l, `${new Date().toLocaleTimeString()}: ${msg}`]);
+      const [fragmentId, setFragmentId]   = useState(null);
+      const [category, setCategory]       = useState('');
+      const [pityCounter, setPityCounter] = useState(0);
     
-      const startBurn = async () => {
-        addLog('рџ•‘ startBurn()');
-        addLog(`User: ${user.tg_id}, token: ${localStorage.getItem('token')?.slice(0,10)}вЂ¦`);
-        setError('');
-        setStatus('pending');
+      const [coupon, setCoupon]       = useState(0);
+      const [priceNano, setPriceNano] = useState(500_000_000); // Р±Р°Р·РѕРІР°СЏ С†РµРЅР° nano
     
-        try {
-          addLog('в†’ POST /api/burn-invoice');
-          const resp = await API.createBurn(user.tg_id);
-          addLog(`в†ђ createBurn resp: ${JSON.stringify(resp)}`);
-    
-          setInvoiceId(resp.invoiceId);
-          setPaymentUrl(resp.paymentUrl);
-        } catch (e) {
-          console.error('[Burn] createBurn error', e);
-          const msg = e.message || 'РћС€РёР±РєР° СЃРѕР·РґР°РЅРёСЏ РёРЅРІРѕР№СЃР°';
-          setError(msg);
-          addLog(`вќЊ createBurn error: ${msg}`);
-          if (msg.toLowerCase().includes('invalid token')) {
-            addLog('рџљЄ Invalid token вЂ” logging out');
-            logout();
-            navigate('/login');
-          }
-          setStatus('error');
-        }
-      };
-    
+      // Р—Р°РіСЂСѓР·РєР° РµР¶РµРґРЅРµРІРЅРѕРіРѕ РєСѓРїРѕРЅР°
       useEffect(() => {
-        if (status !== 'pending' || !invoiceId) return;
-    
-        addLog('рџ•µпёЏ Polling burn statusвЂ¦');
-        const timer = setInterval(async () => {
-          try {
-            addLog(`в†’ GET /api/burn-status/${invoiceId}`);
-            const resp = await API.getBurnStatus(invoiceId);
-            addLog(`в†ђ burnStatus resp: ${JSON.stringify(resp)}`);
-    
-            if (resp.paid) {
-              addLog('вњ… Paid! redirect to /gallery');
-              clearInterval(timer);
-              navigate('/gallery');
-            }
-          } catch (e) {
-            console.error('[Burn] getBurnStatus error', e);
-            const msg = e.message || 'РћС€РёР±РєР° РїСЂРѕРІРµСЂРєРё РѕРїР»Р°С‚С‹';
-            setError(msg);
-            addLog(`вќЊ burnStatus error: ${msg}`);
-            if (msg.toLowerCase().includes('invalid token')) {
-              addLog('рџљЄ Invalid token вЂ” logging out');
+        API.getDailyQuest()
+          .then(data => setCoupon(data.coupon || 0))
+          .catch(e => {
+            console.error('[Burn] daily-quest error', e);
+            if (e.message.toLowerCase().includes('invalid token')) {
               logout();
               navigate('/login');
             }
+          });
+      }, [logout, navigate]);
+    
+      // РџРµСЂРµСЃС‡РµС‚ С†РµРЅС‹ СЃ СѓС‡С‘С‚РѕРј РєСѓРїРѕРЅР°
+      useEffect(() => {
+        const base = 500_000_000;
+        const discount = Math.floor(base * (coupon / 100));
+        setPriceNano(base - discount);
+      }, [coupon]);
+    
+      // Р’С‹С‡РёСЃР»РµРЅРёРµ С€Р°РЅСЃРѕРІ
+      const computeChances = () => {
+        const boost = Math.min(pityCounter * PITY_BOOST_PER, PITY_CAP);
+        const baseR = CATEGORIES.find(c => c.key === 'rare').baseChance;
+        const baseL = CATEGORIES.find(c => c.key === 'legendary').baseChance;
+        const sumRL = baseR + baseL;
+        return CATEGORIES.map(c => {
+          let chance = c.baseChance;
+          if (c.key === 'rare' || c.key === 'legendary') {
+            chance += boost * (c.baseChance / sumRL);
+          }
+          return { ...c, chance };
+        });
+      };
+    
+      // РЎС‚Р°СЂС‚ burn
+      const startBurn = async () => {
+        setError('');
+        setStatus('pending');
+        try {
+          // РџРµСЂРµРґР°РµРј СЃРєРёРґРєСѓ СЃРµСЂРІРµСЂСѓ РІ С‚РµР»Рµ
+          const resp = await API.createBurn(user.tg_id, { discount: coupon });
+          setInvoiceId(resp.invoiceId);
+          setPaymentUrl(resp.paymentUrl);
+        } catch (e) {
+          setError(e.message || 'РћС€РёР±РєР° СЃРѕР·РґР°РЅРёСЏ РёРЅРІРѕР№СЃР°');
+          setStatus('error');
+          if (e.message.toLowerCase().includes('invalid token')) {
+            logout();
+            navigate('/login');
+          }
+        }
+      };
+    
+      // РћРїСЂРѕСЃ СЃС‚Р°С‚СѓСЃР° РѕРїР»Р°С‚С‹
+      useEffect(() => {
+        if (status !== 'pending' || !invoiceId) return;
+        const timer = setInterval(async () => {
+          try {
+            const resp = await API.getBurnStatus(invoiceId);
+            if (resp.paid) {
+              clearInterval(timer);
+              setCategory(resp.category);
+              setFragmentId(resp.newFragment);
+              setPityCounter(resp.pity_counter);
+              setStatus('success');
+            }
+          } catch (e) {
             clearInterval(timer);
+            setError(e.message || 'РћС€РёР±РєР° РїСЂРѕРІРµСЂРєРё РѕРїР»Р°С‚С‹');
             setStatus('error');
+            if (e.message.toLowerCase().includes('invalid token')) {
+              logout();
+              navigate('/login');
+            }
           }
         }, 3000);
-    
         return () => clearInterval(timer);
-      }, [status, invoiceId]);
+      }, [status, invoiceId, logout, navigate]);
+    
+      const chances = computeChances();
+      const priceTON = (priceNano / 1e9).toFixed(3);
     
       return (
-        <div className="relative min-h-screen bg-cover bg-center" style={{ backgroundImage: "url('/images/bg-burn.webp')" }}>
+        <div className="relative min-h-screen bg-cover bg-center text-white" style={{ backgroundImage: "url('/images/bg-burn.webp')" }}>
           <div className="absolute inset-0 bg-black opacity-60" />
-          <div className="relative z-10 mx-auto max-w-md p-6 bg-gray-900 bg-opacity-90 backdrop-blur-sm rounded-xl space-y-6 text-white">
-            <BackButton />
-    
-            {/* Р›РѕРі-РєРѕРЅС‚РµР№РЅРµСЂ */}
-            <div className="h-32 overflow-y-auto bg-gray-800 text-xs p-2 rounded">
-              {logs.map((l,i) => <div key={i}>{l}</div>)}
-            </div>
-    
-            <h2 className="text-2xl font-bold text-center">Burn Yourself</h2>
+          <div className="relative z-10 mx-auto max-w-md p-6 bg-gray-900 bg-opacity-90 backdrop-blur-sm rounded-xl space-y-6">
+            <BackButton className="text-white" />
+            <h2 className="text-2xl font-bold text-center text-white">Burn Yourself</h2>
     
             {status === 'idle' && (
-              <button
-                onClick={startBurn}
-                className="w-full py-3 bg-red-600 hover:bg-red-700 rounded-lg font-semibold"
-              >
-                рџ”Ґ Burn for 0.5 TON
-              </button>
+              <>
+                {coupon > 0 && (
+                  <p className="text-sm text-green-400">
+                    Daily coupon: {coupon}% off в†’ {priceTON} TON
+                  </p>
+                )}
+                <button
+                  onClick={startBurn}
+                  className="w-full py-3 bg-red-600 hover:bg-red-700 rounded-lg font-semibold text-white"
+                >
+                  рџ”Ґ Burn for {priceTON} TON
+                </button>
+              </>
             )}
     
             {status === 'pending' && (
               <div className="space-y-4 text-center">
-                <p>Invoice created. Open payment link:</p>
-                <a href={paymentUrl} target="_blank" rel="noreferrer"
-                   className="text-blue-400 underline">
+                <p className="text-white">РЎС‡С‘С‚ СЃРѕР·РґР°РЅ. РћРїР»Р°С‚РёС‚Рµ РїРѕ СЃСЃС‹Р»РєРµ:</p>
+                <a href={paymentUrl} target="_blank" rel="noreferrer" className="text-blue-300 underline">
                   {paymentUrl}
                 </a>
-                <p className="text-gray-300 text-sm">Waiting for confirmation...</p>
+                <p className="text-gray-300 text-sm text-white">РћР¶РёРґР°РµРј РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ...</p>
+              </div>
+            )}
+    
+            {status === 'success' && (
+              <div className="space-y-4 text-center">
+                <p className="text-lg text-white">Р’С‹ РїРѕР»СѓС‡РёР»Рё <span className="font-bold text-white">{category}</span> С„СЂР°РіРјРµРЅС‚</p>
+                <p className="text-2xl text-white">#{fragmentId}</p>
+                <div className="flex space-x-4 justify-center">
+                  <button
+                    onClick={() => setStatus('idle')}
+                    className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded text-white"
+                  >
+                    Burn again
+                  </button>
+                  <button
+                    onClick={() => navigate('/gallery')}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-white"
+                  >
+                    View Gallery
+                  </button>
+                </div>
               </div>
             )}
     
             {status === 'error' && (
-              <p className="text-red-500 text-center">{error}</p>
+              <p className="text-red-500 text-center text-white">{error}</p>
             )}
           </div>
         </div>
@@ -3663,162 +3726,207 @@
     }
 
 ===== FILE: src\screens\Congrats.jsx =====
-    // src/screens/Congrats.jsx
-    import React, { useState, useContext } from 'react';
+    // С„Р°Р№Р»: src/screens/Congrats.jsx
+    import React, { useState, useEffect, useContext } from 'react';
     import { useNavigate } from 'react-router-dom';
+    import BackButton from '../components/BackButton';
     import { AuthContext } from '../context/AuthContext';
-    
-    // Р—Р°РјРµРЅРёС‚Рµ РЅР° СЂРµР°Р»СЊРЅС‹Р№ РїР»РµР№СЃС…РѕР»РґРµСЂ РІР°С€РµР№ NFT РёР»Рё URL РёР· API
-    const NFT_PLACEHOLDER = '/images/final-nft-placeholder.webp';
+    import API from '../utils/apiClient';
     
     export default function Congrats() {
-      const { user } = useContext(AuthContext);
+      const { logout } = useContext(AuthContext);
       const navigate = useNavigate();
-      const [message, setMessage] = useState('');
+      const [imageUrl, setImageUrl] = useState('');
+      const [error, setError] = useState('');
     
-      const handleShare = async () => {
-        const shareData = {
-          title: 'I completed the Order of Ash',
-          text: 'I just forged my final NFT in Order of Ash! рџ”Ґ',
-          url: window.location.href,
-        };
-        try {
-          if (navigator.share) {
-            await navigator.share(shareData);
-          } else {
-            await navigator.clipboard.writeText(`${shareData.title}\n${shareData.text}\n${shareData.url}`);
-            setMessage('Link copied to clipboard!');
-          }
-        } catch {
-          setMessage('Unable to share at this time.');
-        }
-      };
+      useEffect(() => {
+        // Р—Р°РіСЂСѓР¶Р°РµРј РїРѕРґРїРёСЃР°РЅРЅС‹Р№ URL РґР»СЏ С„РёРЅР°Р»СЊРЅРѕРіРѕ РёР·РѕР±СЂР°Р¶РµРЅРёСЏ (NFT)
+        API.getPresigned()
+          .then(data => {
+            const url = data.signedUrls['final-image.jpg'];
+            setImageUrl(url);
+          })
+          .catch(err => {
+            const msg = err.message || 'РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ РёР·РѕР±СЂР°Р¶РµРЅРёРµ';
+            setError(msg);
+            if (msg.toLowerCase().includes('invalid token')) {
+              logout();
+              navigate('/login');
+            }
+          });
+      }, [logout, navigate]);
     
       return (
         <div
-          className="relative min-h-screen bg-cover bg-center"
-          style={{ backgroundImage: "url('/images/bg-ash.webp')" }}
+          className="relative min-h-screen bg-cover bg-center text-white"
+          style={{ backgroundImage: "url('/images/bg-final.webp')" }}
         >
-          {/* РћРІРµСЂР»РµР№ */}
-          <div className="absolute inset-0 bg-black opacity-60" />
+          <div className="absolute inset-0 bg-black opacity-70" />
+          <div className="relative z-10 mx-auto max-w-lg p-6 bg-gray-900 bg-opacity-90 rounded-xl space-y-6">
+            <BackButton className="text-white" />
+            <h1 className="text-3xl font-bold text-center">Congratulations!</h1>
     
-          <div className="relative z-10 container mx-auto px-4 py-12 flex flex-col items-center space-y-8">
-            <h2 className="text-4xl font-extrabold text-white drop-shadow-lg text-center">
-              Congratulations!
-            </h2>
-            <p className="text-lg text-white/90 text-center max-w-md">
-              You have collected all fragments and forged your Final NFT.
-            </p>
-    
-            <div className="w-64 h-64 bg-gray-800 rounded-xl overflow-hidden shadow-lg">
+            {imageUrl && (
               <img
-                src={NFT_PLACEHOLDER}
-                alt="Your Final NFT"
-                className="object-cover w-full h-full"
-                onError={e => {
-                  e.currentTarget.onerror = null;
-                  e.currentTarget.src = '/images/fragments/placeholder.webp';
-                }}
+                src={imageUrl}
+                alt="Final Puzzle"
+                className="w-full rounded-lg shadow-lg"
               />
-            </div>
-    
-            {message && (
-              <p className="text-sm text-yellow-300">{message}</p>
             )}
     
-            <div className="flex flex-col sm:flex-row gap-4 w-full max-w-xs">
-              <button
-                onClick={handleShare}
-                className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition"
-              >
-                Share Your Victory
-              </button>
-              <button
-                onClick={() => navigate('/profile')}
-                className="flex-1 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition"
-              >
-                Go to Profile
-              </button>
-            </div>
+            {!imageUrl && !error && (
+              <p className="text-center">Generating your NFT...</p>
+            )}
+    
+            {error && (
+              <p className="text-red-500 text-center">{error}</p>
+            )}
+    
+            <button
+              onClick={() => navigate('/profile')}
+              className="w-full py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold text-white"
+            >
+              Go to Profile
+            </button>
           </div>
         </div>
       );
     }
 
+===== FILE: src\screens\DailyQuest.jsx =====
+    import React, { useState, useEffect, useContext } from 'react';
+    import { AuthContext } from '../context/AuthContext';
+    import API from '../utils/apiClient';
+    
+    export default function DailyQuest() {
+      const { logout } = useContext(AuthContext);
+      const [canClaim, setCanClaim] = useState(false);
+      const [coupon, setCoupon]     = useState(0);
+      const [loading, setLoading]   = useState(true);
+      const [error, setError]       = useState('');
+    
+      useEffect(() => {
+        API.getDailyQuest()
+          .then(data => {
+            setCanClaim(data.canClaim);
+            setCoupon(data.coupon);
+          })
+          .catch(e => {
+            if (e.message.toLowerCase().includes('invalid token')) logout();
+            else setError(e.message);
+          })
+          .finally(() => setLoading(false));
+      }, [logout]);
+    
+      const handleClaim = () => {
+        API.claimDailyQuest()
+          .then(data => {
+            setCoupon(data.coupon);
+            setCanClaim(false);
+          })
+          .catch(e => setError(e.message));
+      };
+    
+      if (loading) return <p>Loading...</p>;
+      if (error) return <p className="text-red-500">{error}</p>;
+    
+      return (
+        <div>
+          {canClaim ? (
+            <button onClick={handleClaim} className="px-4 py-2 bg-green-600 text-white">
+              Claim Daily Quest: {coupon}% off
+            </button>
+          ) : (
+            <p>Daily coupon: {coupon}% (already claimed)</p>
+          )}
+        </div>
+      );
+    }
+
 ===== FILE: src\screens\FinalPhrase.jsx =====
-    // src/screens/FinalPhrase.jsx
-    import React, { useState, useContext } from 'react';
+    // С„Р°Р№Р»: src/screens/FinalPhrase.jsx
+    import React, { useState, useEffect, useContext } from 'react';
     import { useNavigate } from 'react-router-dom';
     import BackButton from '../components/BackButton';
     import { AuthContext } from '../context/AuthContext';
     import API from '../utils/apiClient';
     
     export default function FinalPhrase() {
-      const { user }     = useContext(AuthContext);
-      const navigate     = useNavigate();
+      const { user, logout } = useContext(AuthContext);
+      const navigate = useNavigate();
     
-      const [phrase, setPhrase]   = useState('');
-      const [loading, setLoading] = useState(false);
-      const [error, setError]     = useState('');
+      const [canEnter, setCanEnter] = useState(false);
+      const [loading, setLoading] = useState(true);
+      const [phrase, setPhrase] = useState('');
+      const [error, setError] = useState('');
     
-      const handleSubmit = async () => {
-        if (!phrase.trim()) return;
-        setLoading(true);
+      // РџСЂРѕРІРµСЂСЏРµРј, РјРѕР¶РЅРѕ Р»Рё РІРІРѕРґРёС‚СЊ С„РёРЅР°Р»СЊРЅСѓСЋ С„СЂР°Р·Сѓ
+      useEffect(() => {
+        API.getFinal(user.tg_id)
+          .then(res => {
+            setCanEnter(res.canEnter);
+            setLoading(false);
+          })
+          .catch(e => {
+            if (e.message.toLowerCase().includes('invalid token')) {
+              logout();
+              navigate('/login');
+            } else {
+              setError(e.message);
+              setLoading(false);
+            }
+          });
+      }, [user.tg_id, logout, navigate]);
+    
+      const handleSubmit = async (e) => {
+        e.preventDefault();
         setError('');
         try {
-          // TODO: Р·Р°РјРµРЅРёС‚СЊ РЅР° СЂРµР°Р»СЊРЅС‹Р№ РІС‹Р·РѕРІ API.validateFinal
-          // await API.validateFinal(user.tg_id, phrase);
-          await new Promise(res => setTimeout(res, 500));
-          // РµСЃР»Рё РїСЂРѕС€Р»Рѕ СѓСЃРїРµС€РЅРѕ
-          navigate('/congrats');
+          const res = await API.validateFinal(phrase.trim());
+          if (res.ok) {
+            navigate('/congrats');
+          }
         } catch (e) {
-          console.error(e);
-          setError(e.error || e.message || 'РќРµРІРµСЂРЅР°СЏ С„СЂР°Р·Р°');
-        } finally {
-          setLoading(false);
+          setError(e.message || 'Incorrect phrase');
         }
       };
     
+      if (loading) {
+        return <p className="text-white p-4">Loading...</p>;
+      }
+    
+      if (!canEnter) {
+        return (
+          <div className="p-6 text-white">
+            <BackButton className="text-white" />
+            <p className="mt-4">Р¤РёРЅР°Р»СЊРЅР°СЏ С„СЂР°Р·Р° РїРѕРєР° РЅРµРґРѕСЃС‚СѓРїРЅР°. РЎРѕР±РµСЂРёС‚Рµ РІСЃРµ 8 С„СЂР°РіРјРµРЅС‚РѕРІ Рё РІРІРµРґРёС‚Рµ РІ СЃРІРѕСЋ РјРёРЅСѓС‚Сѓ РѕС‡РёС‰РµРЅРёСЏ.</p>
+          </div>
+        );
+      }
+    
       return (
-        <div
-          className="relative min-h-screen bg-cover bg-center"
-          style={{ backgroundImage: "url('/images/bg-final.webp')" }}
-        >
+        <div className="relative min-h-screen bg-cover bg-center text-white" style={{ backgroundImage: "url('/images/bg-final.webp')" }}>
           <div className="absolute inset-0 bg-black opacity-60" />
-    
-          <div className="relative z-10 container mx-auto px-4 py-8">
-            <BackButton />
-    
-            <div className="mx-auto max-w-lg bg-gray-800 bg-opacity-90 backdrop-blur-sm rounded-2xl p-6 space-y-6 text-white">
-              <h2 className="text-2xl font-bold text-center">Enter Final Phrase</h2>
-    
-              <p className="text-gray-300 text-sm text-center">
-                Combine the secret words from your 8 fragments.
-              </p>
-    
-              <textarea
+          <div className="relative z-10 mx-auto max-w-md p-6 bg-gray-900 bg-opacity-90 rounded-xl space-y-4">
+            <BackButton className="text-white" />
+            <h2 className="text-2xl font-bold text-center">Enter Final Phrase</h2>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <input
+                type="text"
                 value={phrase}
                 onChange={e => setPhrase(e.target.value)}
-                rows={4}
-                placeholder="Type your final phrase here..."
-                className="w-full px-4 py-2 bg-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-600 resize-none"
+                placeholder="Your secret phrase"
+                className="w-full px-4 py-2 bg-gray-800 rounded text-white"
+                required
               />
-    
-              {error && (
-                <p className="text-red-400 text-center text-sm">{error}</p>
-              )}
-    
+              {error && <p className="text-red-500 text-sm">{error}</p>}
               <button
-                onClick={handleSubmit}
-                disabled={loading || !phrase.trim()}
-                className={`w-full py-3 rounded-lg font-semibold transition
-                  ${phrase.trim() && !loading
-                    ? 'bg-red-600 hover:bg-red-700 text-white'
-                    : 'bg-gray-600 text-gray-300 cursor-not-allowed'}`}
+                type="submit"
+                className="w-full py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold"
               >
-                {loading ? 'SubmittingвЂ¦' : 'Submit'}
+                Submit Phrase
               </button>
-            </div>
+            </form>
           </div>
         </div>
       );
@@ -4040,109 +4148,46 @@
     }
 
 ===== FILE: src\screens\Leaderboard.jsx =====
-    // src/screens/Leaderboard.jsx
-    import React, { useState, useEffect, useContext } from 'react';
-    import { useNavigate } from 'react-router-dom';
-    import BackButton from '../components/BackButton';
+    import React, { useEffect, useState, useContext } from 'react';
     import { AuthContext } from '../context/AuthContext';
-    import API from '../utils/apiClient';
+    import API           from '../utils/apiClient';
     
     export default function Leaderboard() {
-      const { user } = useContext(AuthContext);
-      const navigate = useNavigate();
-    
-      const [leaders, setLeaders] = useState([]); // [{ rank, name, amount }]
-      const [loading, setLoading] = useState(true);
+      const { logout } = useContext(AuthContext);
+      const [leaders, setLeaders] = useState([]);
       const [error, setError]     = useState('');
     
       useEffect(() => {
-        async function fetchLeaders() {
-          setLoading(true);
-          setError('');
-          try {
-            // TODO: Р·Р°РјРµРЅРёС‚СЊ РЅР° СЂРµР°Р»СЊРЅС‹Р№ РІС‹Р·РѕРІ API.getStats()
-            // const data = await API.getStats();
-            // setLeaders(data.top10);
-            await new Promise(res => setTimeout(res, 500));
-            setLeaders([
-              { rank: 1, name: 'Alice',   amount: 12.5 },
-              { rank: 2, name: 'Bob',     amount: 11.0 },
-              { rank: 3, name: 'Carol',   amount: 9.8 },
-              { rank: 4, name: 'Dave',    amount: 8.2 },
-              { rank: 5, name: 'Eve',     amount: 7.3 },
-              { rank: 6, name: 'Frank',   amount: 6.5 },
-              { rank: 7, name: 'Grace',   amount: 5.9 },
-              { rank: 8, name: 'Heidi',   amount: 5.0 },
-              { rank: 9, name: 'Ivan',    amount: 4.6 },
-              { rank: 10, name: 'Judy',   amount: 4.2 },
-            ]);
-          } catch (e) {
-            console.error(e);
-            setError('РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ С‚Р°Р±Р»РёС†Сѓ Р»РёРґРµСЂРѕРІ');
-          } finally {
-            setLoading(false);
-          }
-        }
-        fetchLeaders();
-      }, []);
+        API.getLeaderboard()
+          .then(setLeaders)
+          .catch(e => {
+            if (e.message.toLowerCase().includes('invalid token')) {
+              logout();
+            } else {
+              setError(e.message);
+            }
+          });
+      }, [logout]);
+    
+      if (error) return <p className="text-red-500">{error}</p>;
     
       return (
-        <div
-          className="relative min-h-screen bg-cover bg-center"
-          style={{ backgroundImage: "url('/images/profile-bg.webp')" }}
-        >
-          {/* РўС‘РјРЅС‹Р№ РѕРІРµСЂР»РµР№ */}
-          <div className="absolute inset-0 bg-black opacity-60" />
-    
-          <div className="relative z-10 container mx-auto px-4 py-8">
-            <BackButton />
-    
-            <div className="mx-auto max-w-lg bg-white bg-opacity-90 backdrop-blur-sm rounded-xl shadow-lg p-6">
-              <h2 className="text-2xl font-bold text-gray-900 text-center mb-4">
-                Leaderboard
-              </h2>
-    
-              {loading && (
-                <p className="text-gray-700 text-center">Loading leaderboardвЂ¦</p>
-              )}
-              {error && (
-                <p className="text-red-600 text-center">{error}</p>
-              )}
-    
-              {!loading && !error && (
-                <ol className="space-y-2">
-                  {leaders.map(({ rank, name, amount }) => (
-                    <li
-                      key={rank}
-                      className={`flex justify-between items-center px-4 py-2 rounded-lg
-                        ${user.name === name ? 'bg-yellow-100' : 'bg-gray-100'}
-                      `}
-                    >
-                      <span className="font-semibold">
-                        #{rank} {name}
-                      </span>
-                      <span className="text-gray-700">
-                        {amount.toFixed(1)} TON
-                      </span>
-                    </li>
-                  ))}
-                </ol>
-              )}
-    
-              <button
-                onClick={() => navigate('/gallery')}
-                className="mt-6 w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold"
-              >
-                Back to Gallery
-              </button>
-            </div>
-          </div>
+        <div className="p-6">
+          <h1 className="text-2xl font-bold mb-4">Leaderboard</h1>
+          <ol className="space-y-2">
+            {leaders.map((u, i) => (
+              <li key={u.tg_id} className="flex justify-between">
+                <span>#{i+1} {u.name}</span>
+                <span>{u.totalTon} TON ({u.totalBurns} burns)</span>
+              </li>
+            ))}
+          </ol>
         </div>
       );
     }
 
 ===== FILE: src\screens\Login.jsx =====
-    // src/screens/Login.jsx
+    // С„Р°Р№Р»: src/screens/Login.jsx
     import React, { useState, useEffect, useContext } from 'react';
     import API from '../utils/apiClient';
     import { AuthContext } from '../context/AuthContext';
@@ -4193,7 +4238,9 @@
             initData,
             referrer_code: refCode.trim() || null
           });
+          console.log('[Login] init response:', { userObj, token });
           login(userObj, token);
+          console.log('в†’ token saved to localStorage:', localStorage.getItem('token'));
           navigate('/burn');
         } catch (e) {
           console.error('[Login] init error', e);
@@ -4268,7 +4315,7 @@
     }
 
 ===== FILE: src\screens\Profile.jsx =====
-    // src/screens/Profile.jsx
+    // С„Р°Р№Р»: src/screens/Profile.jsx
     import React, { useState, useEffect, useContext } from 'react';
     import { useNavigate } from 'react-router-dom';
     import BackButton from '../components/BackButton';
@@ -4279,110 +4326,105 @@
       const { user, logout } = useContext(AuthContext);
       const navigate = useNavigate();
     
-      const [stats, setStats]         = useState({ totalBurns: 0, referrals: 0 });
-      const [fragments, setFragments] = useState([]);
-      const [loading, setLoading]     = useState(true);
-      const [error, setError]         = useState('');
+      const [loading, setLoading] = useState(true);
+      const [error, setError]     = useState('');
+      const [player, setPlayer]   = useState(null);
+      const [stats, setStats]     = useState(null);
+      const [ref, setRef]         = useState(null);
     
       useEffect(() => {
-        async function fetchProfile() {
-          setLoading(true);
-          setError('');
+        async function fetchData() {
           try {
-            // TODO: Р·Р°РјРµРЅРёС‚СЊ РЅР° СЂРµР°Р»СЊРЅС‹Рµ РІС‹Р·РѕРІС‹ API.getStats Рё API.getFragments
-            await new Promise(res => setTimeout(res, 500));
-            setStats({ totalBurns: 5, referrals: 2 });
-            setFragments([1,2,3,4,5,6,7,8]); // РІСЃРµ С„СЂР°РіРјРµРЅС‚С‹ РґР»СЏ РїСЂРёРјРµСЂР°
+            const [playerData, statsData, refData] = await Promise.all([
+              API.getPlayer(user.tg_id),
+              API.getUserStats(user.tg_id),
+              API.getReferral()
+            ]);
+            setPlayer(playerData);
+            setStats(statsData);
+            setRef(refData);
           } catch (e) {
-            console.error(e);
-            setError('РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ РїСЂРѕС„РёР»СЊ');
+            console.error('[Profile] fetch error', e);
+            if (e.message.toLowerCase().includes('invalid token')) {
+              logout();
+              navigate('/login');
+            } else {
+              setError(e.message);
+            }
           } finally {
             setLoading(false);
           }
         }
-        fetchProfile();
-      }, [user]);
+        fetchData();
+      }, [user.tg_id, logout, navigate]);
     
-      // Р•СЃР»Рё РІСЃРµ С„СЂР°РіРјРµРЅС‚С‹ СЃРѕР±СЂР°РЅС‹, РѕС‚РѕР±СЂР°Р¶Р°РµРј С„РёРЅР°Р»СЊРЅСѓСЋ NFT
-      const allCollected = fragments.length >= 8;
+      const handleReset = async () => {
+        if (!window.confirm('РЎР±СЂРѕСЃРёС‚СЊ РїСЂРѕРіСЂРµСЃСЃ Рё РЅР°С‡Р°С‚СЊ Р·Р°РЅРѕРІРѕ Р·Р° 2 TON?')) return;
+        try {
+          await API.deletePlayer(user.tg_id);
+          logout();
+          navigate('/login');
+        } catch (e) {
+          console.error('[Profile] reset error', e);
+          setError(e.message);
+        }
+      };
+    
+      if (loading) {
+        return <p className="text-white p-6">Loading profile...</p>;
+      }
+      if (error) {
+        return <p className="text-red-500 p-6">{error}</p>;
+      }
     
       return (
-        <div
-          className="relative min-h-screen bg-cover bg-center"
-          style={{ backgroundImage: "url('/images/profile-bg.webp')" }}
-        >
-          <div className="absolute inset-0 bg-black opacity-60" />
-          <div className="relative z-10 container mx-auto px-4 py-8">
-            <BackButton />
+        <div className="relative min-h-screen bg-cover bg-center text-white" style={{ backgroundImage: "url('/images/bg-profile.webp')" }}>
+          <div className="absolute inset-0 bg-black opacity-70" />
+          <div className="relative z-10 mx-auto max-w-xl p-6 bg-gray-900 bg-opacity-90 rounded-xl space-y-6">
+            <BackButton className="text-white" />
+            <h1 className="text-3xl font-bold">Profile</h1>
     
-            <div className="mx-auto max-w-lg bg-white bg-opacity-90 backdrop-blur-sm rounded-2xl shadow-lg p-6 space-y-6">
-              <h2 className="text-2xl font-bold text-gray-900 text-center">Profile</h2>
-    
-              {loading && <p className="text-gray-700 text-center">Loading profile...</p>}
-              {error   && <p className="text-red-600 text-center">{error}</p>}
-    
-              {!loading && !error && (
-                <>
-                  <div className="space-y-2">
-                    <p><span className="font-semibold">Telegram ID:</span> {user.tg_id}</p>
-                    <p><span className="font-semibold">Name:</span> {user.name}</p>
-                    <p><span className="font-semibold">Total Burns:</span> {stats.totalBurns}</p>
-                    <p><span className="font-semibold">Referrals:</span> {stats.referrals}</p>
-                  </div>
-    
-                  <div className="mt-4">
-                    <h3 className="font-semibold mb-2">Your Fragments</h3>
-                    {allCollected ? (
-                      <img
-                        src="/images/final-nft-placeholder.webp"
-                        alt="Final NFT"
-                        className="w-full rounded-lg shadow-md"
-                      />
-                    ) : (
-                      <div className="grid grid-cols-4 gap-4">
-                        {Array.from({ length: 8 }, (_, idx) => {
-                          const i = idx + 1;
-                          const got = fragments.includes(i);
-                          return (
-                            <div
-                              key={i}
-                              className={`w-16 h-16 flex items-center justify-center rounded border ${
-                                got ? 'border-red-600' : 'border-gray-400'
-                              } bg-gray-100`}
-                            >
-                              {got ? (
-                                <img
-                                  src={`/images/fragments/fragment-${i}.webp`}
-                                  alt={`Fragment ${i}`}
-                                  className="w-full h-full object-cover rounded"
-                                />
-                              ) : (
-                                <span className="text-gray-400">?</span>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-    
-                  <div className="flex flex-col space-y-3 mt-6">
-                    <button
-                      onClick={logout}
-                      className="w-full py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg"
-                    >
-                      Logout
-                    </button>
-                    <button
-                      onClick={() => navigate('/')}
-                      className="w-full py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg"
-                    >
-                      Home
-                    </button>
-                  </div>
-                </>
-              )}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <h2 className="text-xl font-semibold">Player Info</h2>
+                <p><strong>Name:</strong> {player.name}</p>
+                <p><strong>TG ID:</strong> {player.tg_id}</p>
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold">Stats</h2>
+                <p><strong>Total Burns:</strong> {stats.totalBurns}</p>
+                <p><strong>Total TON:</strong> {stats.totalTon}</p>
+                <p><strong>Last Burn:</strong> {new Date(player.last_burn).toLocaleString()}</p>
+              </div>
             </div>
+    
+            <div>
+              <h2 className="text-xl font-semibold">Fragments</h2>
+              <div className="grid grid-cols-4 gap-2 mt-2">
+                {Array.from({ length: 8 }, (_, i) => i + 1).map(id => (
+                  <div key={id} className="w-16 h-16 bg-gray-800 rounded flex items-center justify-center">
+                    {player.fragments.includes(id)
+                      ? <img src={`/fragments/fragment_${id}.jpg?dummy=${Date.now()}`} alt={`Fragment ${id}`} className="object-cover w-full h-full rounded" />
+                      : <span className="text-gray-500">?</span>
+                    }
+                  </div>
+                ))}
+              </div>
+            </div>
+    
+            <div>
+              <h2 className="text-xl font-semibold">Referral</h2>
+              <p><strong>Code:</strong> {ref.refCode}</p>
+              <p><strong>Invited:</strong> {ref.invitedCount}</p>
+              <p><strong>Reward Claimed:</strong> {ref.rewardIssued ? 'Yes' : 'No'}</p>
+            </div>
+    
+            <button
+              onClick={handleReset}
+              className="w-full py-3 bg-red-600 hover:bg-red-700 rounded-lg font-semibold mt-4"
+            >
+              Reset & Reborn (2 TON)
+            </button>
           </div>
         </div>
       );
@@ -4589,21 +4631,26 @@
     
       getPlayer: async (tgId) => {
         const res = await fetch(`${BASE}/api/player/${tgId}`, {
-          headers: { ...authHeader() },
+          headers: authHeader(),
         });
         return handleResponse(res);
       },
     
       getPresigned: async () => {
         const res = await fetch(`${BASE}/api/fragments/urls`, {
-          headers: { ...authHeader() },
+          headers: authHeader(),
         });
         return handleResponse(res);
       },
     
+      getLeaderboard: async () => {
+      const res = await fetch(`${BASE}/api/leaderboard`, { headers: authHeader() });
+      return handleResponse(res);
+      },
+    
       getFragments: async (tgId) => {
         const res = await fetch(`${BASE}/api/fragments/${tgId}`, {
-          headers: { ...authHeader() },
+          headers: authHeader(),
         });
         return handleResponse(res);
       },
@@ -4612,13 +4659,35 @@
         const res = await fetch(`${BASE}/api/fragments/urls`, {
           headers: authHeader(),
         });
-        return handleResponse(res); // РѕР¶РёРґР°РµРј { signedUrls: { [name]: url } }
+        return handleResponse(res);
+      },
+    
+      getDailyQuest: async () => {
+        const res = await fetch(`${BASE}/api/daily-quest`, { headers: authHeader() });
+        return handleResponse(res);
+      },
+      claimDailyQuest: async () => {
+        const res = await fetch(`${BASE}/api/daily-quest/claim`, {
+        method: 'POST',
+        headers: { ...authHeader(), 'Content-Type': 'application/json' },
+      });
+        return handleResponse(res);
+      },
+    
+      getUserStats: async (tgId) => {
+      const res = await fetch(`${BASE}/api/stats/${tgId}`, {
+        headers: authHeader()
+      });
+      return handleResponse(res);
       },
     
       createBurn: async (tgId) => {
         const res = await fetch(`${BASE}/api/burn-invoice`, {
           method: 'POST',
-          headers: { ...authHeader(), 'Content-Type': 'application/json' },
+          headers: {
+            ...authHeader(),
+            'Content-Type': 'application/json',
+          },
           body: JSON.stringify({ tg_id: tgId }),
         });
         return handleResponse(res);
@@ -4626,14 +4695,14 @@
     
       getBurnStatus: async (invoiceId) => {
         const res = await fetch(`${BASE}/api/burn-status/${invoiceId}`, {
-          headers: { ...authHeader() },
+          headers: authHeader(),
         });
         return handleResponse(res);
       },
     
       getReferral: async () => {
         const res = await fetch(`${BASE}/api/referral`, {
-          headers: { ...authHeader() },
+          headers: authHeader(),
         });
         return handleResponse(res);
       },
@@ -4641,7 +4710,10 @@
       claimReferral: async () => {
         const res = await fetch(`${BASE}/api/referral/claim`, {
           method: 'POST',
-          headers: { ...authHeader(), 'Content-Type': 'application/json' },
+          headers: {
+            ...authHeader(),
+            'Content-Type': 'application/json',
+          },
         });
         return handleResponse(res);
       },
@@ -4649,7 +4721,10 @@
       validateFinal: async (phrase) => {
         const res = await fetch(`${BASE}/api/validate-final`, {
           method: 'POST',
-          headers: { ...authHeader(), 'Content-Type': 'application/json' },
+          headers: {
+            ...authHeader(),
+            'Content-Type': 'application/json',
+          },
           body: JSON.stringify({ phrase }),
         });
         return handleResponse(res);
@@ -4657,14 +4732,14 @@
     
       getFinal: async (tgId) => {
         const res = await fetch(`${BASE}/api/final/${tgId}`, {
-          headers: { ...authHeader() },
+          headers: authHeader(),
         });
         return handleResponse(res);
       },
     
       getStats: async () => {
         const res = await fetch(`${BASE}/api/stats/total_users`, {
-          headers: { ...authHeader() },
+          headers: authHeader(),
         });
         return handleResponse(res);
       },
@@ -4672,7 +4747,7 @@
       deletePlayer: async (tgId) => {
         const res = await fetch(`${BASE}/api/player/${tgId}`, {
           method: 'DELETE',
-          headers: { ...authHeader() },
+          headers: authHeader(),
         });
         return handleResponse(res);
       },

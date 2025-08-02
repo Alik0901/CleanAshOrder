@@ -1,80 +1,58 @@
-// src/screens/Home.jsx
-import React, { useContext } from 'react';
-import { useNavigate }    from 'react-router-dom';
-import { AuthContext }    from '../context/AuthContext';
+// файл: src/screens/Home.jsx
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { FiArrowRightCircle, FiImage, FiZap, FiUsers } from 'react-icons/fi';
 
 export default function Home() {
-  const { user, logout } = useContext(AuthContext);
-  const navigate         = useNavigate();
+  const navigate = useNavigate();
 
   return (
-    <div
-      className="relative min-h-screen bg-cover bg-center"
-      style={{ backgroundImage: "url('/images/bg-ash.webp')" }}
-    >
-      {/* Градиентный оверлей сверху и снизу */}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-transparent to-black/80" />
-
-      {/* Контент */}
-      <div className="relative z-10 flex flex-col items-center justify-between h-full py-16">
-        {/* Логотип и заголовок */}
-        <div className="text-center space-y-4">
-          <img
-            src="/images/logo.png"
-            alt="Order of Ash"
-            className="h-24 mx-auto drop-shadow-lg"
-          />
-          <h1 className="text-5xl font-extrabold text-white drop-shadow-lg">
-            Order of Ash
+    <div className="min-h-screen bg-gradient-to-br from-[#1A1A2E] to-[#16213E] text-white flex flex-col">
+      {/* Отступ сверху под NavBar */}
+      <div className="flex-grow flex items-center justify-center px-4">
+        <div className="max-w-3xl text-center space-y-8">
+          <h1 className="text-4xl md:text-5xl font-bold font-montserrat">
+            Welcome to the Order of Ash
           </h1>
-          {user && (
-            <p className="text-lg text-white/80">
-              Welcome back, <span className="font-semibold">{user.name || user.tg_id}</span>
-            </p>
-          )}
-        </div>
-
-        {/* Основные кнопки */}
-        <div className="w-full max-w-xs space-y-4">
-          {user ? (
-            <>
-              <button
-                onClick={() => navigate('/burn')}
-                className="w-full py-4 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg shadow-lg transition"
-              >
-                🔥 Burn Yourself
-              </button>
-              <button
-                onClick={logout}
-                className="w-full py-3 bg-transparent border border-red-600 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition"
-              >
-                Logout
-              </button>
-
-              {/* DEBUG-кнопки для прямого перехода */}
-              <button
-                onClick={() => navigate('/final')}
-                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition"
-              >
-                DEBUG: Go to Final
-              </button>
-              <button
-                onClick={() => navigate('/congrats')}
-                className="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition"
-              >
-                DEBUG: Go to Congrats
-              </button>
-            </>
-          ) : (
+          <p className="text-lg md:text-xl font-inter text-gray-300">
+            Unleash the ritual, collect all fragments, and unveil the secret phrase.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <button
-              onClick={() => navigate('/login')}
-              className="w-full py-4 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg shadow-lg transition"
+              onClick={() => navigate('/burn')}
+              className="flex items-center justify-center space-x-2 py-4 bg-[#FF6B6B] hover:bg-[#FF4757] rounded-lg shadow-lg transition-all font-semibold text-lg"
             >
-              Start Playing
+              <FiZap size={24} />
+              <span>Burn Yourself</span>
             </button>
-          )}
+            <button
+              onClick={() => navigate('/gallery')}
+              className="flex items-center justify-center space-x-2 py-4 bg-[#4ECDC4] hover:bg-[#48C9B0] rounded-lg shadow-lg transition-all font-semibold text-lg"
+            >
+              <FiImage size={24} />
+              <span>View Gallery</span>
+            </button>
+          </div>
+          <div className="flex justify-center space-x-4">
+            <button
+              onClick={() => navigate('/referral')}
+              className="flex items-center space-x-1 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-full font-inter text-sm"
+            >
+              <FiUsers size={18} />
+              <span>Invite Friends</span>
+            </button>
+            <button
+              onClick={() => navigate('/leaderboard')}
+              className="flex items-center space-x-1 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-full font-inter text-sm"
+            >
+              <FiArrowRightCircle size={18} />
+              <span>Leaderboard</span>
+            </button>
+          </div>
         </div>
       </div>
+      {/* Футер-пустышка для NavBar */}
+      <div className="h-16"></div>
     </div>
   );
 }
