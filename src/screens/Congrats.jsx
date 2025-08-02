@@ -1,65 +1,87 @@
-// файл: src/screens/Congrats.jsx
+// файл: src/screens/FinalPhrase.jsx
 import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BackButton from '../components/BackButton';
 import { AuthContext } from '../context/AuthContext';
 import API from '../utils/apiClient';
 
-export default function Congrats() {
-  const { logout } = useContext(AuthContext);
+export default function FinalPhrase() {
+  const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
-  const [imageUrl, setImageUrl] = useState('');
+
+  const [canEnter, setCanEnter] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [phrase, setPhrase] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
-    // Загружаем подписанный URL для финального изображения (NFT)
-    API.getPresigned()
-      .then(data => {
-        const url = data.signedUrls['final-image.jpg'];
-        setImageUrl(url);
+    API.getFinal(user.tg_id)
+      .then(res => {
+        setCanEnter(res.canEnter);
+        setLoading(false);
       })
-      .catch(err => {
-        const msg = err.message || 'Не удалось загрузить изображение';
-        setError(msg);
-        if (msg.toLowerCase().includes('invalid token')) {
+      .catch(e => {
+        console.error('[FinalPhrase] load error', e);
+        if (e.message.toLowerCase().includes('invalid token')) {
           logout();
           navigate('/login');
+        } else {
+          setError(e.message);
+          setLoading(false);
         }
       });
-  }, [logout, navigate]);
+  }, [user.tg_id, logout, navigate]);
+
+  const handleSubmit = async e => {
+    e.preventDefault();
+    setError('');
+    try {
+      const res = await API.validateFinal(phrase.trim());
+      if (res.ok) {
+        navigate('/congrats');
+      }
+    } catch (e) {
+      setError(e.message || 'Incorrect phrase');
+    }
+  };
+
+  if (loading) {
+    return <p className="text-white p-6">Loading...</p>;
+  }
+
+  if (!canEnter) {
+    return (
+      <div className="relative min-h-screen bg-gradient-to-br from-[#1A1A2E] to-[#16213E] text-white flex items-center justify-center">
+        <div className="bg-gray-800 bg-opacity-90 backdrop-blur-sm rounded-xl p-6 max-w-sm text-center">
+          <BackButton className="text-white mb-4" />
+          <p className="text-lg font-inter">Final phrase is not available yet.<br/>Collect all 8 fragments and return during your cleansing hour.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div
-      className="relative min-h-screen bg-cover bg-center text-white"
-      style={{ backgroundImage: "url('/images/bg-final.webp')" }}
-    >
-      <div className="absolute inset-0 bg-black opacity-70" />
-      <div className="relative z-10 mx-auto max-w-lg p-6 bg-gray-900 bg-opacity-90 rounded-xl space-y-6">
+    <div className="relative min-h-screen bg-gradient-to-br from-[#1A1A2E] to-[#16213E] text-white flex items-center justify-center">
+      <div className="bg-gray-800 bg-opacity-90 backdrop-blur-sm rounded-xl p-6 w-full max-w-md space-y-6">
         <BackButton className="text-white" />
-        <h1 className="text-3xl font-bold text-center">Congratulations!</h1>
-
-        {imageUrl && (
-          <img
-            src={imageUrl}
-            alt="Final Puzzle"
-            className="w-full rounded-lg shadow-lg"
+        <h2 className="text-2xl font-bold text-center font-montserrat">Enter Final Phrase</h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <input
+            type="text"
+            value={phrase}
+            onChange={e => setPhrase(e.target.value)}
+            placeholder="Your secret phrase"
+            className="w-full px-4 py-2 bg-gray-700 rounded-lg font-inter text-white focus:outline-none focus:ring-2 focus:ring-[#FF6B6B]"
+            required
           />
-        )}
-
-        {!imageUrl && !error && (
-          <p className="text-center">Generating your NFT...</p>
-        )}
-
-        {error && (
-          <p className="text-red-500 text-center">{error}</p>
-        )}
-
-        <button
-          onClick={() => navigate('/profile')}
-          className="w-full py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold text-white"
-        >
-          Go to Profile
-        </button>
+          {error && <p className="text-red-400 text-center font-inter">{error}</p>}
+          <button
+            type="submit"
+            className="w-full py-3 bg-gradient-to-r from-[#FF6B6B] to-[#FF4757] rounded-lg font-semibold transition hover:opacity-90"
+          >
+            Submit Phrase
+          </button>
+        </form>
       </div>
     </div>
   );
