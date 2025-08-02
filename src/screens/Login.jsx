@@ -1,4 +1,4 @@
-// src/screens/Login.jsx
+// файл: src/screens/Login.jsx
 import React, { useState, useEffect, useContext } from 'react';
 import API from '../utils/apiClient';
 import { AuthContext } from '../context/AuthContext';
@@ -49,16 +49,15 @@ export default function Login() {
         initData,
         referrer_code: refCode.trim() || null
       });
+      console.log('[Login] init response:', { userObj, token });
       login(userObj, token);
+      console.log('→ token saved to localStorage:', localStorage.getItem('token'));
       navigate('/burn');
     } catch (e) {
       console.error('[Login] init error', e);
       setError(e.message);
     }
   };
-
-  console.log('[Login] init response:', { userObj, token });
-  console.log('→ token saved to localStorage:', localStorage.getItem('token'));
 
   if (loading) {
     return (
