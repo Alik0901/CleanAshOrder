@@ -57,6 +57,9 @@ export default function Login() {
     }
   };
 
+  console.log('[Login] init response:', { userObj, token });
+  console.log('→ token saved to localStorage:', localStorage.getItem('token'));
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-900 text-white">
