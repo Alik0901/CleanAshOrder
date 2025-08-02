@@ -30,10 +30,10 @@ export default function Gallery() {
       setLoading(true);
       setError('');
       try {
-        // Получаем подписанные ссылки
-        const presigned = await API.getPresigned();
+        // Подгружаем все подписанные URL
+        const presigned = await API.getSignedFragmentUrls();
         setSignedUrls(presigned.signedUrls || {});
-        // Получаем список owned фрагментов
+        // Подгружаем owned фрагменты
         const fragData = await API.getFragments(user.tg_id);
         setFragments(fragData.fragments || []);
       } catch (e) {
@@ -51,19 +51,15 @@ export default function Gallery() {
     load();
   }, [user.tg_id, logout, navigate]);
 
-  // Автопереход на final
+  // Автопереход, если все фрагменты получены
   useEffect(() => {
     if (!loading && fragments.length >= 8) {
       navigate('/final');
     }
   }, [loading, fragments, navigate]);
 
-  if (loading) {
-    return <p className="text-white p-6">Loading gallery...</p>;
-  }
-  if (error) {
-    return <p className="text-red-500 p-6">{error}</p>;
-  }
+  if (loading) return <p className="text-white p-6">Loading gallery...</p>;
+  if (error)   return <p className="text-red-500 p-6">{error}</p>;
 
   return (
     <div
@@ -74,7 +70,9 @@ export default function Gallery() {
       <div className="relative z-10 max-w-lg mx-auto px-4 py-8">
         <BackButton className="text-white mb-4" />
         <h2 className="text-3xl font-bold font-montserrat mb-6 text-center">Your Fragments</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+
+        {/* Горизонтальная прокручиваемая полоса фрагментов */}
+        <div className="flex space-x-4 overflow-x-auto pb-4">
           {Array.from({ length: 8 }, (_, idx) => {
             const id = idx + 1;
             const owned = fragments.includes(id);
@@ -83,13 +81,12 @@ export default function Gallery() {
             return (
               <div
                 key={id}
-                className={`w-28 h-28 bg-gray-800 rounded-lg overflow-hidden shadow-lg flex items-center justify-center ${
-                  owned ? 'border-4 border-[#FF6B6B]' : 'border-4 border-gray-700'
-                }`}
+                className="flex-shrink-0 w-24 h-24 bg-gray-800 rounded-lg overflow-hidden shadow-lg border-4 transition-transform hover:scale-105"
+                style={owned ? { borderColor: '#FF6B6B' } : { borderColor: '#4A4A4A' }}
               >
                 {owned && url ? (
                   <img
-                    src={`${url}&dummy=${Date.now()}`}  // prevent caching
+                    src={`${url}&dummy=${Date.now()}`} // prevent caching
                     alt={`Fragment ${id}`}
                     className="object-cover w-full h-full"
                     onError={e => {
@@ -100,7 +97,7 @@ export default function Gallery() {
                 ) : (
                   <button
                     onClick={() => navigate('/burn')}
-                    className="text-4xl font-bold text-gray-400 hover:text-gray-200"
+                    className="w-full h-full flex items-center justify-center text-3xl text-gray-500 font-bold hover:text-gray-200"
                   >
                     ?
                   </button>
@@ -109,16 +106,18 @@ export default function Gallery() {
             );
           })}
         </div>
-        <div className="flex flex-col sm:flex-row sm:justify-between space-y-4 sm:space-y-0 mt-8">
+
+        {/* Кнопки действий */}
+        <div className="flex flex-col space-y-4 mt-8">
           <button
             onClick={() => navigate('/referral')}
-            className="flex-1 py-3 bg-[#4ECDC4] hover:bg-[#48C9B0] rounded-lg font-inter font-semibold"
+            className="w-full py-3 bg-[#4ECDC4] hover:bg-[#48C9B0] rounded-lg font-inter font-semibold transition"
           >
             Referral
           </button>
           <button
             onClick={() => navigate('/leaderboard')}
-            className="flex-1 py-3 bg-[#FF6B6B] hover:bg-[#FF4757] rounded-lg font-inter font-semibold"
+            className="w-full py-3 bg-[#FF6B6B] hover:bg-[#FF4757] rounded-lg font-inter font-semibold transition"
           >
             Leaderboard
           </button>
