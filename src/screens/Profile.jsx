@@ -12,20 +12,17 @@ export default function Profile() {
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState('');
   const [player, setPlayer]   = useState(null);
-  const [stats, setStats]     = useState(null);
   const [ref, setRef]         = useState(null);
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const [playerData, statsData, refData] = await Promise.all([
+        const [playerData, referralData] = await Promise.all([
           API.getPlayer(user.tg_id),
-          API.getStats(),
           API.getReferral(),
         ]);
         setPlayer(playerData);
-        setStats(statsData);
-        setRef(refData);
+        setRef(referralData);
       } catch (e) {
         console.error('[Profile] fetch error', e);
         if (e.message.toLowerCase().includes('invalid token')) {
@@ -62,22 +59,17 @@ export default function Profile() {
       <div className="relative z-10 mx-auto max-w-xl bg-gray-900 bg-opacity-80 backdrop-blur-sm rounded-2xl p-6 space-y-6">
         <h2 className="text-3xl font-montserrat font-bold text-center">Profile</h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-2 font-inter">
-            <h3 className="text-xl font-semibold">Player Info</h3>
-            <p><strong>Name:</strong> {player.name}</p>
-            <p><strong>TG ID:</strong> {player.tg_id}</p>
-          </div>
-          <div className="space-y-2 font-inter">
-            <h3 className="text-xl font-semibold">Stats</h3>
-            <p><strong>Total Burns:</strong> {stats.totalBurnds}</p>
-            <p><strong>Total TON:</strong> {Number(stats.totalTon).toFixed(3)}</p>
-            <p><strong>Last Burn:</strong> {new Date(player.last_burn).toLocaleString()}</p>
-          </div>
+        {/* Player Info */}
+        <div className="space-y-2 font-inter">
+          <h3 className="text-xl font-semibold">Player Info</h3>
+          <p><strong>Name:</strong> {player.name}</p>
+          <p><strong>TG ID:</strong> {player.tg_id}</p>
+          <p><strong>Last Burn:</strong> {player.last_burn ? new Date(player.last_burn).toLocaleString() : '—'}</p>
         </div>
 
+        {/* Fragments */}
         <div className="space-y-2">
-          <h3 className="text-xl font-semibold font-montserrat">Fragments</h3>
+          <h3 className="text-xl font-semibold font-montserrat">Fragments ({player.fragments.length}/8)</h3>
           <div className="grid grid-cols-4 gap-4">
             {Array.from({ length: 8 }, (_, i) => {
               const id = i + 1;
@@ -102,13 +94,15 @@ export default function Profile() {
           </div>
         </div>
 
-        <div className="space-y-2">
+        {/* Referral */}
+        <div className="space-y-2 font-inter">
           <h3 className="text-xl font-semibold font-montserrat">Referral</h3>
           <p><strong>Code:</strong> {ref.refCode}</p>
           <p><strong>Invited:</strong> {ref.invitedCount}</p>
           <p><strong>Reward:</strong> {ref.rewardIssued ? 'Claimed' : 'Not claimed'}</p>
         </div>
 
+        {/* Actions */}
         <div className="flex flex-col space-y-3">
           <button
             onClick={() => navigate('/gallery')}
