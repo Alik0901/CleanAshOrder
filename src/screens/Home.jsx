@@ -1,58 +1,68 @@
 // файл: src/screens/Home.jsx
-import React from 'react';
+import React, { useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiArrowRightCircle, FiImage, FiZap, FiUsers } from 'react-icons/fi';
+import { FiMenu, FiZap, FiImage, FiUsers, FiBarChart2, FiUser, FiClock } from 'react-icons/fi';
+import NavBar from '../components/NavBar';
+import { AuthContext } from '../context/AuthContext';
 
 export default function Home() {
   const navigate = useNavigate();
+  const { user, logout } = useContext(AuthContext);
+
+  const menuItems = [
+    { key: 'burn',       label: 'Burn Yourself',    icon: <FiZap size={32} />,        onClick: () => navigate('/burn'),       accent: 'from-[#FF6B6B] to-[#FF4757]' },
+    { key: 'gallery',    label: 'Gallery',          icon: <FiImage size={32} />,      onClick: () => navigate('/gallery'),    accent: 'from-[#4ECDC4] to-[#48C9B0]' },
+    { key: 'referral',   label: 'Referral',         icon: <FiUsers size={32} />,      onClick: () => navigate('/referral'),   accent: 'from-[#E5A22D] to-[#D18B12]' },
+    { key: 'leaderboard',label: 'Leaderboard',      icon: <FiBarChart2 size={32} />,   onClick: () => navigate('/leaderboard'),accent: 'from-[#FF6B6B] to-[#FF4757]' },
+    { key: 'profile',    label: 'Profile',          icon: <FiUser size={32} />,       onClick: () => navigate('/profile'),    accent: 'from-[#4ECDC4] to-[#48C9B0]' },
+    { key: 'daily',      label: 'Daily Quest',      icon: <FiClock size={32} />,      onClick: () => navigate('/burn'),       accent: 'from-[#E5A22D] to-[#D18B12]' },
+  ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#1A1A2E] to-[#16213E] text-white flex flex-col">
-      {/* Отступ сверху под NavBar */}
-      <div className="flex-grow flex items-center justify-center px-4">
-        <div className="max-w-3xl text-center space-y-8">
-          <h1 className="text-4xl md:text-5xl font-bold font-montserrat">
-            Welcome to the Order of Ash
-          </h1>
-          <p className="text-lg md:text-xl font-inter text-gray-300">
-            Unleash the ritual, collect all fragments, and unveil the secret phrase.
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div className="relative min-h-screen bg-gradient-to-br from-[#10101A] to-[#1A1A2E] text-white">
+      {/* Фоновый силуэт Хранителя */}
+      <div className="absolute inset-0 overflow-hidden">
+        <img
+          src="/images/silhouette.png"
+          alt="Guardian Silhouette"
+          className="w-full h-full object-cover opacity-20"
+        />
+      </div>
+
+      <NavBar />
+
+      <div className="relative pt-20 pb-16 px-4 container mx-auto">
+        {/* Главный логотип */}
+        <div className="flex justify-center mb-8">
+          <img src="/images/logo-order-of-ash.svg" alt="Order of Ash" className="w-48" />
+        </div>
+
+        {/* Меню-кнопки */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {menuItems.map(item => (
             <button
-              onClick={() => navigate('/burn')}
-              className="flex items-center justify-center space-x-2 py-4 bg-[#FF6B6B] hover:bg-[#FF4757] rounded-lg shadow-lg transition-all font-semibold text-lg"
+              key={item.key}
+              onClick={item.onClick}
+              className={`relative flex flex-col items-center justify-center p-6 bg-gray-800 bg-opacity-60 rounded-xl shadow-lg hover:scale-105 transform transition overflow-hidden border-2 border-transparent hover:border-[#FF6B6B]`}
             >
-              <FiZap size={24} />
-              <span>Burn Yourself</span>
+              <div className={`absolute inset-0 bg-gradient-to-br ${item.accent} opacity-20 rounded-xl`} />
+              <div className="relative z-10 flex flex-col items-center space-y-2">
+                <div className="text-white">{item.icon}</div>
+                <span className="font-montserrat text-lg font-semibold text-center">{item.label}</span>
+              </div>
             </button>
-            <button
-              onClick={() => navigate('/gallery')}
-              className="flex items-center justify-center space-x-2 py-4 bg-[#4ECDC4] hover:bg-[#48C9B0] rounded-lg shadow-lg transition-all font-semibold text-lg"
-            >
-              <FiImage size={24} />
-              <span>View Gallery</span>
-            </button>
-          </div>
-          <div className="flex justify-center space-x-4">
-            <button
-              onClick={() => navigate('/referral')}
-              className="flex items-center space-x-1 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-full font-inter text-sm"
-            >
-              <FiUsers size={18} />
-              <span>Invite Friends</span>
-            </button>
-            <button
-              onClick={() => navigate('/leaderboard')}
-              className="flex items-center space-x-1 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-full font-inter text-sm"
-            >
-              <FiArrowRightCircle size={18} />
-              <span>Leaderboard</span>
-            </button>
-          </div>
+          ))}
         </div>
       </div>
-      {/* Футер-пустышка для NavBar */}
-      <div className="h-16"></div>
+
+      {/* Footer */}
+      <div className="absolute bottom-0 w-full py-4 bg-gray-900 bg-opacity-50 backdrop-blur-sm">
+        <div className="flex justify-center space-x-6">
+          <a href="#" className="hover:text-[#4ECDC4]">Telegram</a>
+          <a href="#" className="hover:text-[#E5A22D]">Docs</a>
+          <a href="#" className="hover:text-[#FF6B6B]">Website</a>
+        </div>
+      </div>
     </div>
   );
 }
