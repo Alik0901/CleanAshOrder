@@ -6,7 +6,7 @@ export default function Home() {
     <div className="min-h-screen relative">
       {/* Фоновый слой */}
       <div
-        className="absolute inset-0 bg-cover bg-center"
+        className="absolute inset-0 bg-no-repeat bg-cover bg-center"
         style={{ backgroundImage: `url('/images/converted_minimal.jpg')` }}
       />
       {/* Полупрозрачная накладка для улучшения читаемости */}
