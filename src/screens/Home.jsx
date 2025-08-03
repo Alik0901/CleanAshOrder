@@ -1,71 +1,59 @@
-import React, { useContext } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { FiZap, FiImage, FiUsers, FiBarChart2, FiUser, FiClock } from 'react-icons/fi';
-import NavBar from '../components/NavBar';
-import { AuthContext } from '../context/AuthContext';
+import React from 'react'
+import { Link } from 'react-router-dom'
+import bg from '../public/images/converted_minimal.jpg'
 
 export default function Home() {
-  const navigate = useNavigate();
-  const { user, logout } = useContext(AuthContext);
-
-  const menuItems = [
-    { key: 'burn',       label: 'Burn Yourself', icon: <FiZap size={32} />,      onClick: () => navigate('/burn'),       accent: 'from-[#FF6B6B] to-[#FF4757]' },
-    { key: 'gallery',    label: 'Gallery',       icon: <FiImage size={32} />,    onClick: () => navigate('/gallery'),    accent: 'from-[#4ECDC4] to-[#48C9B0]' },
-    { key: 'referral',   label: 'Referral',      icon: <FiUsers size={32} />,    onClick: () => navigate('/referral'),   accent: 'from-[#E5A22D] to-[#D18B12]' },
-    { key: 'leaderboard',label: 'Leaderboard',   icon: <FiBarChart2 size={32} />,onClick: () => navigate('/leaderboard'),accent: 'from-[#FF6B6B] to-[#FF4757]' },
-    { key: 'profile',    label: 'Profile',       icon: <FiUser size={32} />,     onClick: () => navigate('/profile'),    accent: 'from-[#4ECDC4] to-[#48C9B0]' },
-    { key: 'daily',      label: 'Daily Quest',   icon: <FiClock size={32} />,    onClick: () => navigate('/burn'),       accent: 'from-[#E5A22D] to-[#D18B12]' },
-  ];
-
   return (
-    <div className="relative min-h-screen bg-gradient-to-br from-[#10101A] to-[#1A1A2E] text-white">
-      {/* Optimized background */}
-      <div className="absolute inset-0 overflow-hidden">
-        <img
-          src="/images/converted_minimal.jpg"
-          alt="Guardian Silhouette"
-          className="w-full h-full object-cover opacity-20"
-        />
-      </div>
+    <div className="min-h-screen relative">
+      {/* Фон */}
+      <div
+        className="absolute inset-0 bg-cover bg-center"
+        style={{ backgroundImage: `url(${bg})` }}
+      />
+      {/* Полупрозрачная накладка */}
+      <div className="absolute inset-0 bg-black/60"></div>
 
-      <NavBar />
+      {/* Навбар */}
+      <header className="relative z-10 flex items-center justify-between p-4">
+        <h1 className="text-white text-xl font-bold">Order of Ash</h1>
+        <button className="text-white text-2xl">&#9776;</button>
+      </header>
 
-      <div className="relative pt-20 pb-16 px-4 container mx-auto">
-        {/* Logo */}
-        <div className="flex justify-center mb-8">
-          <img src="/images/logo-order-of-ash.svg" alt="Order of Ash" className="w-48" />
-        </div>
+      {/* Герой */}
+      <main className="relative z-10 flex flex-col items-center justify-center text-center px-4 pt-16 pb-32">
+        <h2 className="text-5xl md:text-6xl font-extrabold text-white mb-4 drop-shadow-lg">
+          Добро пожаловать
+        </h2>
+        <p className="text-lg md:text-xl text-white/80 mb-8 max-w-xl">
+          Испепель себя ради силы, собирай фрагменты и открой тайну Order of Ash.
+        </p>
+        <Link
+          to="/burn"
+          className="px-10 py-4 bg-gradient-to-r from-red-500 to-pink-500 
+                     text-white font-bold rounded-full shadow-xl 
+                     hover:from-red-600 hover:to-pink-600 transition"
+        >
+          Burn Yourself
+        </Link>
+      </main>
 
-        {/* Menu Buttons */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {menuItems.map(item => (
-            <button
-              key={item.key}
-              onClick={item.onClick}
-              className={`flex items-center justify-center space-x-2 p-6 rounded-lg shadow-lg transition bg-gradient-to-br ${item.accent}`}
-            >
-              {item.icon}
-              <span className="font-inter font-semibold">{item.label}</span>
-            </button>
-          ))}
-        </div>
-
-        {/* Secondary Actions */}
-        <div className="flex flex-col space-y-4 mt-8">
-          <button
-            onClick={() => navigate('/referral')}
-            className="w-full py-3 bg-[#4ECDC4] hover:bg-[#48C9B0] rounded-lg font-inter font-semibold transition"
+      {/* Ссылки на остальные разделы */}
+      <footer className="relative z-10 grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-black/50">
+        {[
+          { to: '/gallery', label: 'Gallery' },
+          { to: '/referral', label: 'Referral' },
+          { to: '/leaderboard', label: 'Leaderboard' },
+          { to: '/profile', label: 'Profile' },
+        ].map((item) => (
+          <Link
+            key={item.to}
+            to={item.to}
+            className="py-3 text-center text-white font-medium hover:underline"
           >
-            Referral
-          </button>
-          <button
-            onClick={() => navigate('/leaderboard')}
-            className="w-full py-3 bg-[#FF6B6B] hover:bg-[#FF4757] rounded-lg font-inter font-semibold transition"
-          >
-            Leaderboard
-          </button>
-        </div>
-      </div>
+            {item.label}
+          </Link>
+        ))}
+      </footer>
     </div>
-  );
+  )
 }
