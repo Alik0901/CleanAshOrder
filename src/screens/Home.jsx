@@ -81,16 +81,47 @@ export default function Home() {
         >
           ☰
         </button>
-        <h1
+        import logo from '../assets/images/logo.png';
+
+      {/* Header: logo image and burger */}
+      <header
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          padding: '1rem 2rem',
+          backgroundColor: 'rgba(10, 10, 10, 0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          zIndex: 20,
+        }}
+      >
+        {/* Burger menu */}
+        <button
           style={{
+            background: 'none',
+            border: 'none',
             color: 'white',
-            fontFamily: '"MedievalSharp", cursive',
-            fontSize: '1.75rem',
-            margin: 0,
+            fontSize: '1.5rem',
+            cursor: 'pointer',
           }}
         >
-          Order of Ash
-        </h1>
+          ☰
+        </button>
+        {/* Logo */}
+        <img
+          src={logo}
+          alt="Order of Ash logo"
+          style={{
+            height: '2rem',
+            objectFit: 'contain',
+          }}
+        />
+        {/* Placeholder for right side */}
+        <div style={{ width: '1.5rem' }} />
+      </header>
         <div style={{ width: '1.5rem' }} /> {/* placeholder for right-alignment */}
       </header>
 
