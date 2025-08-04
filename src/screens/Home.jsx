@@ -81,7 +81,7 @@ export default function Home() {
         >
           ☰
         </button>
-        import logo from '../assets/images/logo.png';
+        import logo from '../assets/images/logo.jpg';
 
       {/* Header: logo image and burger */}
       <header
