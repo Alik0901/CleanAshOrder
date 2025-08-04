@@ -1,17 +1,16 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-// Импортируем фон через Vite бандлер
 import bgWelcome from '../assets/images/converted_minimal.jpg';
 
 export default function Home() {
   return (
-    <div className="relative w-full h-full">
+    <div className="fixed inset-0">
       {/* Фоновый слой */}
       <div
         className="absolute inset-0 bg-no-repeat bg-cover bg-center"
         style={{ backgroundImage: `url(${bgWelcome})` }}
       />
-      {/* Оверлей для контраста */}
+      {/* Оверлей для читаемости */}
       <div className="absolute inset-0 bg-black/60" />
 
       {/* Контент поверх */}
