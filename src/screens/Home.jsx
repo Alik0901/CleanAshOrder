@@ -3,19 +3,16 @@ import { Link } from 'react-router-dom';
 import bgWelcome from '../assets/images/converted_minimal.jpg';
 import logo from '../assets/images/logo_trimmed_optimized.png';
 
-// Убедитесь, что в index.html подключён шрифт MedievalSharp:
-// <link href="https://fonts.googleapis.com/css2?family=MedievalSharp&display=swap" rel="stylesheet">
-
 export default function Home() {
   useEffect(() => {
     console.log('🏠 Home mounted, bgWelcome =', bgWelcome);
   }, []);
 
   const navItems = [
-    { to: '/gallery', label: 'Gallery' },
-    { to: '/referral', label: 'Referral' },
-    { to: '/leaderboard', label: 'Leaderboard' },
-    { to: '/profile', label: 'Profile' },
+    { to: '/gallery',    label: 'Gallery'    },
+    { to: '/referral',   label: 'Referral'   },
+    { to: '/leaderboard',label: 'Leaderboard'},
+    { to: '/profile',    label: 'Profile'    },
   ];
 
   return (
@@ -29,7 +26,7 @@ export default function Home() {
         overflow: 'hidden',
       }}
     >
-      {/* Фон */}
+      {/* Фоновое изображение */}
       <div
         style={{
           position: 'absolute',
@@ -78,7 +75,7 @@ export default function Home() {
         <img
           src={logo}
           alt="Order of Ash logo"
-          style={{ height: '2rem', objectFit: 'contain' }}
+          style={{ height: '3rem', objectFit: 'contain' }}
         />
         <div style={{ width: '1.5rem' }} />
       </header>
@@ -120,23 +117,6 @@ export default function Home() {
           Burn Yourself
         </Link>
       </main>
-
-      {/* Логотип в футере */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: '4rem',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          zIndex: 20,
-        }}
-      >
-        <img
-          src={logo}
-          alt="Order of Ash logo"
-          style={{ height: '3rem', objectFit: 'contain' }}
-        />
-      </div>
 
       {/* Навигация в футере */}
       <nav
