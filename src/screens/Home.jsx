@@ -26,7 +26,7 @@ export default function Home() {
         overflow: 'hidden',
       }}
     >
-      {/* Фоновое изображение */}
+      {/* Background image */}
       <div
         style={{
           position: 'absolute',
@@ -37,7 +37,7 @@ export default function Home() {
         }}
       />
 
-      {/* Оверлей */}
+      {/* Overlay */}
       <div
         style={{
           position: 'absolute',
@@ -46,7 +46,7 @@ export default function Home() {
         }}
       />
 
-      {/* Header */}
+      {/* Header with logo and burger */}
       <header
         style={{
           position: 'absolute',
@@ -80,7 +80,7 @@ export default function Home() {
         <div style={{ width: '1.5rem' }} />
       </header>
 
-      {/* Основной контент */}
+      {/* Main content (moved down) */}
       <main
         style={{
           position: 'relative',
@@ -93,14 +93,15 @@ export default function Home() {
           color: 'white',
           textAlign: 'center',
           padding: '0 1rem',
+          marginTop: '4rem',
           boxSizing: 'border-box',
         }}
       >
         <h2 style={{ fontSize: '2.5rem', margin: '0 0 1rem' }}>
-          Добро пожаловать
+          Welcome to Order of Ash
         </h2>
         <p style={{ fontSize: '1.125rem', margin: '0 0 2rem', maxWidth: '600px' }}>
-          Испепели себя ради силы, собирай фрагменты и открой тайну Order of Ash.
+          Burn yourself for power, collect the fragments, and uncover the secrets of the Order of Ash.
         </p>
         <Link
           to="/burn"
@@ -118,7 +119,7 @@ export default function Home() {
         </Link>
       </main>
 
-      {/* Навигация в футере */}
+      {/* Footer navigation */}
       <nav
         style={{
           position: 'absolute',
