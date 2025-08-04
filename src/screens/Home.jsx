@@ -38,6 +38,7 @@ export default function Home() {
       />
 
       {/* Header with logo and burger */}
+            {/* Header with logo and burger */}
       <header
         style={{
           position: 'absolute',
@@ -48,17 +49,30 @@ export default function Home() {
           backgroundColor: 'rgba(10, 10, 10, 0.7)',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between',
+          justifyContent: 'center',  // center logo
           zIndex: 20,
         }}
       >
+        {/* Burger menu on the left */}
         <button
-          style={{ background: 'none', border: 'none', color: 'white', fontSize: '1.5rem', cursor: 'pointer' }}
+          style={{
+            position: 'absolute',
+            left: '1rem',
+            background: 'none',
+            border: 'none',
+            color: 'white',
+            fontSize: '1.5rem',
+            cursor: 'pointer',
+          }}
         >
           ☰
         </button>
-        <img src={logo} alt="Order of Ash logo" style={{ height: '3rem', objectFit: 'contain' }} />
-        <div style={{ width: '1.5rem' }} />
+        {/* Centered logo */}
+        <img
+          src={logo}
+          alt="Order of Ash logo"
+          style={{ height: '3rem', objectFit: 'contain' }}
+        />
       </header>
 
       {/* Main content (moved down) */}
