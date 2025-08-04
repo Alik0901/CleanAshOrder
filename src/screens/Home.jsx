@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import bgWelcome from '../assets/images/converted_minimal.jpg';
+import logo from '../assets/images/logo_trimmed_optimized.jpg';
 
 // Ensure "MedievalSharp" font is loaded in index.html:
 // <link href="https://fonts.googleapis.com/css2?family=MedievalSharp&display=swap" rel="stylesheet">
@@ -28,41 +29,32 @@ export default function Home() {
         overflow: 'hidden',
       }}
     >
-      {/* Background image */}
+      {/* Background image and overlay */}
       <div
         style={{
           position: 'absolute',
-          top: 0,
-          right: 0,
-          bottom: 0,
-          left: 0,
+          inset: 0,
           backgroundImage: `url(${bgWelcome})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
         }}
       />
-
-      {/* Overlay */}
       <div
         style={{
           position: 'absolute',
-          top: 0,
-          right: 0,
-          bottom: 0,
-          left: 0,
+          inset: 0,
           backgroundColor: 'rgba(0, 0, 0, 0.6)',
         }}
       />
 
-      {/* Header: only title and burger */}
+      {/* Header with logo and burger */}
       <header
         style={{
           position: 'absolute',
           top: 0,
           left: 0,
           width: '100%',
-          padding: '1rem 2rem',
+          padding: '0.5rem 1rem',
           backgroundColor: 'rgba(10, 10, 10, 0.7)',
           display: 'flex',
           alignItems: 'center',
@@ -81,52 +73,16 @@ export default function Home() {
         >
           ☰
         </button>
-        import logo from '../assets/images/logo.jpg';
-
-      {/* Header: logo image and burger */}
-      <header
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
-          padding: '1rem 2rem',
-          backgroundColor: 'rgba(10, 10, 10, 0.7)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          zIndex: 20,
-        }}
-      >
-        {/* Burger menu */}
-        <button
-          style={{
-            background: 'none',
-            border: 'none',
-            color: 'white',
-            fontSize: '1.5rem',
-            cursor: 'pointer',
-          }}
-        >
-          ☰
-        </button>
-        {/* Logo */}
         <img
           src={logo}
           alt="Order of Ash logo"
-          style={{
-            height: '2rem',
-            objectFit: 'contain',
-          }}
+          style={{ height: '2rem', objectFit: 'contain' }}
         />
-        {/* Placeholder for right side */}
         <div style={{ width: '1.5rem' }} />
-      </header>
-        <div style={{ width: '1.5rem' }} /> {/* placeholder for right-alignment */}
       </header>
 
       {/* Main content */}
-      <div
+      <main
         style={{
           position: 'relative',
           zIndex: 10,
@@ -141,7 +97,9 @@ export default function Home() {
           boxSizing: 'border-box',
         }}
       >
-        <h2 style={{ fontSize: '2.5rem', margin: '0 0 1rem' }}>Добро пожаловать</h2>
+        <h2 style={{ fontSize: '2.5rem', margin: '0 0 1rem' }}>
+          Добро пожаловать
+        </h2>
         <p style={{ fontSize: '1.125rem', margin: '0 0 2rem', maxWidth: '600px' }}>
           Испепели себя ради силы, собирай фрагменты и открой тайну Order of Ash.
         </p>
@@ -159,18 +117,20 @@ export default function Home() {
         >
           Burn Yourself
         </Link>
-      </div>
+      </main>
 
       {/* Footer navigation */}
       <nav
         style={{
           position: 'absolute',
-          bottom: '1.5rem',
+          bottom: '1rem',
           left: '50%',
           transform: 'translateX(-50%)',
           display: 'flex',
-          gap: '1rem',
+          gap: '0.75rem',
           zIndex: 20,
+          padding: '0 1rem',
+          boxSizing: 'border-box',
         }}
       >
         {navItems.map((item) => (
