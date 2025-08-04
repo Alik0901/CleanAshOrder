@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import bgWelcome from '../assets/images/converted_minimal.jpg';
 import logo from '../assets/images/logo_trimmed_optimized.jpg';
 
-// Ensure "MedievalSharp" font is loaded in index.html:
+// Убедитесь, что в index.html подключён шрифт MedievalSharp:
 // <link href="https://fonts.googleapis.com/css2?family=MedievalSharp&display=swap" rel="stylesheet">
 
 export default function Home() {
@@ -29,7 +29,7 @@ export default function Home() {
         overflow: 'hidden',
       }}
     >
-      {/* Background image and overlay */}
+      {/* Фон */}
       <div
         style={{
           position: 'absolute',
@@ -39,6 +39,8 @@ export default function Home() {
           backgroundPosition: 'center',
         }}
       />
+
+      {/* Оверлей */}
       <div
         style={{
           position: 'absolute',
@@ -47,7 +49,7 @@ export default function Home() {
         }}
       />
 
-      {/* Header with logo and burger */}
+      {/* Header */}
       <header
         style={{
           position: 'absolute',
@@ -81,7 +83,7 @@ export default function Home() {
         <div style={{ width: '1.5rem' }} />
       </header>
 
-      {/* Main content */}
+      {/* Основной контент */}
       <main
         style={{
           position: 'relative',
@@ -119,7 +121,24 @@ export default function Home() {
         </Link>
       </main>
 
-      {/* Footer navigation */}
+      {/* Логотип в футере */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: '4rem',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 20,
+        }}
+      >
+        <img
+          src={logo}
+          alt="Order of Ash logo"
+          style={{ height: '3rem', objectFit: 'contain' }}
+        />
+      </div>
+
+      {/* Навигация в футере */}
       <nav
         style={{
           position: 'absolute',
