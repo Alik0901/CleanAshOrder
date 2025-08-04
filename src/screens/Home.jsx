@@ -16,8 +16,17 @@ export default function Home() {
   ];
 
   return (
-    <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, left: 0, overflow: 'hidden' }}>
-      {/* Background image */}
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0,
+        overflow: 'hidden',
+      }}
+    >
+      {/* Background */}
       <div
         style={{
           position: 'absolute',
@@ -27,18 +36,15 @@ export default function Home() {
           backgroundPosition: 'center',
         }}
       />
-
-      {/* Overlay with 30% opacity */}
       <div
         style={{
           position: 'absolute',
           inset: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.3)',
+          backgroundColor: 'rgba(0, 0, 0, 0.3)', // 30% overlay
         }}
       />
 
-      {/* Header with logo and burger */}
-            {/* Header with logo and burger */}
+      {/* Header with centered logo */}
       <header
         style={{
           position: 'absolute',
@@ -49,7 +55,7 @@ export default function Home() {
           backgroundColor: 'rgba(10, 10, 10, 0.7)',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',  // center logo
+          justifyContent: 'center',
           zIndex: 20,
         }}
       >
@@ -75,7 +81,7 @@ export default function Home() {
         />
       </header>
 
-      {/* Main content (moved down) */}
+      {/* Main content */}
       <main
         style={{
           position: 'relative',
@@ -92,7 +98,9 @@ export default function Home() {
           boxSizing: 'border-box',
         }}
       >
-        <h2 style={{ fontSize: '2.5rem', margin: '0 0 1rem' }}>Welcome to Order of Ash</h2>
+        <h2 style={{ fontSize: '2.5rem', margin: '0 0 1rem' }}>
+          Welcome to Order of Ash
+        </h2>
         <p style={{ fontSize: '1.125rem', margin: '0 0 2rem', maxWidth: '600px' }}>
           Burn yourself for power, collect the fragments, and uncover the secrets of the Order of Ash.
         </p>
@@ -111,19 +119,6 @@ export default function Home() {
           Burn Yourself
         </Link>
       </main>
-
-      {/* Footer logo centered */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: '4rem',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          zIndex: 20,
-        }}
-      >
-        <img src={logo} alt="Order of Ash logo" style={{ height: '3rem', objectFit: 'contain', background: 'transparent' }} />
-      </div>
 
       {/* Footer navigation */}
       <nav
