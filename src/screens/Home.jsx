@@ -3,7 +3,7 @@ import bgWelcome from '../assets/images/converted_minimal.jpg';
 
 export default function Home() {
   return (
-    <div className="relative w-full h-screen overflow-hidden">
+    <div className="absolute inset-0 overflow-hidden">
       {/* 1) Фоновой слой */}
       <div
         className="absolute inset-0 bg-cover bg-center"
