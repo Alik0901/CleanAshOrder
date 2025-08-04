@@ -3,17 +3,16 @@ import { Link } from 'react-router-dom';
 import bgWelcome from '../assets/images/converted_minimal.jpg';
 import logo from '../assets/images/logo_trimmed_optimized.png';
 
+// Кнопки-таблички
+import galleryBtn from '../assets/images/gallery.jpg';
+import leaderboardBtn from '../assets/images/leaderboard.jpg';
+import referralBtn from '../assets/images/referral.jpg';
+import profileBtn from '../assets/images/profile.jpg';
+
 export default function Home() {
   useEffect(() => {
     console.log('🏠 Home mounted, bgWelcome =', bgWelcome);
   }, []);
-
-  const navItems = [
-    { to: '/gallery',    label: 'Gallery'    },
-    { to: '/referral',   label: 'Referral'   },
-    { to: '/leaderboard',label: 'Leaderboard'},
-    { to: '/profile',    label: 'Profile'    },
-  ];
 
   return (
     <div
@@ -26,7 +25,7 @@ export default function Home() {
         overflow: 'hidden',
       }}
     >
-      {/* Background */}
+      {/* Фон */}
       <div
         style={{
           position: 'absolute',
@@ -40,11 +39,11 @@ export default function Home() {
         style={{
           position: 'absolute',
           inset: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.3)', // 30% overlay
+          backgroundColor: 'rgba(0, 0, 0, 0.3)', // 30% оверлей
         }}
       />
 
-      {/* Header with centered logo */}
+      {/* Хедер с логотипом по центру */}
       <header
         style={{
           position: 'absolute',
@@ -52,14 +51,13 @@ export default function Home() {
           left: 0,
           width: '100%',
           padding: '0.5rem 1rem',
-          backgroundColor: 'rgba(10, 10, 10, 0.7)',
+          backgroundColor: 'rgba(10,10,10,0.7)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 20,
         }}
       >
-        {/* Burger menu on the left */}
         <button
           style={{
             position: 'absolute',
@@ -73,7 +71,6 @@ export default function Home() {
         >
           ☰
         </button>
-        {/* Centered logo */}
         <img
           src={logo}
           alt="Order of Ash logo"
@@ -81,7 +78,7 @@ export default function Home() {
         />
       </header>
 
-      {/* Main content */}
+      {/* Основной контент */}
       <main
         style={{
           position: 'relative',
@@ -113,44 +110,45 @@ export default function Home() {
             borderRadius: '9999px',
             fontWeight: 'bold',
             textDecoration: 'none',
-            cursor: 'pointer',
           }}
         >
           Burn Yourself
         </Link>
       </main>
 
-      {/* Footer navigation */}
-      <nav
+      {/* Кнопки-таблички: два ряда внизу */}
+      <div
         style={{
           position: 'absolute',
           bottom: '1rem',
           left: '50%',
           transform: 'translateX(-50%)',
           display: 'flex',
-          gap: '0.75rem',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '0.5rem',
           zIndex: 20,
-          padding: '0 1rem',
-          boxSizing: 'border-box',
         }}
       >
-        {navItems.map((item) => (
-          <Link
-            key={item.to}
-            to={item.to}
-            style={{
-              color: 'white',
-              backgroundColor: 'rgba(255,255,255,0.1)',
-              padding: '0.5rem 1rem',
-              borderRadius: '0.375rem',
-              textDecoration: 'none',
-              fontWeight: '500',
-            }}
-          >
-            {item.label}
+        {/* Верхний ряд */}
+        <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <Link to="/gallery">
+            <img src={galleryBtn} alt="Gallery" style={{ height: '4rem' }} />
           </Link>
-        ))}
-      </nav>
+          <Link to="/leaderboard">
+            <img src={leaderboardBtn} alt="Leaderboard" style={{ height: '4rem' }} />
+          </Link>
+        </div>
+        {/* Нижний ряд */}
+        <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <Link to="/referral">
+            <img src={referralBtn} alt="Referral" style={{ height: '4rem' }} />
+          </Link>
+          <Link to="/profile">
+            <img src={profileBtn} alt="Profile" style={{ height: '4rem' }} />
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }
