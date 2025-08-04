@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import bgWelcome from '../assets/images/converted_minimal.jpg';
-import logo from '../assets/images/logo_trimmed_optimized.jpg';
+import logo from '../assets/images/logo.webp';
 
 // Ensure "MedievalSharp" font is loaded in index.html:
 // <link href="https://fonts.googleapis.com/css2?family=MedievalSharp&display=swap" rel="stylesheet">
