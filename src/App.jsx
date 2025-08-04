@@ -1,4 +1,3 @@
-// файл: src/App.jsx
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import NavBar from './components/NavBar';
@@ -20,25 +19,23 @@ export default function App() {
       {/* Навигационная панель всегда сверху */}
       <NavBar />
 
-      {/* Основной контент с отступом сверху под высоту NavBar */}
-      <div className="pt-16 pb-16 bg-[#0F0F1F] min-h-screen">
-        <Routes>
-          {/* Публичный маршрут */}
-          <Route path="/login" element={<Login />} />
+      {/* Основные роуты без дополнительной обёртки-фона */}
+      <Routes>
+        {/* Публичный маршрут */}
+        <Route path="/login" element={<Login />} />
 
-          {/* Защищённые маршруты */}
-          <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
-          <Route path="/burn" element={<ProtectedRoute><Burn /></ProtectedRoute>} />
-          <Route path="/gallery" element={<ProtectedRoute><Gallery /></ProtectedRoute>} />
-          <Route path="/referral" element={<ProtectedRoute><Referral /></ProtectedRoute>} />
-          <Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
-          <Route path="/final" element={<ProtectedRoute><FinalPhrase /></ProtectedRoute>} />
-          <Route path="/congrats" element={<ProtectedRoute><Congrats /></ProtectedRoute>} />
-          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+        {/* Защищённые маршруты */}
+        <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+        <Route path="/burn" element={<ProtectedRoute><Burn /></ProtectedRoute>} />
+        <Route path="/gallery" element={<ProtectedRoute><Gallery /></ProtectedRoute>} />
+        <Route path="/referral" element={<ProtectedRoute><Referral /></ProtectedRoute>} />
+        <Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
+        <Route path="/final" element={<ProtectedRoute><FinalPhrase /></ProtectedRoute>} />
+        <Route path="/congrats" element={<ProtectedRoute><Congrats /></ProtectedRoute>} />
+        <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
 
-          {/* Любые остальные маршруты можно добавить здесь */}
-        </Routes>
-      </div>
+        {/* Прочие маршруты */}
+      </Routes>
     </>
   );
 }
