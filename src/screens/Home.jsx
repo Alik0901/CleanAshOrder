@@ -34,7 +34,7 @@ export default function Home() {
             backgroundColor: 'rgba(0, 0, 0, 0.6)',
           }}
         />
-        {/* 3) Текстовый контент поверх */}
+        {/* 3) Текстовый контент и навигация поверх */}
         <div
           style={{
             position: 'relative',
@@ -55,19 +55,73 @@ export default function Home() {
           <p style={{ fontSize: '1.125rem', marginBottom: '2rem', maxWidth: '600px' }}>
             Испепели себя ради силы, собирай фрагменты и открой тайну Order of Ash.
           </p>
-          <Link
-            to="/burn"
-            style={{
-              padding: '0.75rem 1.5rem',
-              background: 'linear-gradient(to right, #ef4444, #ec4899)',
-              color: 'white',
-              borderRadius: '9999px',
-              fontWeight: 'bold',
-              textDecoration: 'none',
-            }}
-          >
-            Burn Yourself
-          </Link>
+          <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+            <Link
+              to="/burn"
+              style={{
+                padding: '0.75rem 1.5rem',
+                background: 'linear-gradient(to right, #ef4444, #ec4899)',
+                color: 'white',
+                borderRadius: '9999px',
+                fontWeight: 'bold',
+                textDecoration: 'none',
+              }}
+            >
+              Burn Yourself
+            </Link>
+            <Link
+              to="/gallery"
+              style={{
+                padding: '0.75rem 1.5rem',
+                background: 'rgba(255,255,255,0.2)',
+                color: 'white',
+                borderRadius: '0.375rem',
+                textDecoration: 'none',
+                fontWeight: '500',
+              }}
+            >
+              Gallery
+            </Link>
+            <Link
+              to="/referral"
+              style={{
+                padding: '0.75rem 1.5rem',
+                background: 'rgba(255,255,255,0.2)',
+                color: 'white',
+                borderRadius: '0.375rem',
+                textDecoration: 'none',
+                fontWeight: '500',
+              }}
+            >
+              Referral
+            </Link>
+            <Link
+              to="/leaderboard"
+              style={{
+                padding: '0.75rem 1.5rem',
+                background: 'rgba(255,255,255,0.2)',
+                color: 'white',
+                borderRadius: '0.375rem',
+                textDecoration: 'none',
+                fontWeight: '500',
+              }}
+            >
+              Leaderboard
+            </Link>
+            <Link
+              to="/profile"
+              style={{
+                padding: '0.75rem 1.5rem',
+                background: 'rgba(255,255,255,0.2)',
+                color: 'white',
+                borderRadius: '0.375rem',
+                textDecoration: 'none',
+                fontWeight: '500',
+              }}
+            >
+              Profile
+            </Link>
+          </div>
         </div>
       </div>
     </>
