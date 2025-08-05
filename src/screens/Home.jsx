@@ -86,34 +86,51 @@ export default function Home() {
           height: '100%',
           display: 'flex',
           flexDirection: 'column',
-          alignItems: 'center',
+          alignItems: 'flex-start',
           justifyContent: 'center',
           color: 'white',
-          textAlign: 'left',
           padding: '0 1rem',
           marginTop: '4rem',
           boxSizing: 'border-box',
         }}
       >
-        <h2 style={{ fontSize: '2.5rem', margin: '0 0 1rem' }}>
-          Welcome to Order of Ash
-        </h2>
-        <p style={{ fontSize: '1.125rem', margin: '0 0 2rem', maxWidth: '250px' }}>
-          Burn yourself for power, collect the fragments, and uncover the secrets of the Order of Ash.
-        </p>
-        <Link
-          to="/burn"
+        <div
           style={{
-            padding: '0.75rem 1.5rem',
-            background: 'linear-gradient(to right, #ef4444, #ec4899)',
-            color: 'white',
-            borderRadius: '9999px',
-            fontWeight: 'bold',
-            textDecoration: 'none',
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            width: '100%',
+            maxWidth: '800px',
+            marginLeft: 0,
           }}
         >
-          Burn Yourself
-        </Link>
+          {/* Левый блок с заголовком и описанием */}
+          <div style={{ flex: 1, textAlign: 'left' }}>
+            <h2 style={{ fontSize: '2.5rem', margin: '0 0 1rem' }}>
+              Welcome to Order of Ash
+            </h2>
+            <p style={{ fontSize: '1.125rem', margin: 0 }}>
+              Burn yourself for power, collect the fragments, and uncover the secrets of the Order of Ash.
+            </p>
+          </div>
+
+          {/* Кнопка справа */}
+          <Link
+            to="/burn"
+            style={{
+              marginLeft: '1rem',
+              padding: '0.75rem 1.5rem',
+              background: 'linear-gradient(to right, #ef4444, #ec4899)',
+              color: 'white',
+              borderRadius: '9999px',
+              fontWeight: 'bold',
+              textDecoration: 'none',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Burn Yourself
+          </Link>
+        </div>
       </main>
 
       {/* Кнопки-таблички: два ряда внизу */}
