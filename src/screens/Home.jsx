@@ -22,7 +22,7 @@ export default function Home() {
         right: 0,
         bottom: 0,
         left: 0,
-        overflow: 'hidden'
+        overflow: 'hidden',
       }}
     >
       {/* Фон */}
@@ -32,14 +32,14 @@ export default function Home() {
           inset: 0,
           backgroundImage: `url(${bgWelcome})`,
           backgroundSize: 'cover',
-          backgroundPosition: 'center'
+          backgroundPosition: 'center',
         }}
       />
       <div
         style={{
           position: 'absolute',
           inset: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.3)' // 30% оверлей
+          backgroundColor: 'rgba(0, 0, 0, 0.3)', // 30% оверлей
         }}
       />
 
@@ -55,7 +55,7 @@ export default function Home() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 20
+          zIndex: 20,
         }}
       >
         {/* Burger слева */}
@@ -67,7 +67,7 @@ export default function Home() {
             border: 'none',
             color: 'white',
             fontSize: '1.5rem',
-            cursor: 'pointer'
+            cursor: 'pointer',
           }}
         >
           ☰
@@ -79,7 +79,7 @@ export default function Home() {
           alt="Order of Ash logo"
           style={{
             height: '3rem',
-            objectFit: 'contain'
+            objectFit: 'contain',
           }}
         />
 
@@ -89,33 +89,31 @@ export default function Home() {
             position: 'absolute',
             right: '1rem',
             width: '1.5rem',
-            height: '1.5rem'
+            height: '1.5rem',
           }}
         />
       </header>
 
-      {/* Основной контент: две колонки */}
+      {/* Основной контент */}
       <main
         style={{
           position: 'relative',
           zIndex: 10,
           height: '100%',
           display: 'flex',
-          flexDirection: 'row',
+          flexDirection: 'column',
+          justifyContent: 'center',
           padding: '4rem 1rem 1rem', // учёт высоты хедера
-          boxSizing: 'border-box'
+          boxSizing: 'border-box',
+          color: 'white',
         }}
       >
-        {/* Левая половина — заголовок и описание */}
+        {/* Текст и кнопка в одной колонке */}
         <div
           style={{
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            color: 'white',
+            maxWidth: '600px',
+            margin: '0 auto',
             textAlign: 'left',
-            paddingRight: '2rem'
           }}
         >
           <h2
@@ -123,40 +121,25 @@ export default function Home() {
               fontSize: '2.5rem',
               margin: 0,
               fontFamily: 'MedievalSharp, serif',
-              whiteSpace: 'nowrap'
+              whiteSpace: 'nowrap',
             }}
           >
             Welcome to Order of Ash
           </h2>
-          <p
-            style={{
-              fontSize: '1.125rem',
-              margin: '1rem 0',
-              maxWidth: '600px'
-            }}
-          >
+          <p style={{ fontSize: '1.125rem', margin: '1rem 0' }}>
             Burn yourself for power, collect the fragments, and uncover the secrets of the Order of Ash.
           </p>
-        </div>
 
-        {/* Правая половина — кнопка Burn */}
-        <div
-          style={{
-            flex: 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-start'
-          }}
-        >
           <Link
             to="/burn"
             style={{
+              display: 'inline-block',
               padding: '0.75rem 1.5rem',
               background: 'linear-gradient(to right, #ef4444, #ec4899)',
               color: 'white',
               borderRadius: '9999px',
               fontWeight: 'bold',
-              textDecoration: 'none'
+              textDecoration: 'none',
             }}
           >
             Burn Yourself
@@ -175,7 +158,7 @@ export default function Home() {
           flexDirection: 'column',
           alignItems: 'center',
           gap: '0.5rem',
-          zIndex: 20
+          zIndex: 20,
         }}
       >
         {/* Верхний ряд */}
