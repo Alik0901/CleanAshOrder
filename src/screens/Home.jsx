@@ -86,7 +86,7 @@ export default function Home() {
           height: '100%',
           display: 'flex',
           flexDirection: 'column',
-          alignItems: 'center',
+          alignItems: 'flex-start',
           justifyContent: 'center',
           color: 'white',
           padding: '0 1rem',
@@ -97,7 +97,7 @@ export default function Home() {
         <div
           style={{
             display: 'flex',
-            alignItems: 'flex-start',
+            alignItems: 'center',
             width: '100%',
             maxWidth: '800px',
             marginLeft: 0,
