@@ -43,7 +43,7 @@ export default function Home() {
         }}
       />
 
-      {/* Хедер с логотипом по центру экрана */}
+      {/* Хедер с логотипом по центру */}
       <header
         style={{
           position: 'absolute',
@@ -58,7 +58,6 @@ export default function Home() {
           zIndex: 20,
         }}
       >
-        {/* Burger слева */}
         <button
           style={{
             position: 'absolute',
@@ -72,25 +71,10 @@ export default function Home() {
         >
           ☰
         </button>
-
-        {/* Логотип по центру экрана */}
         <img
           src={logo}
           alt="Order of Ash logo"
-          style={{
-            height: '3rem',
-            objectFit: 'contain',
-          }}
-        />
-
-        {/* Пустой блок справа, чтобы сбалансировать бургер */}
-        <div
-          style={{
-            position: 'absolute',
-            right: '1rem',
-            width: '1.5rem',
-            height: '1.5rem',
-          }}
+          style={{ height: '3rem', objectFit: 'contain' }}
         />
       </header>
 
@@ -102,49 +86,34 @@ export default function Home() {
           height: '100%',
           display: 'flex',
           flexDirection: 'column',
+          alignItems: 'center',
           justifyContent: 'center',
-          padding: '4rem 1rem 1rem', // учёт высоты хедера
-          boxSizing: 'border-box',
           color: 'white',
+          textAlign: 'center',
+          padding: '0 1rem',
+          marginTop: '4rem',
+          boxSizing: 'border-box',
         }}
       >
-        {/* Текст и кнопка в одной колонке */}
-        <div
+        <h2 style={{ fontSize: '2.5rem', margin: '0 0 1rem' }}>
+          Welcome to Order of Ash
+        </h2>
+        <p style={{ fontSize: '1.125rem', margin: '0 0 2rem', maxWidth: '600px' }}>
+          Burn yourself for power, collect the fragments, and uncover the secrets of the Order of Ash.
+        </p>
+        <Link
+          to="/burn"
           style={{
-            maxWidth: '600px',
-            margin: '0 auto',
-            textAlign: 'left',
+            padding: '0.75rem 1.5rem',
+            background: 'linear-gradient(to right, #ef4444, #ec4899)',
+            color: 'white',
+            borderRadius: '9999px',
+            fontWeight: 'bold',
+            textDecoration: 'none',
           }}
         >
-          <h2
-            style={{
-              fontSize: '2.5rem',
-              margin: 0,
-              fontFamily: 'MedievalSharp, serif',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            Welcome to Order of Ash
-          </h2>
-          <p style={{ fontSize: '1.125rem', margin: '1rem 0' }}>
-            Burn yourself for power, collect the fragments, and uncover the secrets of the Order of Ash.
-          </p>
-
-          <Link
-            to="/burn"
-            style={{
-              display: 'inline-block',
-              padding: '0.75rem 1.5rem',
-              background: 'linear-gradient(to right, #ef4444, #ec4899)',
-              color: 'white',
-              borderRadius: '9999px',
-              fontWeight: 'bold',
-              textDecoration: 'none',
-            }}
-          >
-            Burn Yourself
-          </Link>
-        </div>
+          Burn Yourself
+        </Link>
       </main>
 
       {/* Кнопки-таблички: два ряда внизу */}
