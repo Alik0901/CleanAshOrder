@@ -86,7 +86,7 @@ export default function Home() {
           height: '100%',
           display: 'flex',
           flexDirection: 'column',
-          alignItems: 'flex-start',
+          alignItems: 'center',
           justifyContent: 'center',
           color: 'white',
           padding: '0 1rem',
@@ -144,7 +144,7 @@ export default function Home() {
       <div
         style={{
           position: 'absolute',
-          bottom: '1rem',
+          bottom: '2rem',
           left: '50%',
           transform: 'translateX(-50%)',
           display: 'flex',
@@ -157,19 +157,19 @@ export default function Home() {
         {/* Верхний ряд */}
         <div style={{ display: 'flex', gap: '0.75rem' }}>
           <Link to="/gallery">
-            <img src={galleryBtn} alt="Gallery" style={{ height: '2rem' }} />
+            <img src={galleryBtn} alt="Gallery" style={{ height: '2.5rem' }} />
           </Link>
           <Link to="/leaderboard">
-            <img src={leaderboardBtn} alt="Leaderboard" style={{ height: '2rem' }} />
+            <img src={leaderboardBtn} alt="Leaderboard" style={{ height: '2.5rem' }} />
           </Link>
         </div>
         {/* Нижний ряд */}
         <div style={{ display: 'flex', gap: '0.75rem' }}>
           <Link to="/referral">
-            <img src={referralBtn} alt="Referral" style={{ height: '2rem' }} />
+            <img src={referralBtn} alt="Referral" style={{ height: '2.5rem' }} />
           </Link>
           <Link to="/profile">
-            <img src={profileBtn} alt="Profile" style={{ height: '2rem' }} />
+            <img src={profileBtn} alt="Profile" style={{ height: '2.5rem' }} />
           </Link>
         </div>
       </div>
