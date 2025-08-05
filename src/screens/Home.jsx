@@ -22,7 +22,7 @@ export default function Home() {
         right: 0,
         bottom: 0,
         left: 0,
-        overflow: 'hidden',
+        overflow: 'hidden'
       }}
     >
       {/* Фон */}
@@ -32,18 +32,18 @@ export default function Home() {
           inset: 0,
           backgroundImage: `url(${bgWelcome})`,
           backgroundSize: 'cover',
-          backgroundPosition: 'center',
+          backgroundPosition: 'center'
         }}
       />
       <div
         style={{
           position: 'absolute',
           inset: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.3)', // 30% оверлей
+          backgroundColor: 'rgba(0, 0, 0, 0.3)' // 30% оверлей
         }}
       />
 
-      {/* Хедер с логотипом по центру */}
+      {/* Хедер с логотипом по центру экрана */}
       <header
         style={{
           position: 'absolute',
@@ -55,9 +55,10 @@ export default function Home() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 20,
+          zIndex: 20
         }}
       >
+        {/* Burger слева */}
         <button
           style={{
             position: 'absolute',
@@ -66,54 +67,101 @@ export default function Home() {
             border: 'none',
             color: 'white',
             fontSize: '1.5rem',
-            cursor: 'pointer',
+            cursor: 'pointer'
           }}
         >
           ☰
         </button>
+
+        {/* Логотип по центру экрана */}
         <img
           src={logo}
           alt="Order of Ash logo"
-          style={{ height: '3rem', objectFit: 'contain' }}
+          style={{
+            height: '3rem',
+            objectFit: 'contain'
+          }}
+        />
+
+        {/* Пустой блок справа, чтобы сбалансировать бургер */}
+        <div
+          style={{
+            position: 'absolute',
+            right: '1rem',
+            width: '1.5rem',
+            height: '1.5rem'
+          }}
         />
       </header>
 
-      {/* Основной контент */}
+      {/* Основной контент: две колонки */}
       <main
         style={{
           position: 'relative',
           zIndex: 10,
           height: '100%',
           display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: 'white',
-          textAlign: 'center',
-          padding: '0 1rem',
-          marginTop: '4rem',
-          boxSizing: 'border-box',
+          flexDirection: 'row',
+          padding: '4rem 1rem 1rem', // учёт высоты хедера
+          boxSizing: 'border-box'
         }}
       >
-        <h2 style={{ fontSize: '2.5rem', margin: '0 0 1rem' }}>
-          Welcome to Order of Ash
-        </h2>
-        <p style={{ fontSize: '1.125rem', margin: '0 0 2rem', maxWidth: '600px' }}>
-          Burn yourself for power, collect the fragments, and uncover the secrets of the Order of Ash.
-        </p>
-        <Link
-          to="/burn"
+        {/* Левая половина — заголовок и описание */}
+        <div
           style={{
-            padding: '0.75rem 1.5rem',
-            background: 'linear-gradient(to right, #ef4444, #ec4899)',
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
             color: 'white',
-            borderRadius: '9999px',
-            fontWeight: 'bold',
-            textDecoration: 'none',
+            textAlign: 'left',
+            paddingRight: '2rem'
           }}
         >
-          Burn Yourself
-        </Link>
+          <h2
+            style={{
+              fontSize: '2.5rem',
+              margin: 0,
+              fontFamily: 'MedievalSharp, serif',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            Welcome to Order of Ash
+          </h2>
+          <p
+            style={{
+              fontSize: '1.125rem',
+              margin: '1rem 0',
+              maxWidth: '600px'
+            }}
+          >
+            Burn yourself for power, collect the fragments, and uncover the secrets of the Order of Ash.
+          </p>
+        </div>
+
+        {/* Правая половина — кнопка Burn */}
+        <div
+          style={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-start'
+          }}
+        >
+          <Link
+            to="/burn"
+            style={{
+              padding: '0.75rem 1.5rem',
+              background: 'linear-gradient(to right, #ef4444, #ec4899)',
+              color: 'white',
+              borderRadius: '9999px',
+              fontWeight: 'bold',
+              textDecoration: 'none'
+            }}
+          >
+            Burn Yourself
+          </Link>
+        </div>
       </main>
 
       {/* Кнопки-таблички: два ряда внизу */}
@@ -127,7 +175,7 @@ export default function Home() {
           flexDirection: 'column',
           alignItems: 'center',
           gap: '0.5rem',
-          zIndex: 20,
+          zIndex: 20
         }}
       >
         {/* Верхний ряд */}
