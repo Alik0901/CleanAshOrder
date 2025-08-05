@@ -4,10 +4,10 @@ import bgWelcome from '../assets/images/converted_minimal.jpg';
 import logo from '../assets/images/logo_trimmed_optimized.png';
 
 // Кнопки-таблички
-import galleryBtn from '../assets/images/gallery.jpg';
-import leaderboardBtn from '../assets/images/leaderboard.jpg';
-import referralBtn from '../assets/images/referral.jpg';
-import profileBtn from '../assets/images/profile.jpg';
+import galleryBtn from '../assets/images/gallery.png';
+import leaderboardBtn from '../assets/images/leaderboard.png';
+import referralBtn from '../assets/images/referral.png';
+import profileBtn from '../assets/images/profile.png';
 
 export default function Home() {
   useEffect(() => {
