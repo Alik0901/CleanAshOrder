@@ -89,7 +89,7 @@ export default function Home() {
           alignItems: 'center',
           justifyContent: 'center',
           color: 'white',
-          textAlign: 'center',
+          textAlign: 'left',
           padding: '0 1rem',
           marginTop: '4rem',
           boxSizing: 'border-box',
@@ -98,7 +98,7 @@ export default function Home() {
         <h2 style={{ fontSize: '2.5rem', margin: '0 0 1rem' }}>
           Welcome to Order of Ash
         </h2>
-        <p style={{ fontSize: '1.125rem', margin: '0 0 2rem', maxWidth: '250px', position: 'left', textAlign: 'left' }}>
+        <p style={{ fontSize: '1.125rem', margin: '0 0 2rem', maxWidth: '250px' }}>
           Burn yourself for power, collect the fragments, and uncover the secrets of the Order of Ash.
         </p>
         <Link
