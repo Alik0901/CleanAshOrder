@@ -76,6 +76,18 @@ export default function Home() {
           alt="Order of Ash logo"
           style={{ height: '3rem', objectFit: 'contain' }}
         />
+        <button
+          style={{
+            position: 'absolute',
+            left: '1rem',
+            background: 'none',
+            border: 'none',
+            color: 'white',
+            fontSize: '1.5rem',
+            cursor: 'pointer',
+          }}
+        >
+        </button>
       </header>
 
       {/* Основной контент */}
