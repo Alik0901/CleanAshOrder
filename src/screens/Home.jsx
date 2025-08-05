@@ -97,13 +97,12 @@ export default function Home() {
         <div
           style={{
             display: 'flex',
-            alignItems: 'flex-start',
-            justifyContent: 'space-between',
             width: '100%',
             maxWidth: '800px',
             marginLeft: 0,
-          }}
-        >
+          }}>
+        </div>
+        
           {/* Левый блок с заголовком и описанием */}
           <div style={{ flex: 1, textAlign: 'left' }}>
             <h2 style={{ fontSize: '2.5rem', margin: '0 0 1rem' }}>
@@ -114,11 +113,18 @@ export default function Home() {
             </p>
           </div>
 
+          <div
+            style={{
+            display: 'flex',
+            alignItems: 'center',
+            marginLeft: '1rem',
+             }}
+          >
+
           {/* Кнопка справа */}
           <Link
             to="/burn"
             style={{
-              marginLeft: '1rem',
               padding: '0.75rem 1.5rem',
               background: 'linear-gradient(to right, #ef4444, #ec4899)',
               color: 'white',
