@@ -105,7 +105,7 @@ export default function Home() {
         >
           {/* Левый блок с заголовком и описанием */}
           <div style={{ flex: 1, textAlign: 'left' }}>
-            <h2 style={{ fontSize: '2.5rem', fontFamily: '"MedievalSharp", serif', margin: '0 0 1rem' }}>
+            <h2 style={{ fontSize: '2rem', fontFamily: '"MedievalSharp", serif', margin: '0 0 1rem' }}>
               Welcome to Order of Ash
             </h2>
             <p style={{ fontSize: '1.125rem', margin: 0 }}>
