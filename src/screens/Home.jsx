@@ -133,19 +133,19 @@ export default function Home() {
         {/* Верхний ряд */}
         <div style={{ display: 'flex', gap: '0.75rem' }}>
           <Link to="/gallery">
-            <img src={galleryBtn} alt="Gallery" style={{ height: '3rem' }} />
+            <img src={galleryBtn} alt="Gallery" style={{ height: '2rem' }} />
           </Link>
           <Link to="/leaderboard">
-            <img src={leaderboardBtn} alt="Leaderboard" style={{ height: '3rem' }} />
+            <img src={leaderboardBtn} alt="Leaderboard" style={{ height: '2rem' }} />
           </Link>
         </div>
         {/* Нижний ряд */}
         <div style={{ display: 'flex', gap: '0.75rem' }}>
           <Link to="/referral">
-            <img src={referralBtn} alt="Referral" style={{ height: '3rem' }} />
+            <img src={referralBtn} alt="Referral" style={{ height: '2rem' }} />
           </Link>
           <Link to="/profile">
-            <img src={profileBtn} alt="Profile" style={{ height: '3rem' }} />
+            <img src={profileBtn} alt="Profile" style={{ height: '2rem' }} />
           </Link>
         </div>
       </div>
