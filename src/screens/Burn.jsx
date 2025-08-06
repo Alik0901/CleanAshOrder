@@ -27,7 +27,8 @@ export default function Burn() {
       setError(e.message || 'Error creating invoice');
       setStatus('error');
       if (e.message.toLowerCase().includes('invalid token')) {
-        logout(); navigate('/login');
+        logout();
+        navigate('/login');
       }
     }
   };
@@ -47,67 +48,67 @@ export default function Burn() {
         setError(e.message || 'Error checking payment');
         setStatus('error');
         if (e.message.toLowerCase().includes('invalid token')) {
-          logout(); navigate('/login');
+          logout();
+          navigate('/login');
         }
       }
     }, 3000);
     return () => clearInterval(timer);
   }, [status, invoiceId, logout, navigate]);
 
-  // Idle state layout
+  // Static layout
+  const rarityItems = [
+    { key: 'legendary', label: 'Legendary', percent: '5%',  icon: '/images/icons/legendary.png', top: 197 },
+    { key: 'rare',      label: 'Rare',      percent: '15%', icon: '/images/icons/rare.png',      top: 266 },
+    { key: 'uncommon',  label: 'Uncommon',  percent: '30%', icon: '/images/icons/uncommon.png',  top: 335 },
+    { key: 'common',    label: 'Common',    percent: '50%', icon: '/images/icons/common.png',    top: 404 },
+  ];
+
   return (
-    <div style={{ position: 'relative', width: '393px', height: '800px', margin: '0 auto', overflowX: 'hidden' }}> 
-      {/* Checker background */}
+    <div style={{ position: 'relative', width: '100%', height: '100vh', overflowX: 'hidden' }}>
+      {/* Checker overlay */}
       <div
         style={{
-          position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
-          backgroundImage: "url('/images/Checker.webp')", backgroundSize: 'cover',
-        }}
-      />
-      {/* Burn background with gradient overlay */}
-      <div
-        style={{
-          position: 'absolute', left: '50%', top: '-1px', width: '801px', height: '801px',
-          transform: 'translateX(-50%)',
-          backgroundImage: "linear-gradient(0deg, rgba(0,0,0,0.56), rgba(0,0,0,0.56)), url('/images/bg-burn.webp')",
-          backgroundSize: 'cover',
+          position: 'absolute', inset: 0,
+          backgroundImage: "url('/images/Checker.webp')",
+          backgroundSize: 'cover', backgroundPosition: 'center',
         }}
       />
 
-      {/* Back button */}
+      {/* Burn background with gradient */}
+      <div
+        style={{
+          position: 'absolute', inset: 0,
+          backgroundImage: "linear-gradient(0deg, rgba(0,0,0,0.56), rgba(0,0,0,0.56)), url('/images/bg-burn.webp')",
+          backgroundSize: 'cover', backgroundPosition: 'center',
+        }}
+      />
+
       <BackButton style={{ position: 'absolute', top: 16, left: 16, zIndex: 10, color: '#fff' }} />
 
-      {/* Title splitted into two lines */}
       <h1
         style={{
           position: 'absolute', left: 79, top: 45, width: 235, height: 96,
-          fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 40, lineHeight: '48px', color: '#9E9191',
-          textAlign: 'center',
-          whiteSpace: 'pre-line',
+          fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 40, lineHeight: '48px',
+          color: '#9E9191', whiteSpace: 'pre-line', textAlign: 'center',
         }}
       >
         Burn<br/>Yourself
       </h1>
 
-      {/* Element rarity label */}
       <h3
         style={{
-          position: 'absolute', left: 46, top: 150, width: 127, height: 24,
-          fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, lineHeight: '24px', color: '#9E9191',
+          position: 'absolute', left: 46, top: 163, width: 127, height: 24,
+          fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, lineHeight: '24px',
+          color: '#9E9191',
         }}
       >
         Element rarity
       </h3>
 
-      {/* Rarity rows with aligned icon containers */}
-      {[
-        { key: 'legendary', label: 'Legendary', percent: '5%', icon: '/images/icons/legendary.png', top: 180 },
-        { key: 'rare',      label: 'Rare',      percent: '15%', icon: '/images/icons/rare.png',      top: 249 },
-        { key: 'uncommon',  label: 'Uncommon',  percent: '30%', icon: '/images/icons/uncommon.png',  top: 318 },
-        { key: 'common',    label: 'Common',    percent: '50%', icon: '/images/icons/common.png',    top: 387 },
-      ].map(item => (
+      {rarityItems.map(item => (
         <React.Fragment key={item.key}>
-          {/* Icon container, centered background */}
+          {/* Icon */}
           <div
             style={{
               position: 'absolute', left: 26, top: item.top,
@@ -116,16 +117,41 @@ export default function Burn() {
               backgroundSize: 'contain', backgroundPosition: 'center', backgroundRepeat: 'no-repeat',
             }}
           />
-          {/* Frame for label */}
-          <div style={{ position: 'absolute', left: 102, top: item.top, width: 193, height: 58, border: '1px solid #979696', borderRadius: 16 }} />
-          {/* Text label */}
-          <span style={{ position: 'absolute', left: 152, top: item.top + 21, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, lineHeight: '24px', color: '#9E9191' }}>{item.label}</span>
-          {/* Percent text */}
-          <span style={{ position: 'absolute', left: 316, top: item.top + (item.key === 'legendary' ? 21 : item.top === 218 ? 21 : 21), fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, lineHeight: '24px', color: '#9E9191' }}>{item.percent}</span>
+
+          {/* Frame */}
+          <div
+            style={{
+              position: 'absolute', left: 102, top: item.top,
+              width: 193, height: 58,
+              border: '1px solid #979696',
+              borderRadius: 16,
+            }}
+          />
+
+          {/* Label */}
+          <span
+            style={{
+              position: 'absolute', left: 152, top: item.top + 21,
+              fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, lineHeight: '24px',
+              color: '#9E9191',
+            }}
+          >
+            {item.label}
+          </span>
+
+          {/* Percent */}
+          <span
+            style={{
+              position: 'absolute', left: 316, top: item.top + 21,
+              fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, lineHeight: '24px',
+              color: '#9E9191',
+            }}
+          >
+            {item.percent}
+          </span>
         </React.Fragment>
       ))}
 
-      {/* Burn button */}
       <button
         onClick={startBurn}
         style={{
@@ -135,17 +161,20 @@ export default function Burn() {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}
       >
-        <span style={{ fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 24, lineHeight: '29px', color: '#FFFFFF' }}>
+        <span
+          style={{
+            fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 24, lineHeight: '29px', color: '#FFFFFF',
+          }}
+        >
           BURN 0,5 TON
         </span>
       </button>
 
-      {/* Disclaimer */}
       <p
         style={{
           position: 'absolute', left: 52, top: 634, width: 318, height: 53,
           fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 15, lineHeight: '18px', color: '#9E9191',
-          textAlign: 'center'
+          textAlign: 'center',
         }}
       >
         Please ensure you send exactly 0.5 TON when making your payment. Transactions for any other amount may be lost.
