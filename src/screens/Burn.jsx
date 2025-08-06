@@ -212,7 +212,7 @@ export default function Burn() {
         onClick={startBurn}
         style={{
           position: 'absolute',
-          left: 70,
+          left: 65,
           top: 480,
           width: 265,
           height: 76,
@@ -244,7 +244,7 @@ export default function Burn() {
       <p
         style={{
           position: 'absolute',
-          left: 52,
+          left: 42,
           top: 594,
           width: 318,
           fontFamily: 'Tajawal, sans-serif',
