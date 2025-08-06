@@ -133,7 +133,7 @@ export default function Burn() {
         style={{
           position: 'absolute',
           left: 46,
-          top: 115,
+          top: 90,
           fontFamily: 'Tajawal, sans-serif',
           fontWeight: 700,
           fontSize: 20,
