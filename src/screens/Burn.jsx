@@ -113,7 +113,7 @@ export default function Burn() {
       <h1
         style={{
           position: 'absolute',
-          top: 45,
+          top: 25,
           left: '50%',
           transform: 'translateX(-50%)',
           fontFamily: 'Tajawal, sans-serif',
