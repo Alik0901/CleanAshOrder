@@ -56,7 +56,7 @@ export default function Burn() {
 
   // Idle state layout
   return (
-    <div style={{ position: 'relative', width: '393px', height: '800px', margin: '0 auto' }}>
+    <div style={{ position: 'relative', width: '393px', height: '800px', margin: '0 auto', overflowX: 'hidden' }}> 
       {/* Checker background */}
       <div
         style={{
@@ -92,7 +92,7 @@ export default function Burn() {
       {/* Element rarity label */}
       <h3
         style={{
-          position: 'absolute', left: 46, top: 115, width: 127, height: 24,
+          position: 'absolute', left: 46, top: 150, width: 127, height: 24,
           fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, lineHeight: '24px', color: '#9E9191',
         }}
       >
@@ -101,10 +101,10 @@ export default function Burn() {
 
       {/* Rarity rows with aligned icon containers */}
       {[
-        { key: 'legendary', label: 'Legendary', percent: '5%', icon: '/images/icons/legendary.png', top: 149 },
-        { key: 'rare',      label: 'Rare',      percent: '15%', icon: '/images/icons/rare.png',      top: 218 },
-        { key: 'uncommon',  label: 'Uncommon',  percent: '30%', icon: '/images/icons/uncommon.png',  top: 287 },
-        { key: 'common',    label: 'Common',    percent: '50%', icon: '/images/icons/common.png',    top: 356 },
+        { key: 'legendary', label: 'Legendary', percent: '5%', icon: '/images/icons/legendary.png', top: 180 },
+        { key: 'rare',      label: 'Rare',      percent: '15%', icon: '/images/icons/rare.png',      top: 249 },
+        { key: 'uncommon',  label: 'Uncommon',  percent: '30%', icon: '/images/icons/uncommon.png',  top: 318 },
+        { key: 'common',    label: 'Common',    percent: '50%', icon: '/images/icons/common.png',    top: 387 },
       ].map(item => (
         <React.Fragment key={item.key}>
           {/* Icon container, centered background */}
@@ -129,7 +129,7 @@ export default function Burn() {
       <button
         onClick={startBurn}
         style={{
-          position: 'absolute', left: 70, top: 480, width: 265, height: 76,
+          position: 'absolute', left: 70, top: 520, width: 265, height: 76,
           backgroundImage: 'linear-gradient(90deg, #D81E3D 0%, #D81E5F 100%)',
           boxShadow: '0px 6px 6px rgba(0,0,0,0.87)', borderRadius: 40,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -143,7 +143,7 @@ export default function Burn() {
       {/* Disclaimer */}
       <p
         style={{
-          position: 'absolute', left: 52, top: 594, width: 318, height: 53,
+          position: 'absolute', left: 52, top: 634, width: 318, height: 53,
           fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 15, lineHeight: '18px', color: '#9E9191',
           textAlign: 'center'
         }}
