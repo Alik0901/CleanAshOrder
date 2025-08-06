@@ -71,7 +71,7 @@ export default function Burn() {
         style={{
           position: 'absolute', left: '50%', top: '-1px', width: '801px', height: '801px',
           transform: 'translateX(-50%)',
-          backgroundImage: "linear-gradient(0deg, rgba(0,0,0,0.56), rgba(0,0,0,0.56)), url('public/images/bg-burn.png')",
+          backgroundImage: /*"linear-gradient(0deg, rgba(0,0,0,0.56), rgba(0,0,0,0.56)),*/ "url('public/images/bg-burn.png')",
           backgroundSize: 'cover',
         }}
       />
