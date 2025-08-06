@@ -27,8 +27,7 @@ export default function Burn() {
       setError(e.message || 'Error creating invoice');
       setStatus('error');
       if (e.message.toLowerCase().includes('invalid token')) {
-        logout();
-        navigate('/login');
+        logout(); navigate('/login');
       }
     }
   };
@@ -48,22 +47,21 @@ export default function Burn() {
         setError(e.message || 'Error checking payment');
         setStatus('error');
         if (e.message.toLowerCase().includes('invalid token')) {
-          logout();
-          navigate('/login');
+          logout(); navigate('/login');
         }
       }
     }, 3000);
     return () => clearInterval(timer);
   }, [status, invoiceId, logout, navigate]);
 
-  // Render only idle state; other states can overlay similarly
+  // Idle state layout
   return (
     <div style={{ position: 'relative', width: '393px', height: '800px', margin: '0 auto' }}>
       {/* Checker background */}
       <div
         style={{
           position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
-          backgroundImage: "url('/images/Checker.png')", backgroundSize: 'cover',
+          backgroundImage: "url('/images/Checker.webp')", backgroundSize: 'cover',
         }}
       />
       {/* Burn background with gradient overlay */}
@@ -71,7 +69,7 @@ export default function Burn() {
         style={{
           position: 'absolute', left: '50%', top: '-1px', width: '801px', height: '801px',
           transform: 'translateX(-50%)',
-          backgroundImage: /*"linear-gradient(0deg, rgba(0,0,0,0.56), rgba(0,0,0,0.56)),*/ "url('/images/bg-burn.webp')",
+          backgroundImage: "linear-gradient(0deg, rgba(0,0,0,0.56), rgba(0,0,0,0.56)), url('/images/bg-burn.webp')",
           backgroundSize: 'cover',
         }}
       />
@@ -79,14 +77,15 @@ export default function Burn() {
       {/* Back button */}
       <BackButton style={{ position: 'absolute', top: 16, left: 16, zIndex: 10, color: '#fff' }} />
 
-      {/* Title */}
+      {/* Title, two-line */}
       <h1
         style={{
-          position: 'absolute', left: 79, top: 45, width: 235, height: 48,
+          position: 'absolute', left: 79, top: 45, width: 235, height: 96,
           fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 40, lineHeight: '48px', color: '#9E9191',
+          whiteSpace: 'pre-line'
         }}
       >
-        Burn Yourself
+        {'Burn\nYourself'}
       </h1>
 
       {/* Element rarity label */}
@@ -101,25 +100,25 @@ export default function Burn() {
 
       {/* Rarity rows */}
       {/* Legendary */}
-      <div style={{ position: 'absolute', left: 26, top: 149, width: 44, height: 56, backgroundImage: "url('/images/icons/legendary.png')", backgroundSize: 'cover' }} />
+      <div style={{ position: 'absolute', left: 26, top: 149, width: 44, height: 56, backgroundImage: "url('/images/icons/legendary.webp')", backgroundSize: 'cover' }} />
       <div style={{ position: 'absolute', left: 102, top: 149, width: 193, height: 58, border: '1px solid #979696', borderRadius: 16 }} />
       <span style={{ position: 'absolute', left: 152, top: 170, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, lineHeight: '24px', color: '#9E9191' }}>Legendary</span>
       <span style={{ position: 'absolute', left: 322, top: 170, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, lineHeight: '24px', color: '#9E9191' }}>5%</span>
 
       {/* Rare */}
-      <div style={{ position: 'absolute', left: 26, top: 218, width: 58, height: 58, backgroundImage: "url('/images/icons/rare.png')", backgroundSize: 'cover' }} />
+      <div style={{ position: 'absolute', left: 26, top: 218, width: 58, height: 58, backgroundImage: "url('/images/icons/rare.webp')", backgroundSize: 'cover' }} />
       <div style={{ position: 'absolute', left: 102, top: 218, width: 193, height: 58, border: '1px solid #979696', borderRadius: 16 }} />
       <span style={{ position: 'absolute', left: 152, top: 239, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, lineHeight: '24px', color: '#9E9191' }}>Rare</span>
       <span style={{ position: 'absolute', left: 318, top: 239, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, lineHeight: '24px', color: '#9E9191' }}>15%</span>
 
       {/* Uncommon */}
-      <div style={{ position: 'absolute', left: 26, top: 285, width: 59, height: 59, backgroundImage: "url('/images/icons/uncommon.png')", backgroundSize: 'cover' }} />
+      <div style={{ position: 'absolute', left: 26, top: 285, width: 59, height: 59, backgroundImage: "url('/images/icons/uncommon.webp')", backgroundSize: 'cover' }} />
       <div style={{ position: 'absolute', left: 102, top: 287, width: 193, height: 58, border: '1px solid #979696', borderRadius: 16 }} />
       <span style={{ position: 'absolute', left: 152, top: 305, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, lineHeight: '24px', color: '#9E9191' }}>Uncommon</span>
       <span style={{ position: 'absolute', left: 316, top: 308, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, lineHeight: '24px', color: '#9E9191' }}>30%</span>
 
       {/* Common */}
-      <div style={{ position: 'absolute', left: 26, top: 353, width: 74, height: 74, backgroundImage: "url('/images/icons/common.png')", backgroundSize: 'cover' }} />
+      <div style={{ position: 'absolute', left: 26, top: 353, width: 74, height: 74, backgroundImage: "url('/images/icons/common.webp')", backgroundSize: 'cover' }} />
       <div style={{ position: 'absolute', left: 102, top: 356, width: 193, height: 58, border: '1px solid #979696', borderRadius: 16 }} />
       <span style={{ position: 'absolute', left: 151, top: 377, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, lineHeight: '24px', color: '#9E9191' }}>Common</span>
       <span style={{ position: 'absolute', left: 316, top: 374, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, lineHeight: '24px', color: '#9E9191' }}>50%</span>
