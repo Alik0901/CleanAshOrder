@@ -77,16 +77,17 @@ export default function Burn() {
       {/* Back button */}
       <BackButton style={{ position: 'absolute', top: 16, left: 16, zIndex: 10, color: '#fff' }} />
 
-      {/* Title, two-line */}
-      <h1
+      {/* Title splitted into two lines */}
+      <div
         style={{
-          position: 'absolute', left: 79, top: 45, width: 235, height: 96,
+          position: 'absolute', left: 79, top: 45,
           fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 40, lineHeight: '48px', color: '#9E9191',
-          whiteSpace: 'pre-line'
+          whiteSpace: 'pre-line',
         }}
       >
-        {'Burn\nYourself'}
-      </h1>
+        {'Burn
+Yourself'}
+      </div>
 
       {/* Element rarity label */}
       <h3
@@ -98,30 +99,31 @@ export default function Burn() {
         Element rarity
       </h3>
 
-      {/* Rarity rows */}
-      {/* Legendary */}
-      <div style={{ position: 'absolute', left: 26, top: 149, width: 44, height: 56, backgroundImage: "url('/images/icons/legendary.png')", backgroundSize: 'cover' }} />
-      <div style={{ position: 'absolute', left: 102, top: 149, width: 193, height: 58, border: '1px solid #979696', borderRadius: 16 }} />
-      <span style={{ position: 'absolute', left: 152, top: 170, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, lineHeight: '24px', color: '#9E9191' }}>Legendary</span>
-      <span style={{ position: 'absolute', left: 322, top: 170, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, lineHeight: '24px', color: '#9E9191' }}>5%</span>
-
-      {/* Rare */}
-      <div style={{ position: 'absolute', left: 26, top: 218, width: 58, height: 58, backgroundImage: "url('/images/icons/rare.png')", backgroundSize: 'cover' }} />
-      <div style={{ position: 'absolute', left: 102, top: 218, width: 193, height: 58, border: '1px solid #979696', borderRadius: 16 }} />
-      <span style={{ position: 'absolute', left: 152, top: 239, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, lineHeight: '24px', color: '#9E9191' }}>Rare</span>
-      <span style={{ position: 'absolute', left: 318, top: 239, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, lineHeight: '24px', color: '#9E9191' }}>15%</span>
-
-      {/* Uncommon */}
-      <div style={{ position: 'absolute', left: 26, top: 285, width: 59, height: 59, backgroundImage: "url('/images/icons/uncommon.png')", backgroundSize: 'cover' }} />
-      <div style={{ position: 'absolute', left: 102, top: 287, width: 193, height: 58, border: '1px solid #979696', borderRadius: 16 }} />
-      <span style={{ position: 'absolute', left: 152, top: 305, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, lineHeight: '24px', color: '#9E9191' }}>Uncommon</span>
-      <span style={{ position: 'absolute', left: 316, top: 308, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, lineHeight: '24px', color: '#9E9191' }}>30%</span>
-
-      {/* Common */}
-      <div style={{ position: 'absolute', left: 26, top: 353, width: 74, height: 74, backgroundImage: "url('/images/icons/common.png')", backgroundSize: 'cover' }} />
-      <div style={{ position: 'absolute', left: 102, top: 356, width: 193, height: 58, border: '1px solid #979696', borderRadius: 16 }} />
-      <span style={{ position: 'absolute', left: 151, top: 377, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, lineHeight: '24px', color: '#9E9191' }}>Common</span>
-      <span style={{ position: 'absolute', left: 316, top: 374, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, lineHeight: '24px', color: '#9E9191' }}>50%</span>
+      {/* Rarity rows with aligned icon containers */}
+      {[
+        { key: 'legendary', label: 'Legendary', percent: '5%', icon: '/images/icons/legendary.png', top: 149 },
+        { key: 'rare',      label: 'Rare',      percent: '15%', icon: '/images/icons/rare.png',      top: 218 },
+        { key: 'uncommon',  label: 'Uncommon',  percent: '30%', icon: '/images/icons/uncommon.png',  top: 287 },
+        { key: 'common',    label: 'Common',    percent: '50%', icon: '/images/icons/common.png',    top: 356 },
+      ].map(item => (
+        <React.Fragment key={item.key}>
+          {/* Icon container, centered background */}
+          <div
+            style={{
+              position: 'absolute', left: 26, top: item.top,
+              width: 58, height: 58,
+              backgroundImage: `url('${item.icon}')`,
+              backgroundSize: 'contain', backgroundPosition: 'center', backgroundRepeat: 'no-repeat',
+            }}
+          />
+          {/* Frame for label */}
+          <div style={{ position: 'absolute', left: 102, top: item.top, width: 193, height: 58, border: '1px solid #979696', borderRadius: 16 }} />
+          {/* Text label */}
+          <span style={{ position: 'absolute', left: 152, top: item.top + 21, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, lineHeight: '24px', color: '#9E9191' }}>{item.label}</span>
+          {/* Percent text */}
+          <span style={{ position: 'absolute', left: 316, top: item.top + (item.key === 'legendary' ? 21 : item.top === 218 ? 21 : 21), fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, lineHeight: '24px', color: '#9E9191' }}>{item.percent}</span>
+        </React.Fragment>
+      ))}
 
       {/* Burn button */}
       <button
