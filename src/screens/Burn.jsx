@@ -78,16 +78,16 @@ export default function Burn() {
       <BackButton style={{ position: 'absolute', top: 16, left: 16, zIndex: 10, color: '#fff' }} />
 
       {/* Title splitted into two lines */}
-      <div
+      <h1
         style={{
-          position: 'absolute', left: 79, top: 45,
+          position: 'absolute', left: 79, top: 45, width: 235, height: 96,
           fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 40, lineHeight: '48px', color: '#9E9191',
+          textAlign: 'center',
           whiteSpace: 'pre-line',
         }}
       >
-        {'Burn
-Yourself'}
-      </div>
+        Burn<br/>Yourself
+      </h1>
 
       {/* Element rarity label */}
       <h3
