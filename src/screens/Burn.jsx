@@ -4,40 +4,21 @@ import BackButton from '../components/BackButton';
 import { AuthContext } from '../context/AuthContext';
 import API from '../utils/apiClient';
 
-const BASE_AMOUNT_NANO = 500_000_000; // 0.5 TON
-const PITY_BOOST_PER = 1;  // +1% per non-successful burn
-const PITY_CAP = 20;       // maximum +20%
-
 export default function Burn() {
   const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
 
-  const [status, setStatus] = useState('idle'); // idle | pending | success | error
-  const [error, setError] = useState('');
+  const [status, setStatus] = useState('idle');
   const [invoiceId, setInvoiceId] = useState(null);
   const [paymentUrl, setPaymentUrl] = useState('');
   const [result, setResult] = useState({ category: '', fragmentId: null, pity_counter: 0 });
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    // fetch pity counter if needed from backend; for now assume 0
-    setResult(r => ({ ...r, pity_counter: 0 }));
-  }, []);
-
-  const computeChances = () => {
-    const boost = Math.min(result.pity_counter * PITY_BOOST_PER, PITY_CAP);
-    const baseRare = 15;
-    const baseLegend = 5;
-    const sumRL = baseRare + baseLegend;
-    return [
-      { key: 'legendary', label: 'Legendary', percent: (baseLegend + boost * (baseLegend / sumRL)).toFixed(1) || '0' },
-      { key: 'rare', label: 'Rare', percent: (baseRare + boost * (baseRare / sumRL)).toFixed(1) || '0' },
-      { key: 'uncommon', label: 'Uncommon', percent: '30' },
-      { key: 'common', label: 'Common', percent: '50' },
-    ];
-  };
+  const BASE_AMOUNT_NANO = 500_000_000; // 0.5 TON
 
   const startBurn = async () => {
-    setStatus('pending'); setError('');
+    setStatus('pending');
+    setError('');
     try {
       const { invoiceId, paymentUrl } = await API.createBurn(user.tg_id, BASE_AMOUNT_NANO);
       setInvoiceId(invoiceId);
@@ -46,7 +27,8 @@ export default function Burn() {
       setError(e.message || 'Error creating invoice');
       setStatus('error');
       if (e.message.toLowerCase().includes('invalid token')) {
-        logout(); navigate('/login');
+        logout();
+        navigate('/login');
       }
     }
   };
@@ -66,62 +48,107 @@ export default function Burn() {
         setError(e.message || 'Error checking payment');
         setStatus('error');
         if (e.message.toLowerCase().includes('invalid token')) {
-          logout(); navigate('/login');
+          logout();
+          navigate('/login');
         }
       }
     }, 3000);
     return () => clearInterval(timer);
   }, [status, invoiceId, logout, navigate]);
 
-  const chances = computeChances();
-
+  // Render only idle state; other states can overlay similarly
   return (
-    <div className="relative w-[393px] h-[800px] mx-auto">
-      {/* Background layers */}
-      <div className="absolute inset-0 bg-[url('/images/Checker.png')] bg-cover"></div>
-      <div className="absolute left-1/2 top-[-1px] w-[801px] h-[801px] -translate-x-1/2 bg-center bg-cover" style={{ backgroundImage: `linear-gradient(0deg, rgba(0,0,0,0.56), rgba(0,0,0,0.56)), url('/images/bg-burn.png')` }} />
+    <div style={{ position: 'relative', width: '393px', height: '800px', margin: '0 auto' }}>
+      {/* Checker background */}
+      <div
+        style={{
+          position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+          backgroundImage: "url('/images/Checker.png')", backgroundSize: 'cover',
+        }}
+      />
+      {/* Burn background with gradient overlay */}
+      <div
+        style={{
+          position: 'absolute', left: '50%', top: '-1px', width: '801px', height: '801px',
+          transform: 'translateX(-50%)',
+          backgroundImage: "linear-gradient(0deg, rgba(0,0,0,0.56), rgba(0,0,0,0.56)), url('/images/bg-burn.png')",
+          backgroundSize: 'cover',
+        }}
+      />
 
       {/* Back button */}
-      <BackButton className="absolute top-4 left-4 z-10 text-white" />
+      <BackButton style={{ position: 'absolute', top: 16, left: 16, zIndex: 10, color: '#fff' }} />
 
       {/* Title */}
-      <h1 className="absolute left-[79px] top-[45px] w-[235px] h-[48px] font-Tajawal font-bold text-[40px] leading-[48px] text-[#9E9191]">
+      <h1
+        style={{
+          position: 'absolute', left: 79, top: 45, width: 235, height: 48,
+          fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 40, lineHeight: '48px', color: '#9E9191',
+        }}
+      >
         Burn Yourself
       </h1>
 
-      {status === 'idle' && (
-        <>
-          {/* Chance blocks */}
-          {chances.map((c, i) => {
-            const topOffset = 149 + i * 69; // 149,218,287,356
-            return (
-              <React.Fragment key={c.key}>
-                <div className={`absolute left-[102px] top-[${topOffset}px] w-[193px] h-[58px] border border-[#979696] rounded-[16px]`} />
-                <div className={`absolute left-[306px] top-[${topOffset}px] w-[58px] h-[58px] border border-[#979696] rounded-[16px]`} />
-                <span className={`absolute left-[152px] top-[${topOffset + 21}px] font-Tajawal font-bold text-[20px] leading-[24px] text-[#9E9191]`}>{c.label}</span>
-                <span className={`absolute left-[${i === 0 ? 322 : i === 1 ? 318 : i === 2 ? 316 : 316}px] top-[${topOffset + 21}px] font-Tajawal font-bold text-[20px] leading-[24px] text-[#9E9191]`}>{c.percent}%</span>
-              </React.Fragment>
-            );
-          })}
+      {/* Element rarity label */}
+      <h3
+        style={{
+          position: 'absolute', left: 46, top: 115, width: 127, height: 24,
+          fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, lineHeight: '24px', color: '#9E9191',
+        }}
+      >
+        Element rarity
+      </h3>
 
-          {/* Burn button */}
-          <button
-            onClick={startBurn}
-            className="absolute left-[70px] top-[480px] w-[265px] h-[76px] bg-gradient-to-r from-[#D81E3D] to-[#D81E5F] shadow-[0px_6px_6px_rgba(0,0,0,0.87)] rounded-[40px] flex items-center justify-center"
-          >
-            <span className="font-Tajawal font-bold text-[24px] leading-[29px] text-white">
-              BURN 0,5 TON
-            </span>
-          </button>
+      {/* Rarity rows */}
+      {/* Legendary */}
+      <div style={{ position: 'absolute', left: 26, top: 149, width: 44, height: 56, backgroundImage: "url('/images/icons/legendary.png')", backgroundSize: 'cover' }} />
+      <div style={{ position: 'absolute', left: 102, top: 149, width: 193, height: 58, border: '1px solid #979696', borderRadius: 16 }} />
+      <span style={{ position: 'absolute', left: 152, top: 170, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, lineHeight: '24px', color: '#9E9191' }}>Legendary</span>
+      <span style={{ position: 'absolute', left: 322, top: 170, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, lineHeight: '24px', color: '#9E9191' }}>5%</span>
 
-          {/* Disclaimer */}
-          <p className="absolute left-[52px] top-[594px] w-[318px] h-[53px] font-Tajawal font-bold text-[15px] leading-[18px] text-[#9E9191]">
-            Please ensure you send exactly 0.5 TON when making your payment. Transactions for any other amount may be lost.
-          </p>
-        </>
-      )}
+      {/* Rare */}
+      <div style={{ position: 'absolute', left: 26, top: 218, width: 58, height: 58, backgroundImage: "url('/images/icons/rare.png')", backgroundSize: 'cover' }} />
+      <div style={{ position: 'absolute', left: 102, top: 218, width: 193, height: 58, border: '1px solid #979696', borderRadius: 16 }} />
+      <span style={{ position: 'absolute', left: 152, top: 239, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, lineHeight: '24px', color: '#9E9191' }}>Rare</span>
+      <span style={{ position: 'absolute', left: 318, top: 239, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, lineHeight: '24px', color: '#9E9191' }}>15%</span>
 
-      {/* Pending / success / error states can remain as overlays or separate layouts */}
+      {/* Uncommon */}
+      <div style={{ position: 'absolute', left: 26, top: 285, width: 59, height: 59, backgroundImage: "url('/images/icons/uncommon.png')", backgroundSize: 'cover' }} />
+      <div style={{ position: 'absolute', left: 102, top: 287, width: 193, height: 58, border: '1px solid #979696', borderRadius: 16 }} />
+      <span style={{ position: 'absolute', left: 152, top: 305, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, lineHeight: '24px', color: '#9E9191' }}>Uncommon</span>
+      <span style={{ position: 'absolute', left: 316, top: 308, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, lineHeight: '24px', color: '#9E9191' }}>30%</span>
+
+      {/* Common */}
+      <div style={{ position: 'absolute', left: 26, top: 353, width: 74, height: 74, backgroundImage: "url('/images/icons/common.png')", backgroundSize: 'cover' }} />
+      <div style={{ position: 'absolute', left: 102, top: 356, width: 193, height: 58, border: '1px solid #979696', borderRadius: 16 }} />
+      <span style={{ position: 'absolute', left: 151, top: 377, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, lineHeight: '24px', color: '#9E9191' }}>Common</span>
+      <span style={{ position: 'absolute', left: 316, top: 374, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, lineHeight: '24px', color: '#9E9191' }}>50%</span>
+
+      {/* Burn button */}
+      <button
+        onClick={startBurn}
+        style={{
+          position: 'absolute', left: 70, top: 480, width: 265, height: 76,
+          backgroundImage: 'linear-gradient(90deg, #D81E3D 0%, #D81E5F 100%)',
+          boxShadow: '0px 6px 6px rgba(0,0,0,0.87)', borderRadius: 40,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}
+      >
+        <span style={{ fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 24, lineHeight: '29px', color: '#FFFFFF' }}>
+          BURN 0,5 TON
+        </span>
+      </button>
+
+      {/* Disclaimer */}
+      <p
+        style={{
+          position: 'absolute', left: 52, top: 594, width: 318, height: 53,
+          fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 15, lineHeight: '18px', color: '#9E9191',
+          textAlign: 'center'
+        }}
+      >
+        Please ensure you send exactly 0.5 TON when making your payment. Transactions for any other amount may be lost.
+      </p>
     </div>
   );
 }
