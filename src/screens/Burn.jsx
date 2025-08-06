@@ -11,7 +11,7 @@ export default function Burn() {
   const [status, setStatus] = useState('idle');
   const [invoiceId, setInvoiceId] = useState(null);
   const [paymentUrl, setPaymentUrl] = useState('');
-  const [result, setResult] = useState({ category: '', fragmentId: null, pity_counter: 0 });
+  const [result, setResult] = useState({});
   const [error, setError] = useState('');
 
   const BASE_AMOUNT_NANO = 500_000_000; // 0.5 TON
@@ -27,7 +27,8 @@ export default function Burn() {
       setError(e.message || 'Error creating invoice');
       setStatus('error');
       if (e.message.toLowerCase().includes('invalid token')) {
-        logout(); navigate('/login');
+        logout();
+        navigate('/login');
       }
     }
   };
@@ -39,7 +40,7 @@ export default function Burn() {
         const res = await API.getBurnStatus(invoiceId);
         if (res.paid) {
           clearInterval(timer);
-          setResult({ category: res.category, fragmentId: res.newFragment, pity_counter: res.pity_counter });
+          setResult(res);
           setStatus('success');
         }
       } catch (e) {
@@ -47,108 +48,273 @@ export default function Burn() {
         setError(e.message || 'Error checking payment');
         setStatus('error');
         if (e.message.toLowerCase().includes('invalid token')) {
-          logout(); navigate('/login');
+          logout();
+          navigate('/login');
         }
       }
     }, 3000);
     return () => clearInterval(timer);
   }, [status, invoiceId, logout, navigate]);
 
-  // Idle state layout
+  const rarityItems = [
+    { key: 'legendary', label: 'Legendary', percent: '5%',    icon: '/images/icons/legendary.png', top: 149 },
+    { key: 'rare',      label: 'Rare',      percent: '15%',   icon: '/images/icons/rare.png',      top: 218 },
+    { key: 'uncommon',  label: 'Uncommon',  percent: '30%',   icon: '/images/icons/uncommon.png',  top: 287 },
+    { key: 'common',    label: 'Common',    percent: '50%',   icon: '/images/icons/common.png',    top: 356 },
+  ];
+
   return (
-    <div style={{ position: 'relative', width: '393px', height: '800px', margin: '0 auto', overflowX: 'hidden' }}> 
+    <div
+      style={{
+        position: 'relative',
+        width: '100%',
+        height: '100vh',
+        overflowX: 'hidden',
+        overflowY: 'auto',
+      }}
+    >
       {/* Checker background */}
       <div
         style={{
-          position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
-          backgroundImage: "url('/images/Checker.webp')", backgroundSize: 'cover',
+          position: 'absolute',
+          inset: 0,
+          backgroundImage: "url('/images/Checker.webp')",
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          zIndex: 0,
         }}
       />
-      {/* Burn background with gradient overlay */}
+
+      {/* Burn background + gradient */}
       <div
         style={{
-          position: 'absolute', left: '50%', top: '-1px', width: '801px', height: '801px',
-          transform: 'translateX(-50%)',
-          backgroundImage: "linear-gradient(0deg, rgba(0,0,0,0.56), rgba(0,0,0,0.56)), url('/images/bg-burn.webp')",
+          position: 'absolute',
+          inset: 0,
+          backgroundImage:
+            "linear-gradient(0deg, rgba(0,0,0,0.56), rgba(0,0,0,0.56)), url('/images/bg-burn.webp')",
           backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          zIndex: 1,
         }}
       />
 
-      {/* Back button */}
-      <BackButton style={{ position: 'absolute', top: 16, left: 16, zIndex: 10, color: '#fff' }} />
+      {/* Навигация */}
+      <BackButton
+        style={{
+          position: 'absolute',
+          top: 16,
+          left: 16,
+          zIndex: 5,
+          color: '#ffffff',
+        }}
+      />
 
-      {/* Title splitted into two lines */}
+      {/* Заголовок */}
       <h1
         style={{
-          position: 'absolute', left: 79, top: 45, width: 235, height: 48,
-          fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 40, lineHeight: '48px',
-          color: '#9E9191', textAlign: 'center',
+          position: 'absolute',
+          top: 45,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          fontFamily: 'Tajawal, sans-serif',
+          fontWeight: 700,
+          fontSize: 40,
+          lineHeight: '48px',
+          color: '#9E9191',
+          whiteSpace: 'nowrap',
+          zIndex: 5,
         }}
       >
-        Burn Yourself
+        Burn&nbsp;Yourself
       </h1>
 
-      {/* Element rarity label */}
+      {/* Элемент редкости */}
       <h3
         style={{
-          position: 'absolute', left: 46, top: 150, width: 127, height: 24,
-          fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, lineHeight: '24px', color: '#9E9191',
+          position: 'absolute',
+          left: 46,
+          top: 115,
+          fontFamily: 'Tajawal, sans-serif',
+          fontWeight: 700,
+          fontSize: 20,
+          lineHeight: '24px',
+          color: '#9E9191',
+          zIndex: 5,
         }}
       >
         Element rarity
       </h3>
 
-      {/* Rarity rows with aligned icon containers */}
-      {[
-        { key: 'legendary', label: 'Legendary', percent: '5%', icon: '/images/icons/legendary.png', top: 180 },
-        { key: 'rare',      label: 'Rare',      percent: '15%', icon: '/images/icons/rare.png',      top: 249 },
-        { key: 'uncommon',  label: 'Uncommon',  percent: '30%', icon: '/images/icons/uncommon.png',  top: 318 },
-        { key: 'common',    label: 'Common',    percent: '50%', icon: '/images/icons/common.png',    top: 387 },
-      ].map(item => (
-        <React.Fragment key={item.key}>
-          {/* Icon container, centered background */}
+      {/* Ряды редкостей */}
+      {rarityItems.map(({ key, label, percent, icon, top }) => (
+        <React.Fragment key={key}>
           <div
             style={{
-              position: 'absolute', left: 26, top: item.top,
-              width: 58, height: 58,
-              backgroundImage: `url('${item.icon}')`,
-              backgroundSize: 'contain', backgroundPosition: 'center', backgroundRepeat: 'no-repeat',
+              position: 'absolute',
+              left: 26,
+              top,
+              width: 58,
+              height: 58,
+              backgroundImage: `url('${icon}')`,
+              backgroundSize: 'contain',
+              backgroundPosition: 'center',
+              backgroundRepeat: 'no-repeat',
+              zIndex: 5,
             }}
           />
-          {/* Frame for label */}
-          <div style={{ position: 'absolute', left: 102, top: item.top, width: 193, height: 58, border: '1px solid #979696', borderRadius: 16 }} />
-          {/* Text label */}
-          <span style={{ position: 'absolute', left: 152, top: item.top + 21, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, lineHeight: '24px', color: '#9E9191' }}>{item.label}</span>
-          {/* Percent text */}
-          <span style={{ position: 'absolute', left: 316, top: item.top + (item.key === 'legendary' ? 21 : item.top === 218 ? 21 : 21), fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, lineHeight: '24px', color: '#9E9191' }}>{item.percent}</span>
+          <div
+            style={{
+              position: 'absolute',
+              left: 102,
+              top,
+              width: 193,
+              height: 58,
+              border: '1px solid #979696',
+              borderRadius: 16,
+              zIndex: 5,
+            }}
+          />
+          <span
+            style={{
+              position: 'absolute',
+              left: 152,
+              top: top + 21,
+              fontFamily: 'Tajawal, sans-serif',
+              fontWeight: 700,
+              fontSize: 20,
+              lineHeight: '24px',
+              color: '#9E9191',
+              zIndex: 5,
+            }}
+          >
+            {label}
+          </span>
+          <span
+            style={{
+              position: 'absolute',
+              left: 316,
+              top: top + 21,
+              fontFamily: 'Tajawal, sans-serif',
+              fontWeight: 700,
+              fontSize: 20,
+              lineHeight: '24px',
+              color: '#9E9191',
+              zIndex: 5,
+            }}
+          >
+            {percent}
+          </span>
         </React.Fragment>
       ))}
 
-      {/* Burn button */}
+      {/* Кнопка */}
       <button
         onClick={startBurn}
         style={{
-          position: 'absolute', left: 70, top: 520, width: 265, height: 76,
+          position: 'absolute',
+          left: 70,
+          top: 480,
+          width: 265,
+          height: 76,
           backgroundImage: 'linear-gradient(90deg, #D81E3D 0%, #D81E5F 100%)',
-          boxShadow: '0px 6px 6px rgba(0,0,0,0.87)', borderRadius: 40,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0px 6px 6px rgba(0,0,0,0.87)',
+          border: 'none',
+          borderRadius: 40,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 5,
+          cursor: 'pointer',
         }}
       >
-        <span style={{ fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 24, lineHeight: '29px', color: '#FFFFFF' }}>
-          BURN 0,5 TON
+        <span
+          style={{
+            fontFamily: 'Tajawal, sans-serif',
+            fontWeight: 700,
+            fontSize: 24,
+            lineHeight: '29px',
+            color: '#FFFFFF',
+          }}
+        >
+          BURN&nbsp;0,5&nbsp;TON
         </span>
       </button>
 
-      {/* Disclaimer */}
+      {/* Подсказка */}
       <p
         style={{
-          position: 'absolute', left: 52, top: 634, width: 318, height: 53,
-          fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 15, lineHeight: '18px', color: '#9E9191',
-          textAlign: 'center'
+          position: 'absolute',
+          left: 52,
+          top: 594,
+          width: 318,
+          fontFamily: 'Tajawal, sans-serif',
+          fontWeight: 700,
+          fontSize: 15,
+          lineHeight: '18px',
+          color: '#9E9191',
+          textAlign: 'center',
+          zIndex: 5,
         }}
       >
         Please ensure you send exactly 0.5 TON when making your payment. Transactions for any other amount may be lost.
       </p>
+
+      {/* Обработка состояний */}
+      {status === 'pending' && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10,
+          }}
+        >
+          <span style={{ color: '#fff', fontSize: 18 }}>Waiting for payment...</span>
+        </div>
+      )}
+      {status === 'success' && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10,
+            color: '#fff',
+          }}
+        >
+          <span>Congratulations! You got a {result.category} fragment.</span>
+          <button onClick={() => navigate('/gallery')} style={{ marginTop: 16 }}>
+            View Gallery
+          </button>
+        </div>
+      )}
+      {status === 'error' && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10,
+            color: 'tomato',
+          }}
+        >
+          <span>{error}</span>
+          <button onClick={() => setStatus('idle')} style={{ marginTop: 16 }}>
+            Try Again
+          </button>
+        </div>
+      )}
     </div>
   );
 }
