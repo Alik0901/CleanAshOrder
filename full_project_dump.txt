@@ -3303,7 +3303,6 @@
     }
 
 ===== FILE: src\App.jsx =====
-    // С„Р°Р№Р»: src/App.jsx
     import React from 'react';
     import { Routes, Route } from 'react-router-dom';
     import NavBar from './components/NavBar';
@@ -3323,27 +3322,25 @@
       return (
         <>
           {/* РќР°РІРёРіР°С†РёРѕРЅРЅР°СЏ РїР°РЅРµР»СЊ РІСЃРµРіРґР° СЃРІРµСЂС…Сѓ */}
-          <NavBar />
+          {/* <NavBar /> */}
     
-          {/* РћСЃРЅРѕРІРЅРѕР№ РєРѕРЅС‚РµРЅС‚ СЃ РѕС‚СЃС‚СѓРїРѕРј СЃРІРµСЂС…Сѓ РїРѕРґ РІС‹СЃРѕС‚Сѓ NavBar */}
-          <div className="pt-16 pb-16 bg-[#0F0F1F] min-h-screen">
-            <Routes>
-              {/* РџСѓР±Р»РёС‡РЅС‹Р№ РјР°СЂС€СЂСѓС‚ */}
-              <Route path="/login" element={<Login />} />
+          {/* РћСЃРЅРѕРІРЅС‹Рµ СЂРѕСѓС‚С‹ Р±РµР· РґРѕРїРѕР»РЅРёС‚РµР»СЊРЅРѕР№ РѕР±С‘СЂС‚РєРё-С„РѕРЅР° */}
+          <Routes>
+            {/* РџСѓР±Р»РёС‡РЅС‹Р№ РјР°СЂС€СЂСѓС‚ */}
+            <Route path="/login" element={<Login />} />
     
-              {/* Р—Р°С‰РёС‰С‘РЅРЅС‹Рµ РјР°СЂС€СЂСѓС‚С‹ */}
-              <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
-              <Route path="/burn" element={<ProtectedRoute><Burn /></ProtectedRoute>} />
-              <Route path="/gallery" element={<ProtectedRoute><Gallery /></ProtectedRoute>} />
-              <Route path="/referral" element={<ProtectedRoute><Referral /></ProtectedRoute>} />
-              <Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
-              <Route path="/final" element={<ProtectedRoute><FinalPhrase /></ProtectedRoute>} />
-              <Route path="/congrats" element={<ProtectedRoute><Congrats /></ProtectedRoute>} />
-              <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+            {/* Р—Р°С‰РёС‰С‘РЅРЅС‹Рµ РјР°СЂС€СЂСѓС‚С‹ */}
+            <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+            <Route path="/burn" element={<ProtectedRoute><Burn /></ProtectedRoute>} />
+            <Route path="/gallery" element={<ProtectedRoute><Gallery /></ProtectedRoute>} />
+            <Route path="/referral" element={<ProtectedRoute><Referral /></ProtectedRoute>} />
+            <Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
+            <Route path="/final" element={<ProtectedRoute><FinalPhrase /></ProtectedRoute>} />
+            <Route path="/congrats" element={<ProtectedRoute><Congrats /></ProtectedRoute>} />
+            <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
     
-              {/* Р›СЋР±С‹Рµ РѕСЃС‚Р°Р»СЊРЅС‹Рµ РјР°СЂС€СЂСѓС‚С‹ РјРѕР¶РЅРѕ РґРѕР±Р°РІРёС‚СЊ Р·РґРµСЃСЊ */}
-            </Routes>
-          </div>
+            {/* РџСЂРѕС‡РёРµ РјР°СЂС€СЂСѓС‚С‹ */}
+          </Routes>
         </>
       );
     }
@@ -4122,69 +4119,187 @@
     }
 
 ===== FILE: src\screens\Home.jsx =====
-    // С„Р°Р№Р»: src/screens/Home.jsx
-    import React, { useContext } from 'react';
-    import { useNavigate } from 'react-router-dom';
-    import { FiMenu, FiZap, FiImage, FiUsers, FiBarChart2, FiUser, FiClock } from 'react-icons/fi';
-    import NavBar from '../components/NavBar';
-    import { AuthContext } from '../context/AuthContext';
+    import React, { useEffect } from 'react';
+    import { Link } from 'react-router-dom';
+    import bgWelcome from '../assets/images/converted_minimal.jpg';
+    import logo from '../assets/images/logo_trimmed_optimized.png';
+    
+    // РљРЅРѕРїРєРё-С‚Р°Р±Р»РёС‡РєРё
+    import galleryBtn from '../assets/images/gallery.png';
+    import leaderboardBtn from '../assets/images/leaderboard.png';
+    import referralBtn from '../assets/images/referral.png';
+    import profileBtn from '../assets/images/profile.png';
     
     export default function Home() {
-      const navigate = useNavigate();
-      const { user, logout } = useContext(AuthContext);
-    
-      const menuItems = [
-        { key: 'burn',       label: 'Burn Yourself',    icon: <FiZap size={32} />,        onClick: () => navigate('/burn'),       accent: 'from-[#FF6B6B] to-[#FF4757]' },
-        { key: 'gallery',    label: 'Gallery',          icon: <FiImage size={32} />,      onClick: () => navigate('/gallery'),    accent: 'from-[#4ECDC4] to-[#48C9B0]' },
-        { key: 'referral',   label: 'Referral',         icon: <FiUsers size={32} />,      onClick: () => navigate('/referral'),   accent: 'from-[#E5A22D] to-[#D18B12]' },
-        { key: 'leaderboard',label: 'Leaderboard',      icon: <FiBarChart2 size={32} />,   onClick: () => navigate('/leaderboard'),accent: 'from-[#FF6B6B] to-[#FF4757]' },
-        { key: 'profile',    label: 'Profile',          icon: <FiUser size={32} />,       onClick: () => navigate('/profile'),    accent: 'from-[#4ECDC4] to-[#48C9B0]' },
-        { key: 'daily',      label: 'Daily Quest',      icon: <FiClock size={32} />,      onClick: () => navigate('/burn'),       accent: 'from-[#E5A22D] to-[#D18B12]' },
-      ];
+      useEffect(() => {
+        console.log('рџЏ  Home mounted, bgWelcome =', bgWelcome);
+      }, []);
     
       return (
-        <div className="relative min-h-screen bg-gradient-to-br from-[#10101A] to-[#1A1A2E] text-white">
-          {/* Р¤РѕРЅРѕРІС‹Р№ СЃРёР»СѓСЌС‚ РҐСЂР°РЅРёС‚РµР»СЏ */}
-          <div className="absolute inset-0 overflow-hidden">
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            right: 0,
+            bottom: 0,
+            left: 0,
+            overflow: 'hidden',
+          }}
+        >
+          {/* Р¤РѕРЅ */}
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              backgroundImage: `url(${bgWelcome})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+            }}
+          />
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.3)', // 30% РѕРІРµСЂР»РµР№
+            }}
+          />
+    
+          {/* РҐРµРґРµСЂ СЃ Р»РѕРіРѕС‚РёРїРѕРј РїРѕ С†РµРЅС‚СЂСѓ */}
+          <header
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              padding: '0.5rem 1rem',
+              backgroundColor: 'rgba(10,10,10,0.7)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 20,
+            }}
+          >
+            <button
+              style={{
+                position: 'absolute',
+                left: '1rem',
+                background: 'none',
+                border: 'none',
+                color: 'white',
+                fontSize: '1.5rem',
+                cursor: 'pointer',
+              }}
+            >
+              в°
+            </button>
             <img
-              src="/images/silhouette.png"
-              alt="Guardian Silhouette"
-              className="w-full h-full object-cover opacity-20"
+              src={logo}
+              alt="Order of Ash logo"
+              style={{ height: '3rem', objectFit: 'contain' }}
             />
-          </div>
+            <div
+              style={{
+              position: 'absolute',
+              right: '1rem',
+              width: '1.5rem',     // С€РёСЂРёРЅР° РїСЂРёРјРµСЂРЅРѕ СЂР°РІРЅР° С€РёСЂРёРЅРµ РєРЅРѕРїРєРё-Р±СѓСЂРіРµСЂР°
+              height: '0',
+              }}
+            />
+            </header>
     
-          <NavBar />
+          {/* РћСЃРЅРѕРІРЅРѕР№ РєРѕРЅС‚РµРЅС‚ */}
+          <main
+            style={{
+              position: 'relative',
+              zIndex: 10,
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'flex-start',
+              justifyContent: 'center',
+              color: 'white',
+              padding: '0 1rem',
+              marginTop: '4rem',
+              boxSizing: 'border-box',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                width: '100%',
+                maxWidth: '800px',
+                marginLeft: 0,
+              }}
+            >
+              {/* Р›РµРІС‹Р№ Р±Р»РѕРє СЃ Р·Р°РіРѕР»РѕРІРєРѕРј Рё РѕРїРёСЃР°РЅРёРµРј */}
+              <div style={{ flex: 1, textAlign: 'left' }}>
+                <h2 style={{ fontSize: '2rem', fontFamily: '"MedievalSharp", serif', margin: '0 0 1rem' }}>
+                  Welcome to Order of Ash
+                </h2>
+                <p style={{ fontSize: '1.125rem', margin: 0 }}>
+                  Burn yourself for power, collect the fragments, and uncover the secrets of the Order of Ash.
+                </p>
+              </div>
     
-          <div className="relative pt-20 pb-16 px-4 container mx-auto">
-            {/* Р“Р»Р°РІРЅС‹Р№ Р»РѕРіРѕС‚РёРї */}
-            <div className="flex justify-center mb-8">
-              <img src="/images/logo-order-of-ash.svg" alt="Order of Ash" className="w-48" />
-            </div>
-    
-            {/* РњРµРЅСЋ-РєРЅРѕРїРєРё */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {menuItems.map(item => (
-                <button
-                  key={item.key}
-                  onClick={item.onClick}
-                  className={`relative flex flex-col items-center justify-center p-6 bg-gray-800 bg-opacity-60 rounded-xl shadow-lg hover:scale-105 transform transition overflow-hidden border-2 border-transparent hover:border-[#FF6B6B]`}
+              {/* РћР±РµСЂС‚РєР° РґР»СЏ РєРЅРѕРїРєРё, С‡С‚РѕР±С‹ РѕРїСѓСЃС‚РёС‚СЊ РµС‘ С‡СѓС‚СЊ РЅРёР¶Рµ */}
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'flex-end',
+                  marginLeft: '1rem',
+                }}
+              >
+                <Link
+                  to="/burn"
+                  style={{
+                    padding: '0.75rem 1.5rem',
+                    background: 'linear-gradient(to right, #ef4444, #ec4899)',
+                    color: 'white',
+                    borderRadius: '9999px',
+                    fontWeight: 'bold',
+                    textDecoration: 'none',
+                    whiteSpace: 'nowrap',
+                  }}
                 >
-                  <div className={`absolute inset-0 bg-gradient-to-br ${item.accent} opacity-20 rounded-xl`} />
-                  <div className="relative z-10 flex flex-col items-center space-y-2">
-                    <div className="text-white">{item.icon}</div>
-                    <span className="font-montserrat text-lg font-semibold text-center">{item.label}</span>
-                  </div>
-                </button>
-              ))}
+                  Burn Yourself
+                </Link>
+              </div>
             </div>
-          </div>
+          </main>
     
-          {/* Footer */}
-          <div className="absolute bottom-0 w-full py-4 bg-gray-900 bg-opacity-50 backdrop-blur-sm">
-            <div className="flex justify-center space-x-6">
-              <a href="#" className="hover:text-[#4ECDC4]">Telegram</a>
-              <a href="#" className="hover:text-[#E5A22D]">Docs</a>
-              <a href="#" className="hover:text-[#FF6B6B]">Website</a>
+          {/* РљРЅРѕРїРєРё-С‚Р°Р±Р»РёС‡РєРё: РґРІР° СЂСЏРґР° РІРЅРёР·Сѓ */}
+          <div
+            style={{
+              position: 'absolute',
+              bottom: '2rem',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '0.5rem',
+              zIndex: 20,
+            }}
+          >
+            {/* Р’РµСЂС…РЅРёР№ СЂСЏРґ */}
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <Link to="/gallery">
+                <img src={galleryBtn} alt="Gallery" style={{ height: '2.5rem' }} />
+              </Link>
+              <Link to="/leaderboard">
+                <img src={leaderboardBtn} alt="Leaderboard" style={{ height: '2.5rem' }} />
+              </Link>
+            </div>
+            {/* РќРёР¶РЅРёР№ СЂСЏРґ */}
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <Link to="/referral">
+                <img src={referralBtn} alt="Referral" style={{ height: '2.5rem' }} />
+              </Link>
+              <Link to="/profile">
+                <img src={profileBtn} alt="Profile" style={{ height: '2.5rem' }} />
+              </Link>
             </div>
           </div>
         </div>

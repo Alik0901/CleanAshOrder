@@ -1,4 +1,3 @@
-// файл: src/screens/Burn.jsx
 import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiZap, FiRefreshCw } from 'react-icons/fi';
@@ -7,8 +6,8 @@ import { AuthContext } from '../context/AuthContext';
 import API from '../utils/apiClient';
 
 const BASE_AMOUNT_NANO = 500_000_000; // 0.5 TON
-const PITY_BOOST_PER = 1;  // +1% за каждый неудачный burn
-const PITY_CAP        = 20; // максимум +20%
+const PITY_BOOST_PER = 1;  // +1% per non-successful burn
+const PITY_CAP        = 20; // maximum +20%
 
 export default function Burn() {
   const { user, logout } = useContext(AuthContext);
@@ -18,10 +17,10 @@ export default function Burn() {
   const [error, setError]           = useState('');
   const [invoiceId, setInvoiceId]   = useState(null);
   const [paymentUrl, setPaymentUrl] = useState('');
-  const [fragmentId, setFragmentId]   = useState(null);
-  const [category, setCategory]       = useState('');
+  const [fragmentId, setFragmentId] = useState(null);
+  const [category, setCategory]     = useState('');
   const [pityCounter, setPityCounter] = useState(0);
-  const [coupon, setCoupon] = useState(0);
+  const [coupon, setCoupon]         = useState(0);
 
   useEffect(() => {
     API.getDailyQuest()
@@ -120,7 +119,7 @@ export default function Burn() {
           <div className="text-center space-y-3 font-inter">
             <p>Invoice created:</p>
             <a href={paymentUrl} target="_blank" rel="noreferrer" className="underline">Pay Now</a>
-            <p className="text-gray-400">Waiting for confirmation...</p>
+            <p className="text-gray-400">Waiting for confirmation.</p>
           </div>
         )}
 
@@ -138,7 +137,7 @@ export default function Burn() {
               </button>
               <button
                 onClick={() => navigate('/gallery')}
-                className="py-2 px-4 text-white underline"
+                className="py-2 px-4 text-white bg-[#FF6B6B] rounded-lg hover:opacity-90 transition"
               >
                 Gallery
               </button>
@@ -147,7 +146,7 @@ export default function Burn() {
         )}
 
         {status === 'error' && (
-          <p className="text-red-500 text-center font-inter">{error}</p>
+          <div className="text-center text-red-500">{error}</div>
         )}
       </div>
     </div>
