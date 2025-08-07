@@ -1,11 +1,14 @@
 // src/context/AuthContext.jsx
 
 import React, { createContext, useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import API from '../utils/apiClient';
 
 export const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
+  const navigate = useNavigate();
+
   const [user, setUser] = useState(() => {
     const saved = localStorage.getItem('user');
     return saved ? JSON.parse(saved) : null;
@@ -21,24 +24,23 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
+    // При любом логауте мгновенно уводим на логин
+    navigate('/login', { replace: true });
   };
 
-  // 1) Если нет токена, но мы в Telegram WebApp — пробуем инициализироваться
+  // 1) init через Telegram WebApp если нет токена
   useEffect(() => {
     const token = localStorage.getItem('token');
     const tg = window.Telegram?.WebApp;
     if (!token && tg) {
-      // Ждём, пока WebApp будет готов
       tg.ready();
-      // Берём «unsafe» данные, где лежит user
-      const initUnsafe = tg.initDataUnsafe || {};
-      const tgUser = initUnsafe.user;
-      // Только если нашли Telegram-юзера
+      const unsafe = tg.initDataUnsafe || {};
+      const tgUser = unsafe.user;
       if (tgUser?.id) {
         API.init({
           tg_id: tgUser.id,
           name: tgUser.first_name,
-          initData: tg.initData,        // туда же можно передать initDataUnsafe
+          initData: tg.initData,
           referrer_code: null,
         })
           .then(({ user: freshUser, token: freshToken }) => {
@@ -46,13 +48,13 @@ export function AuthProvider({ children }) {
           })
           .catch(err => {
             console.warn('Telegram re-init failed:', err.message);
-            // не делаем logout — оставляем гостевой режим
+            // не вызываем logout(), чтобы не создавать loop
           });
       }
     }
-  }, []);
+  }, [navigate]);
 
-  // 2) Один раз при старте, если токен есть, подтягиваем актуальный user
+  // 2) один раз при монтировании подтягиваем user по токену
   useEffect(() => {
     const token = localStorage.getItem('token');
     const saved = localStorage.getItem('user');
@@ -66,20 +68,19 @@ export function AuthProvider({ children }) {
         })
         .catch(e => {
           const msg = (e.message || '').toLowerCase();
-          // логаутим и показываем логин, если токен устарел или игрок пропал из БД
-         if (
-           msg.includes('invalid token') ||
-           msg.includes('no token provided') ||
-           msg.includes('player not found')
-         ) {
+          if (
+            msg.includes('invalid token') ||
+            msg.includes('no token provided') ||
+            msg.includes('player not found')
+          ) {
+            // если токен испорчен или игрок удалён — логаутим
             logout();
-           // при желании — перенаправить на /login
-           // navigate('/login');
-           }
-          // иначе — игнорируем временные ошибки
+          }
+          // иначе — игнорируем временные сбои
         });
     }
-  }, []);
+  // navigate и logout в зависимостях, чтобы всегда был актуален
+  }, [navigate, logout]);
 
   return (
     <AuthContext.Provider value={{ user, login, logout }}>
