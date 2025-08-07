@@ -88,7 +88,7 @@ export default function Login() {
       <div style={{
         position:        'absolute',
         inset:           0,
-        backgroundImage: "url('/images/bg-welcome.png')",
+        backgroundImage: "url('/images/bg-welcome.webp')",
         backgroundSize:  'cover',
         backgroundPosition: 'center',
         zIndex:          0,
