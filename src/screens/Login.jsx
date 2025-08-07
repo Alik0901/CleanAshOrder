@@ -118,7 +118,7 @@ export default function Login() {
       <h1 style={{
         position: 'absolute',
         left: '50%',
-        top: 345,
+        top: 275,
         transform: 'translateX(-50%)',
         fontFamily: 'MedievalSharp, serif',
         fontWeight: 500,
