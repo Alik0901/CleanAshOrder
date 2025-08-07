@@ -93,20 +93,14 @@ export default function Gallery() {
       style={{
         position: 'relative',
         width: '100%',
-        height: '100vh',
-        overflowX: 'hidden',
-        overflowY: 'auto',
-        backgroundColor: '#FFFFFF',
+        minHeight: '100vh',   // вместо fixed height
       }}
     >
       {/* Background */}
       <div
         style={{
           position: 'absolute',
-          width: 524,
-          height: '100%',
-          left: -65,
-          top: 0,
+          inset: 0,              // fill entire container
           backgroundImage: "url('/images/bg-path.webp')",
           backgroundSize: 'cover',
           backgroundPosition: 'center',
@@ -227,7 +221,7 @@ export default function Gallery() {
         Legendary Hint — 5 TON
       </span>
 
-      {/* Referral & Leaders */}
+      {/* Referral */}
       <div
         onClick={() => navigate('/referral')}
         style={{
@@ -258,6 +252,7 @@ export default function Gallery() {
         </span>
       </div>
 
+      {/* Leaders */}
       <div
         onClick={() => navigate('/leaderboard')}
         style={{
