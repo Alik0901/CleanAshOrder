@@ -66,9 +66,16 @@ export function AuthProvider({ children }) {
         })
         .catch(e => {
           const msg = (e.message || '').toLowerCase();
-          if (msg.includes('invalid token') || msg.includes('no token provided')) {
+          // логаутим и показываем логин, если токен устарел или игрок пропал из БД
+         if (
+           msg.includes('invalid token') ||
+           msg.includes('no token provided') ||
+           msg.includes('player not found')
+         ) {
             logout();
-          }
+           // при желании — перенаправить на /login
+           // navigate('/login');
+           }
           // иначе — игнорируем временные ошибки
         });
     }
