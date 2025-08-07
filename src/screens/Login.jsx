@@ -1,4 +1,5 @@
-// файл: src/screens/Login.jsx
+// src/screens/Login.jsx
+
 import React, { useState, useEffect, useContext } from 'react';
 import API from '../utils/apiClient';
 import { AuthContext } from '../context/AuthContext';
@@ -18,7 +19,7 @@ export default function Login() {
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
     if (!tg) {
-      setError('Откройте приложение внутри Telegram.');
+      setError('Please open inside Telegram WebApp.');
       setLoading(false);
       return;
     }
@@ -26,7 +27,7 @@ export default function Login() {
     const unsafe = tg.initDataUnsafe || {};
     const user   = unsafe.user || {};
     if (!user.id) {
-      setError('Не удалось получить ID Telegram.');
+      setError('Failed to get Telegram ID.');
       setLoading(false);
       return;
     }
@@ -38,7 +39,7 @@ export default function Login() {
 
   const handleStart = async () => {
     if (!tgId || !initData) {
-      setError('Нет данных от Telegram. Повторите вход через Web App.');
+      setError('Telegram data missing. Reopen WebApp.');
       return;
     }
     setError('');
@@ -49,69 +50,172 @@ export default function Login() {
         initData,
         referrer_code: refCode.trim() || null
       });
-      console.log('[Login] init response:', { userObj, token });
       login(userObj, token);
-      console.log('→ token saved to localStorage:', localStorage.getItem('token'));
-      navigate('/burn');
+      navigate('/burn', { replace: true });
     } catch (e) {
-      console.error('[Login] init error', e);
-      setError(e.message);
+      setError(e.message || 'Login failed');
     }
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-900 text-white">
-        <p>Loading Telegram Web App…</p>
+      <div style={{
+        position: 'relative',
+        width: '100%',
+        height: '100vh',
+        background: '#000',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: '#FFF',
+        fontSize: 16
+      }}>
+        Loading Telegram WebApp…
       </div>
     );
   }
 
   return (
-    <div
-      className="min-h-screen flex items-center justify-center bg-cover bg-center"
-      style={{ backgroundImage: "url('/images/bg-welcome.webp')" }}
-    >
-      <div className="absolute inset-0 bg-black opacity-70" />
+    <div style={{
+      position: 'relative',
+      width: '100%',
+      height: '100vh',
+      overflow: 'hidden',
+    }}>
+      {/* Background */}
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        backgroundImage: "url('/images/bg-welcome.png')",
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        zIndex: 0,
+      }}/>
 
-      <div className="relative z-10 w-full max-w-md bg-gray-900 bg-opacity-90 rounded-xl p-8 space-y-6 text-white">
-        <h1 className="text-2xl font-bold text-center">Welcome to Order of Ash</h1>
+      {/* Logo */}
+      <div style={{
+        position: 'absolute',
+        width: 212,
+        height: 180,
+        left: '50%',
+        top: 39,
+        transform: 'translateX(-50%)',
+        backgroundImage: "url('/images/logo_trimmed_optimized.png')",
+        backgroundSize: 'contain',
+        backgroundRepeat: 'no-repeat',
+        zIndex: 1,
+      }}/>
 
-        {error && <p className="text-red-400 text-center">{error}</p>}
+      {/* Welcome */}
+      <h1 style={{
+        position: 'absolute',
+        width: 197,
+        height: 54,
+        left: '50%',
+        top: 345,
+        transform: 'translateX(-50%)',
+        fontFamily: 'MedievalSharp, serif',
+        fontWeight: 500,
+        fontSize: 48,
+        lineHeight: '54px',
+        color: '#D6CEBD',
+        textAlign: 'center',
+        zIndex: 1,
+      }}>
+        Welcome
+      </h1>
 
-        <div className="space-y-4">
-          <div>
-            <label className="block mb-1">Name</label>
-            <input
-              type="text"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              className="w-full px-4 py-2 bg-gray-800 rounded text-white"
-            />
-          </div>
-          <div>
-            <label className="block mb-1">Referral Code (optional)</label>
-            <input
-              type="text"
-              value={refCode}
-              onChange={e => setRefCode(e.target.value)}
-              className="w-full px-4 py-2 bg-gray-800 rounded text-white"
-            />
-          </div>
-        </div>
+      {/* Error */}
+      {error && (
+        <p style={{
+          position: 'absolute',
+          width: '80%',
+          left: '50%',
+          top: 380,
+          transform: 'translateX(-50%)',
+          color: 'tomato',
+          textAlign: 'center',
+          zIndex: 1,
+        }}>
+          {error}
+        </p>
+      )}
 
-        <button
-          onClick={handleStart}
-          disabled={!tgId || !initData}
-          className={`w-full py-3 rounded-lg font-semibold ${
-            tgId && initData
-              ? 'bg-red-600 hover:bg-red-700'
-              : 'bg-gray-600 cursor-not-allowed'
-          } text-white`}
-        >
-          Start Playing
-        </button>
-      </div>
+      {/* Name input */}
+      <input
+        type="text"
+        placeholder="Name"
+        value={name}
+        onChange={e => setName(e.target.value)}
+        style={{
+          position: 'absolute',
+          width: 256,
+          height: 36,
+          left: '50%',
+          top: 421,
+          transform: 'translateX(-50%)',
+          padding: '0 12px',
+          background: 'rgba(180,180,180,0.51)',
+          border: '1px solid #D6CEBD',
+          borderRadius: 20,
+          fontFamily: 'MedievalSharp, serif',
+          fontSize: 15,
+          lineHeight: '17px',
+          color: '#D6CEBD',
+          zIndex: 1,
+        }}
+      />
+
+      {/* Referral input */}
+      <input
+        type="text"
+        placeholder="Referral code (optional)"
+        value={refCode}
+        onChange={e => setRefCode(e.target.value)}
+        style={{
+          position: 'absolute',
+          width: 256,
+          height: 36,
+          left: '50%',
+          top: 473,
+          transform: 'translateX(-50%)',
+          padding: '0 12px',
+          background: 'rgba(180,180,180,0.51)',
+          border: '1px solid #D6CEBD',
+          borderRadius: 20,
+          fontFamily: 'MedievalSharp, serif',
+          fontSize: 15,
+          lineHeight: '17px',
+          color: '#D6CEBD',
+          zIndex: 1,
+        }}
+      />
+
+      {/* Start playing */}
+      <button
+        onClick={handleStart}
+        disabled={!name.trim()}
+        style={{
+          position: 'absolute',
+          width: 256,
+          height: 36,
+          left: '50%',
+          top: 525,
+          transform: 'translateX(-50%)',
+          background: name.trim() ? '#D18622' : '#888',
+          border: name.trim() ? '1px solid #E0933A' : '1px solid #666',
+          borderRadius: 20,
+          fontFamily: 'MedievalSharp, serif',
+          fontWeight: 500,
+          fontSize: 15,
+          lineHeight: '17px',
+          color: name.trim() ? '#191610' : '#444',
+          cursor: name.trim() ? 'pointer' : 'not-allowed',
+          zIndex: 1,
+        }}
+      >
+        Start playing
+      </button>
     </div>
   );
 }
