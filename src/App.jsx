@@ -3,7 +3,7 @@
 import React, { useContext } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 
-import NavBar      from './components/NavBar';
+/*import NavBar      from './components/NavBar';*/
 import Login       from './screens/Login';
 import Home        from './screens/Home';
 import Burn        from './screens/Burn';
