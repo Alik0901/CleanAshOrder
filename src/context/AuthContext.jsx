@@ -23,7 +23,31 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
-  // При первом монтировании проверяем, есть ли токен + сохранённый user, и разово подтягиваем данные
+  // 1) При монтировании: если в localStorage нет токена, но мы в Telegram WebApp —
+  //    инициализируемся заново через /api/init
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    // WebApp-инстанс
+    const tg = window.Telegram?.WebApp;
+    if (!token && tg) {
+      const { user: tgUser, initDataUnsafe } = tg;
+      API.init({
+        tg_id: tgUser.id,
+        name: tgUser.first_name,
+        initData: initDataUnsafe,
+        referrer_code: null,
+      })
+        .then(({ user: freshUser, token: freshToken }) => {
+          login(freshUser, freshToken);
+        })
+        .catch(err => {
+          console.warn('Telegram re-init failed:', err.message);
+          // здесь не делаем logout — просто оставляем гостевой режим
+        });
+    }
+  }, []);
+
+  // 2) Один раз при старте, если токен есть, подтягиваем актуальный user
   useEffect(() => {
     const token = localStorage.getItem('token');
     const saved = localStorage.getItem('user');
@@ -37,14 +61,14 @@ export function AuthProvider({ children }) {
         })
         .catch(e => {
           const msg = (e.message || '').toLowerCase();
-          // логаут только если токен реально невалиден или отсутствует
           if (msg.includes('invalid token') || msg.includes('no token provided')) {
+            // при реально устаревшем токене — сбрасываем
             logout();
           }
-          // иначе—игнорируем временные ошибки
+          // при сетевых/других ошибках — ничего не делаем
         });
     }
-  }, []); // пустой массив зависимостей → выполняется один раз
+  }, []);
 
   return (
     <AuthContext.Provider value={{ user, login, logout }}>
