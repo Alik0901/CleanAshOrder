@@ -228,7 +228,6 @@ export default function Gallery() {
       </span>
 
       {/* Referral & Leaders */}
-      {/* Referral */}
       <div
         onClick={() => navigate('/referral')}
         style={{
@@ -259,7 +258,6 @@ export default function Gallery() {
         </span>
       </div>
 
-      {/* Leaders */}
       <div
         onClick={() => navigate('/leaderboard')}
         style={{
@@ -343,11 +341,23 @@ export default function Gallery() {
       {/* Zoom modal */}
       {zoomUrl && (
         <Modal onClose={() => setZoomUrl(null)}>
-          <img
-            src={zoomUrl}
-            alt="Fragment zoom"
-            style={{ maxWidth: '100%', maxHeight: '100%', display: 'block' }}
-          />
+          <div
+            onClick={() => setZoomUrl(null)}
+            style={{
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+            }}
+          >
+            <img
+              src={zoomUrl}
+              alt="Fragment zoom"
+              style={{ maxWidth: '90%', maxHeight: '90%' }}
+            />
+          </div>
         </Modal>
       )}
     </div>
