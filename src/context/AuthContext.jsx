@@ -23,27 +23,32 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
-  // 1) При монтировании: если в localStorage нет токена, но мы в Telegram WebApp —
-  //    инициализируемся заново через /api/init
+  // 1) Если нет токена, но мы в Telegram WebApp — пробуем инициализироваться
   useEffect(() => {
     const token = localStorage.getItem('token');
-    // WebApp-инстанс
     const tg = window.Telegram?.WebApp;
     if (!token && tg) {
-      const { user: tgUser, initDataUnsafe } = tg;
-      API.init({
-        tg_id: tgUser.id,
-        name: tgUser.first_name,
-        initData: initDataUnsafe,
-        referrer_code: null,
-      })
-        .then(({ user: freshUser, token: freshToken }) => {
-          login(freshUser, freshToken);
+      // Ждём, пока WebApp будет готов
+      tg.ready();
+      // Берём «unsafe» данные, где лежит user
+      const initUnsafe = tg.initDataUnsafe || {};
+      const tgUser = initUnsafe.user;
+      // Только если нашли Telegram-юзера
+      if (tgUser?.id) {
+        API.init({
+          tg_id: tgUser.id,
+          name: tgUser.first_name,
+          initData: tg.initData,        // туда же можно передать initDataUnsafe
+          referrer_code: null,
         })
-        .catch(err => {
-          console.warn('Telegram re-init failed:', err.message);
-          // здесь не делаем logout — просто оставляем гостевой режим
-        });
+          .then(({ user: freshUser, token: freshToken }) => {
+            login(freshUser, freshToken);
+          })
+          .catch(err => {
+            console.warn('Telegram re-init failed:', err.message);
+            // не делаем logout — оставляем гостевой режим
+          });
+      }
     }
   }, []);
 
@@ -62,10 +67,9 @@ export function AuthProvider({ children }) {
         .catch(e => {
           const msg = (e.message || '').toLowerCase();
           if (msg.includes('invalid token') || msg.includes('no token provided')) {
-            // при реально устаревшем токене — сбрасываем
             logout();
           }
-          // при сетевых/других ошибках — ничего не делаем
+          // иначе — игнорируем временные ошибки
         });
     }
   }, []);
