@@ -51,30 +51,23 @@ export default function Gallery() {
   const [zoomUrl, setZoomUrl]                                 = useState(null);
   const [showFirstFragmentNotice, setShowFirstFragmentNotice] = useState(false);
 
-  // 1) Load fragments and URLs
+  // 1) Загружаем URL и список фрагментов
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      setLoading(true);
-      setError('');
+      setLoading(true); setError('');
       try {
         const { signedUrls } = await API.getSignedFragmentUrls();
         const { fragments } = await API.getFragments(user.tg_id);
         if (!cancelled) {
           setSignedUrls(signedUrls);
           setFragments(fragments);
-          // If this is the very first time and fragment 1 is present, set flag
-          if (fragments.includes(1)) {
-            localStorage.setItem('showFirstFragmentNotice', 'true');
-          }
         }
       } catch (e) {
-        console.error('[Gallery] load error', e);
         if (e.message.toLowerCase().includes('invalid token')) {
-          logout();
-          navigate('/login');
+          logout(); navigate('/login');
         } else {
-          setError(e.message || 'Error loading fragments');
+          setError(e.message);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -84,18 +77,19 @@ export default function Gallery() {
     return () => { cancelled = true };
   }, [user.tg_id, logout, navigate]);
 
-  // 2) Show first-fragment modal once
+  // 2) Показать модалку **только один раз** после того, как впервые появился фрагмент #1
   useEffect(() => {
-    if (!loading
-        && fragments.includes(1)
-        && localStorage.getItem('showFirstFragmentNotice') === 'true'
+    if (
+      !loading &&
+      fragments.includes(1) &&
+      localStorage.getItem('firstFragmentShown') !== 'true'
     ) {
       setShowFirstFragmentNotice(true);
-      localStorage.removeItem('showFirstFragmentNotice');
+      localStorage.setItem('firstFragmentShown', 'true');
     }
   }, [loading, fragments]);
 
-  // 3) Redirect to final when complete
+  // 3) Автоматически уходим на финальный экран, когда собрано 8
   useEffect(() => {
     if (!loading && fragments.length >= 8) {
       navigate('/final');
@@ -324,9 +318,7 @@ export default function Gallery() {
             color:           '#fff',
           }}>
             <h2 style={{ margin: 0, fontSize: 20 }}>Congratulations!</h2>
-            <p style={{ margin: '12px 0' }}>
-              You’ve received your first free fragment!
-            </p>
+            <p style={{ margin: '12px 0' }}>You’ve received your first free fragment!</p>
             <img
               src={signedUrls['fragment_1_the_whisper.jpg']}
               alt="Fragment 1"
@@ -341,15 +333,15 @@ export default function Gallery() {
             <button
               onClick={() => setShowFirstFragmentNotice(false)}
               style={{
-                display:          'block',
-                margin:           '16px auto 0',
-                padding:          '10px 20px',
-                backgroundColor:  '#D81E3D',
-                color:            '#fff',
-                border:           'none',
-                borderRadius:     20,
-                cursor:           'pointer',
-                fontSize:         16,
+                display:         'block',
+                margin:          '16px auto 0',
+                padding:         '10px 20px',
+                backgroundColor: '#D81E3D',
+                color:           '#fff',
+                border:          'none',
+                borderRadius:    20,
+                cursor:          'pointer',
+                fontSize:        16,
               }}
             >
               Got it!
