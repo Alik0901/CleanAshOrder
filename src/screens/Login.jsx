@@ -50,8 +50,10 @@ export default function Login() {
         initData,
         referrer_code: refCode.trim() || null
       });
+      // Помечаем, что первый фрагмент выдан и нужно показать уведомление
+      localStorage.setItem('showFirstFragmentNotice', 'true');
       login(userObj, token);
-      navigate('/burn', { replace: true });
+      navigate('/gallery', { replace: true });
     } catch (e) {
       setError(e.message || 'Login failed');
     }
@@ -60,15 +62,14 @@ export default function Login() {
   if (loading) {
     return (
       <div style={{
-        position: 'relative',
-        width: '100%',
-        height: '100vh',
-        background: '#000',
-        display: 'flex',
-        alignItems: 'center',
+        display:        'flex',
+        height:         '100vh',
+        background:     '#000',
+        color:          '#fff',
+        alignItems:     'center',
         justifyContent: 'center',
-        color: '#FFF',
-        fontSize: 16
+        fontFamily:     'MedievalSharp, serif',
+        fontSize:       16
       }}>
         Loading Telegram WebApp…
       </div>
@@ -77,146 +78,135 @@ export default function Login() {
 
   return (
     <div style={{
-      position: 'relative',
-      width: '100%',
-      height: '100vh',
-      overflow: 'hidden',
+      position:   'relative',
+      width:      '100%',
+      height:     '100vh',
+      overflow:   'hidden',
+      fontFamily: 'MedievalSharp, serif',
     }}>
       {/* Фон */}
       <div style={{
-        position: 'absolute',
-        inset: 0,
-        backgroundImage: "url('/images/bg-welcome.webp')",
-        backgroundSize: 'cover',
+        position:        'absolute',
+        inset:           0,
+        backgroundImage: "url('/images/bg-welcome.png')",
+        backgroundSize:  'cover',
         backgroundPosition: 'center',
-        zIndex: 0,
+        zIndex:          0,
       }}/>
 
-      {/* Полупрозрачный слой */}
+      {/* Оверлей */}
       <div style={{
-        position: 'absolute',
-        inset: 0,
+        position:      'absolute',
+        inset:         0,
         backgroundColor: 'rgba(0,0,0,0.5)',
-        zIndex: 1,
+        zIndex:        1,
       }}/>
 
-      {/* Логотип */}
+      {/* Прокрутка */}
       <div style={{
-        position: 'absolute',
-        width: 212,
-        height: 180,
-        left: '50%',
-        top: 39,
-        transform: 'translateX(-50%)',
-        backgroundImage: "url('/images/logo_trimmed_optimized.png')",
-        backgroundSize: 'contain',
-        backgroundRepeat: 'no-repeat',
-        zIndex: 2,
-      }}/>
-
-      {/* Тайтл */}
-      <h1 style={{
-        position: 'absolute',
-        left: '50%',
-        top: 275,
-        transform: 'translateX(-50%)',
-        fontFamily: 'MedievalSharp, serif',
-        fontWeight: 500,
-        fontSize: 48,
-        lineHeight: '54px',
-        color: '#D6CEBD',
-        textAlign: 'center',
-        zIndex: 2,
+        position:               'absolute',
+        inset:                  0,
+        overflowY:              'auto',
+        WebkitOverflowScrolling: 'touch',
+        zIndex:                 2,
       }}>
-        Welcome
-      </h1>
-
-      {/* Ошибка */}
-      {error && (
-        <p style={{
-          position: 'absolute',
-          left: '50%',
-          top: 380,
-          transform: 'translateX(-50%)',
-          color: 'tomato',
-          zIndex: 2,
+        <div style={{
+          display:        'flex',
+          flexDirection:  'column',
+          alignItems:     'center',
+          paddingTop:     39,
+          paddingBottom:  40,
         }}>
-          {error}
-        </p>
-      )}
+          {/* Логотип */}
+          <div style={{
+            width:           212,
+            height:          180,
+            backgroundImage: "url('/images/logo_trimmed_optimized.png')",
+            backgroundSize:  'contain',
+            backgroundRepeat:'no-repeat',
+          }}/>
 
-      {/* Поле Name */}
-      <input
-        type="text"
-        placeholder="Name"
-        value={name}
-        onChange={e => setName(e.target.value)}
-        style={{
-          position: 'absolute',
-          width: 256,
-          height: 36,
-          left: '50%',
-          top: 421,
-          transform: 'translateX(-50%)',
-          padding: '0 12px',
-          background: 'rgba(180,180,180,0.51)',
-          border: '1px solid #D6CEBD',
-          borderRadius: 20,
-          fontFamily: 'MedievalSharp, serif',
-          fontSize: 15,
-          color: '#D6CEBD',
-          zIndex: 2,
-        }}
-      />
+          {/* Welcome */}
+          <h1 style={{
+            marginTop:   56,   // ≈275px от верха
+            fontSize:    48,
+            lineHeight: '54px',
+            color:       '#D6CEBD',
+            textAlign:   'center',
+          }}>
+            Welcome
+          </h1>
 
-      {/* Поле Referral */}
-      <input
-        type="text"
-        placeholder="Referral code (optional)"
-        value={refCode}
-        onChange={e => setRefCode(e.target.value)}
-        style={{
-          position: 'absolute',
-          width: 256,
-          height: 36,
-          left: '50%',
-          top: 473,
-          transform: 'translateX(-50%)',
-          padding: '0 12px',
-          background: 'rgba(180,180,180,0.51)',
-          border: '1px solid #D6CEBD',
-          borderRadius: 20,
-          fontFamily: 'MedievalSharp, serif',
-          fontSize: 15,
-          color: '#D6CEBD',
-          zIndex: 2,
-        }}
-      />
+          {/* Ошибка */}
+          {error && (
+            <p style={{
+              marginTop: 16,
+              color:     'tomato',
+              textAlign: 'center',
+              width:     '80%',
+            }}>
+              {error}
+            </p>
+          )}
 
-      {/* Кнопка */}
-      <button
-        onClick={handleStart}
-        disabled={!name.trim()}
-        style={{
-          position: 'absolute',
-          width: 256,
-          height: 36,
-          left: '50%',
-          top: 525,
-          transform: 'translateX(-50%)',
-          background: name.trim() ? '#D18622' : '#777',
-          border: name.trim() ? '1px solid #E0933A' : '1px solid #555',
-          borderRadius: 20,
-          fontFamily: 'MedievalSharp, serif',
-          fontWeight: 500,
-          fontSize: 15,
-          color: name.trim() ? '#191610' : '#333',
-          cursor: name.trim() ? 'pointer' : 'not-allowed',
-          zIndex: 2,
-        }}
-      >
-        Start playing
-      </button>
+          {/* Name */}
+          <input
+            type="text"
+            placeholder="Name"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            style={{
+              marginTop:           40,
+              width:               256,
+              height:              36,
+              padding:             '0 12px',
+              background:          'rgba(180,180,180,0.51)',
+              border:              '1px solid #D6CEBD',
+              borderRadius:        20,
+              fontSize:            15,
+              color:               '#D6CEBD',
+            }}
+          />
+
+          {/* Referral */}
+          <input
+            type="text"
+            placeholder="Referral code (optional)"
+            value={refCode}
+            onChange={e => setRefCode(e.target.value)}
+            style={{
+              marginTop:           20,
+              width:               256,
+              height:              36,
+              padding:             '0 12px',
+              background:          'rgba(180,180,180,0.51)',
+              border:              '1px solid #D6CEBD',
+              borderRadius:        20,
+              fontSize:            15,
+              color:               '#D6CEBD',
+            }}
+          />
+
+          {/* Start playing */}
+          <button
+            onClick={handleStart}
+            disabled={!name.trim()}
+            style={{
+              marginTop:  30,
+              width:      256,
+              height:     36,
+              background: name.trim() ? '#D18622' : '#777',
+              border:     name.trim() ? '1px solid #E0933A' : '1px solid #555',
+              borderRadius: 20,
+              fontSize:     15,
+              color:        name.trim() ? '#191610' : '#333',
+              cursor:       name.trim() ? 'pointer' : 'not-allowed',
+            }}
+          >
+            Start playing
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
