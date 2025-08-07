@@ -44,11 +44,11 @@ export default function Gallery() {
   const { user, logout } = useContext(AuthContext);
   const navigate         = useNavigate();
 
-  const [signedUrls, setSignedUrls]                     = useState({});
-  const [fragments, setFragments]                       = useState([]);
-  const [loading, setLoading]                           = useState(true);
-  const [error, setError]                               = useState('');
-  const [zoomUrl, setZoomUrl]                           = useState(null);
+  const [signedUrls, setSignedUrls]                           = useState({});
+  const [fragments, setFragments]                             = useState([]);
+  const [loading, setLoading]                                 = useState(true);
+  const [error, setError]                                     = useState('');
+  const [zoomUrl, setZoomUrl]                                 = useState(null);
   const [showFirstFragmentNotice, setShowFirstFragmentNotice] = useState(false);
 
   // 1) Load fragments and URLs
@@ -63,6 +63,10 @@ export default function Gallery() {
         if (!cancelled) {
           setSignedUrls(signedUrls);
           setFragments(fragments);
+          // If this is the very first time and fragment 1 is present, set flag
+          if (fragments.includes(1)) {
+            localStorage.setItem('showFirstFragmentNotice', 'true');
+          }
         }
       } catch (e) {
         console.error('[Gallery] load error', e);
@@ -82,7 +86,10 @@ export default function Gallery() {
 
   // 2) Show first-fragment modal once
   useEffect(() => {
-    if (!loading && fragments.includes(1) && localStorage.getItem('showFirstFragmentNotice') === 'true') {
+    if (!loading
+        && fragments.includes(1)
+        && localStorage.getItem('showFirstFragmentNotice') === 'true'
+    ) {
       setShowFirstFragmentNotice(true);
       localStorage.removeItem('showFirstFragmentNotice');
     }
@@ -264,10 +271,10 @@ export default function Gallery() {
 
       {/* Description */}
       <p style={{
-        position: 'absolute',
-        left:     22,
-        top:      542,
-        width:    349,
+        position:   'absolute',
+        left:       22,
+        top:        542,
+        width:      349,
         fontWeight: 700,
         fontSize:   13,
         color:      '#FFF',
@@ -299,22 +306,22 @@ export default function Gallery() {
       {/* First Fragment Modal */}
       {showFirstFragmentNotice && (
         <div style={{
-          position: 'fixed',
-          inset: 0,
+          position:        'fixed',
+          inset:           0,
           backgroundColor: 'rgba(0,0,0,0.8)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 9999,
+          display:         'flex',
+          alignItems:      'center',
+          justifyContent:  'center',
+          zIndex:          9999,
         }}>
           <div style={{
             backgroundColor: '#2a2a2a',
-            borderRadius: 16,
-            padding: 24,
-            maxWidth: '90%',
-            width: 320,
-            textAlign: 'center',
-            color: '#fff',
+            borderRadius:    16,
+            padding:         24,
+            maxWidth:        '90%',
+            width:           320,
+            textAlign:       'center',
+            color:           '#fff',
           }}>
             <h2 style={{ margin: 0, fontSize: 20 }}>Congratulations!</h2>
             <p style={{ margin: '12px 0' }}>
@@ -324,27 +331,28 @@ export default function Gallery() {
               src={signedUrls['fragment_1_the_whisper.jpg']}
               alt="Fragment 1"
               style={{
-                width: 120,
-                height: 120,
-                objectFit: 'cover',
+                width:        120,
+                height:       120,
+                objectFit:    'cover',
                 borderRadius: 8,
-                margin: '0 auto 16px',
+                margin:       '0 auto 16px',
               }}
             />
             <button
               onClick={() => setShowFirstFragmentNotice(false)}
               style={{
-              padding: '10px 20px',
-              backgroundColor: '#D81E3D',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 20,
-              cursor: 'pointer',
-              fontSize: 16,
-              alignSelf: 'center',       // <-- добавили выравнивание
-            }}
+                display:          'block',
+                margin:           '16px auto 0',
+                padding:          '10px 20px',
+                backgroundColor:  '#D81E3D',
+                color:            '#fff',
+                border:           'none',
+                borderRadius:     20,
+                cursor:           'pointer',
+                fontSize:         16,
+              }}
             >
-             Got it!
+              Got it!
             </button>
           </div>
         </div>
