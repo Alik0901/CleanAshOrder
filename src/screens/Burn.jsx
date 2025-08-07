@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BackButton from '../components/BackButton';
-import { AuthContext } from '../context/AuthContext';
+import { AuthContext } from '../contexts/AuthContext';
 import API from '../utils/apiClient';
+import Countdown from 'react-countdown';
 
 export default function Burn() {
   const { user, logout } = useContext(AuthContext);
@@ -10,309 +11,133 @@ export default function Burn() {
 
   const [status, setStatus] = useState('idle');
   const [invoiceId, setInvoiceId] = useState(null);
-  const [paymentUrl, setPaymentUrl] = useState('');
-  const [result, setResult] = useState({});
+  const [task, setTask] = useState(null);
+  const [answer, setAnswer] = useState('');
+  const [result, setResult] = useState(null);
   const [error, setError] = useState('');
+  const [now, setNow] = useState(Date.now());
 
-  const BASE_AMOUNT_NANO = 500_000_000; // 0.5 TON
+  // Timer for curse
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const curseExpiresAt = user?.curse_expires ? new Date(user.curse_expires).getTime() : 0;
+  const isCursed = user?.is_cursed && now < curseExpiresAt;
 
   const startBurn = async () => {
-    setStatus('pending');
-    setError('');
+    if (isCursed) return;
+    setStatus('creating'); setError('');
     try {
-      const { invoiceId, paymentUrl } = await API.createBurn(user.tg_id, BASE_AMOUNT_NANO);
+      const { invoiceId, paymentUrl, task } = await API.createBurn(user.tg_id);
       setInvoiceId(invoiceId);
-      setPaymentUrl(paymentUrl);
+      setTask(task);
+      window.open(paymentUrl, '_blank');
+      setStatus('awaiting');
     } catch (e) {
-      setError(e.message || 'Error creating invoice');
+      setError(e.message || 'Ошибка создания счёта');
       setStatus('error');
       if (e.message.toLowerCase().includes('invalid token')) {
-        logout();
-        navigate('/login');
+        logout(); navigate('/login');
       }
     }
   };
 
+  // Poll payment
   useEffect(() => {
-    if (status !== 'pending' || !invoiceId) return;
+    if (status !== 'awaiting' || !invoiceId) return;
     const timer = setInterval(async () => {
       try {
         const res = await API.getBurnStatus(invoiceId);
-        if (res.paid) {
+        if (res.paid && res.task) {
           clearInterval(timer);
-          setResult(res);
-          setStatus('success');
+          setTask(res.task);
+          setStatus('quest');
         }
       } catch (e) {
         clearInterval(timer);
-        setError(e.message || 'Error checking payment');
-        setStatus('error');
-        if (e.message.toLowerCase().includes('invalid token')) {
-          logout();
-          navigate('/login');
-        }
+        setError('Ошибка проверки оплаты'); setStatus('error');
       }
-    }, 3000);
+    }, 2000);
     return () => clearInterval(timer);
-  }, [status, invoiceId, logout, navigate]);
+  }, [status, invoiceId]);
 
-  const rarityItems = [
-    { key: 'legendary', label: 'Legendary', percent: '5%',    icon: '/images/icons/legendary.png', top: 149 },
-    { key: 'rare',      label: 'Rare',      percent: '15%',   icon: '/images/icons/rare.png',      top: 218 },
-    { key: 'uncommon',  label: 'Uncommon',  percent: '30%',   icon: '/images/icons/uncommon.png',  top: 287 },
-    { key: 'common',    label: 'Common',    percent: '50%',   icon: '/images/icons/common.png',    top: 356 },
-  ];
+  const submitQuest = async () => {
+    setError('');
+    try {
+      const success = answer.trim() === task.params.answer;
+      const res = await API.completeBurn(invoiceId, success);
+      if (res.success === false) {
+        setError('Квест провален — повышен pity. Попробуйте снова.');
+      } else {
+        setResult(res);
+        setStatus('result');
+      }
+    } catch (e) {
+      setError('Ошибка завершения квеста'); setStatus('error');
+    }
+  };
 
   return (
-    <div
-      style={{
-        position: 'relative',
-        width: '100%',
-        height: '100vh',
-        overflowX: 'hidden',
-        overflowY: 'auto',
-      }}
-    >
-      {/* Checker background */}
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          backgroundImage: "url('/images/Checker.webp')",
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          zIndex: 0,
-        }}
-      />
+    <div style={{ position: 'relative', width: '100%', height: '100vh', overflow: 'hidden' }}>
+      {/* Checker BG */}
+      <div style={{ position: 'absolute', inset: 0, backgroundImage: "url('/images/Checker.webp')", backgroundSize: 'cover', backgroundPosition: 'center', zIndex: 0 }} />
+      {/* Burn BG + gradient */}
+      <div style={{ position:'absolute', inset:0, backgroundImage:"linear-gradient(0deg,rgba(0,0,0,0.56),rgba(0,0,0,0.56)),url('/images/bg-burn.webp')", backgroundSize:'cover', backgroundPosition:'center', zIndex:1 }} />
 
-      {/* Burn background + gradient */}
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          backgroundImage:
-            "linear-gradient(0deg, rgba(0,0,0,0.56), rgba(0,0,0,0.56)), url('/images/bg-burn.webp')",
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          zIndex: 1,
-        }}
-      />
+      {/* Back & Title */}
+      <BackButton style={{ position:'absolute', top:16, left:16, zIndex:5, color:'#fff' }} />
+      <h1 style={{ position:'absolute', top:25, left:'50%', transform:'translateX(-50%)', fontFamily:'Tajawal, sans-serif', fontSize:40, color:'#9E9191', zIndex:5 }}>Burn Yourself</h1>
 
-      {/* Навигация */}
-      <BackButton
-        style={{
-          position: 'absolute',
-          top: 16,
-          left: 16,
-          zIndex: 5,
-          color: '#ffffff',
-        }}
-      />
-
-      {/* Заголовок */}
-      <h1
-        style={{
-          position: 'absolute',
-          top: 25,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          fontFamily: 'Tajawal, sans-serif',
-          fontWeight: 700,
-          fontSize: 40,
-          lineHeight: '48px',
-          color: '#9E9191',
-          whiteSpace: 'nowrap',
-          zIndex: 5,
-        }}
-      >
-        Burn&nbsp;Yourself
-      </h1>
-
-      {/* Элемент редкости */}
-      <h3
-        style={{
-          position: 'absolute',
-          left: 46,
-          top: 90,
-          fontFamily: 'Tajawal, sans-serif',
-          fontWeight: 700,
-          fontSize: 20,
-          lineHeight: '24px',
-          color: '#9E9191',
-          zIndex: 5,
-        }}
-      >
-        Element rarity
-      </h3>
-
-      {/* Ряды редкостей */}
-      {rarityItems.map(({ key, label, percent, icon, top }) => (
-        <React.Fragment key={key}>
-          <div
-            style={{
-              position: 'absolute',
-              left: 26,
-              top,
-              width: 58,
-              height: 58,
-              backgroundImage: `url('${icon}')`,
-              backgroundSize: 'contain',
-              backgroundPosition: 'center',
-              backgroundRepeat: 'no-repeat',
-              zIndex: 5,
-            }}
-          />
-          <div
-            style={{
-              position: 'absolute',
-              left: 102,
-              top,
-              width: 193,
-              height: 58,
-              border: '1px solid #979696',
-              borderRadius: 16,
-              zIndex: 5,
-            }}
-          />
-          <span
-            style={{
-              position: 'absolute',
-              left: 152,
-              top: top + 21,
-              fontFamily: 'Tajawal, sans-serif',
-              fontWeight: 700,
-              fontSize: 20,
-              lineHeight: '24px',
-              color: '#9E9191',
-              zIndex: 5,
-            }}
-          >
-            {label}
-          </span>
-          <span
-            style={{
-              position: 'absolute',
-              left: 316,
-              top: top + 21,
-              fontFamily: 'Tajawal, sans-serif',
-              fontWeight: 700,
-              fontSize: 20,
-              lineHeight: '24px',
-              color: '#9E9191',
-              zIndex: 5,
-            }}
-          >
-            {percent}
-          </span>
-        </React.Fragment>
-      ))}
-
-      {/* Кнопка */}
-      <button
-        onClick={startBurn}
-        style={{
-          position: 'absolute',
-          left: 65,
-          top: 480,
-          width: 265,
-          height: 76,
-          backgroundImage: 'linear-gradient(90deg, #D81E3D 0%, #D81E5F 100%)',
-          boxShadow: '0px 6px 6px rgba(0,0,0,0.87)',
-          border: 'none',
-          borderRadius: 40,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 5,
-          cursor: 'pointer',
-        }}
-      >
-        <span
-          style={{
-            fontFamily: 'Tajawal, sans-serif',
-            fontWeight: 700,
-            fontSize: 24,
-            lineHeight: '29px',
-            color: '#FFFFFF',
-          }}
-        >
-          BURN&nbsp;0,5&nbsp;TON
-        </span>
-      </button>
-
-      {/* Подсказка */}
-      <p
-        style={{
-          position: 'absolute',
-          left: 42,
-          top: 594,
-          width: 318,
-          fontFamily: 'Tajawal, sans-serif',
-          fontWeight: 700,
-          fontSize: 15,
-          lineHeight: '18px',
-          color: '#9E9191',
-          textAlign: 'center',
-          zIndex: 5,
-        }}
-      >
-        Please ensure you send exactly 0.5 TON when making your payment. Transactions for any other amount may be lost.
-      </p>
-
-      {/* Обработка состояний */}
-      {status === 'pending' && (
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            backgroundColor: 'rgba(0,0,0,0.6)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 10,
-          }}
-        >
-          <span style={{ color: '#fff', fontSize: 18 }}>Waiting for payment...</span>
+      {/* Quest or Burn Flow */}
+      {status === 'idle' && (
+        <div style={{ position:'absolute', top:'50%', left:'50%', transform:'translate(-50%,-50%)', textAlign:'center', zIndex:5 }}>
+          {isCursed && (
+            <div><p>Вы прокляты! До снятия:</p><Countdown date={curseExpiresAt} /></div>
+          )}
+          <button onClick={startBurn} disabled={isCursed} style={{ marginTop:20, padding:'1rem 2rem', background:'linear-gradient(90deg,#D81E3D,#D81E5F)', color:'#fff', border:'none', borderRadius:40, fontSize:18, cursor:isCursed?'not-allowed':'pointer' }}>BURN 0,5 TON</button>
+          {error && <p style={{ color:'tomato' }}>{error}</p>}
         </div>
       )}
-      {status === 'success' && (
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            backgroundColor: 'rgba(0,0,0,0.6)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 10,
-            color: '#fff',
-          }}
-        >
-          <span>Congratulations! You got a {result.category} fragment.</span>
-          <button onClick={() => navigate('/gallery')} style={{ marginTop: 16 }}>
-            View Gallery
-          </button>
+
+      {status === 'awaiting' && (
+        <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.6)', color:'#fff', zIndex:5 }}>
+          Ожидание оплаты...
         </div>
       )}
+
+      {status === 'quest' && task && (
+        <div style={{ position:'absolute', inset:0, padding:20, zIndex:5, background:'rgba(0,0,0,0.7)', color:'#fff' }}>
+          <h2>Мини-квест ({task.rarity.toUpperCase()})</h2>
+          <p>{task.params.question}</p>
+          {task.params.options.length > 0 ? (
+            task.params.options.map(opt => (
+              <button key={opt} onClick={() => setAnswer(opt)} style={{ margin:5, padding:'0.5rem 1rem', fontWeight:answer===opt?'bold':'normal' }}>{opt}</button>
+            ))
+          ) : (
+            <input placeholder="Ответ" value={answer} onChange={e=>setAnswer(e.target.value)} style={{ padding:'0.5rem', width:'100%' }} />
+          )}
+          <div style={{ marginTop:20 }}>
+            <button onClick={submitQuest} disabled={!answer} style={{ padding:'0.75rem 1.5rem', background:'#28a745', color:'#fff', border:'none', borderRadius:8 }}>Submit</button>
+          </div>
+          {error && <p style={{ color:'tomato' }}>{error}</p>}
+        </div>
+      )}
+
+      {status === 'result' && result && (
+        <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.6)', color:'#fff', zIndex:5 }}>
+          {result.cursed ? (
+            <><p>Вас прокляли!</p><Countdown date={result.curse_expires} /></>
+          ) : (
+            <><p>Поздравляем! Получен фрагмент #{result.newFragment}.</p><button onClick={()=>navigate('/gallery')} style={{ marginTop:20, padding:'0.75rem 1.5rem',background:'#007bff',color:'#fff',border:'none',borderRadius:8 }}>View Gallery</button></>
+          )}
+        </div>
+      )}
+
       {status === 'error' && (
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            backgroundColor: 'rgba(0,0,0,0.6)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 10,
-            color: 'tomato',
-          }}
-        >
-          <span>{error}</span>
-          <button onClick={() => setStatus('idle')} style={{ marginTop: 16 }}>
-            Try Again
-          </button>
+        <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.6)', color:'tomato', zIndex:5 }}>
+          <p>{error}</p>
         </div>
       )}
     </div>
