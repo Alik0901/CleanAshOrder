@@ -334,16 +334,17 @@ export default function Gallery() {
             <button
               onClick={() => setShowFirstFragmentNotice(false)}
               style={{
-                padding: '10px 20px',
-                backgroundColor: '#D81E3D',
-                color: '#fff',
-                border: 'none',
-                borderRadius: 20,
-                cursor: 'pointer',
-                fontSize: 16,
-              }}
+              padding: '10px 20px',
+              backgroundColor: '#D81E3D',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 20,
+              cursor: 'pointer',
+              fontSize: 16,
+              alignSelf: 'center',       // <-- добавили выравнивание
+            }}
             >
-              Got it!
+             Got it!
             </button>
           </div>
         </div>
