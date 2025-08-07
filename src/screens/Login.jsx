@@ -82,17 +82,25 @@ export default function Login() {
       height: '100vh',
       overflow: 'hidden',
     }}>
-      {/* Background */}
+      {/* Фон */}
       <div style={{
         position: 'absolute',
         inset: 0,
-        backgroundImage: "url('/images/bg-welcome.png')",
+        backgroundImage: "url('/images/bg-welcome.webp')",
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         zIndex: 0,
       }}/>
 
-      {/* Logo */}
+      {/* Полупрозрачный слой */}
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        zIndex: 1,
+      }}/>
+
+      {/* Логотип */}
       <div style={{
         position: 'absolute',
         width: 212,
@@ -103,14 +111,12 @@ export default function Login() {
         backgroundImage: "url('/images/logo_trimmed_optimized.png')",
         backgroundSize: 'contain',
         backgroundRepeat: 'no-repeat',
-        zIndex: 1,
+        zIndex: 2,
       }}/>
 
-      {/* Welcome */}
+      {/* Тайтл */}
       <h1 style={{
         position: 'absolute',
-        width: 197,
-        height: 54,
         left: '50%',
         top: 345,
         transform: 'translateX(-50%)',
@@ -120,28 +126,26 @@ export default function Login() {
         lineHeight: '54px',
         color: '#D6CEBD',
         textAlign: 'center',
-        zIndex: 1,
+        zIndex: 2,
       }}>
         Welcome
       </h1>
 
-      {/* Error */}
+      {/* Ошибка */}
       {error && (
         <p style={{
           position: 'absolute',
-          width: '80%',
           left: '50%',
           top: 380,
           transform: 'translateX(-50%)',
           color: 'tomato',
-          textAlign: 'center',
-          zIndex: 1,
+          zIndex: 2,
         }}>
           {error}
         </p>
       )}
 
-      {/* Name input */}
+      {/* Поле Name */}
       <input
         type="text"
         placeholder="Name"
@@ -160,13 +164,12 @@ export default function Login() {
           borderRadius: 20,
           fontFamily: 'MedievalSharp, serif',
           fontSize: 15,
-          lineHeight: '17px',
           color: '#D6CEBD',
-          zIndex: 1,
+          zIndex: 2,
         }}
       />
 
-      {/* Referral input */}
+      {/* Поле Referral */}
       <input
         type="text"
         placeholder="Referral code (optional)"
@@ -185,13 +188,12 @@ export default function Login() {
           borderRadius: 20,
           fontFamily: 'MedievalSharp, serif',
           fontSize: 15,
-          lineHeight: '17px',
           color: '#D6CEBD',
-          zIndex: 1,
+          zIndex: 2,
         }}
       />
 
-      {/* Start playing */}
+      {/* Кнопка */}
       <button
         onClick={handleStart}
         disabled={!name.trim()}
@@ -202,16 +204,15 @@ export default function Login() {
           left: '50%',
           top: 525,
           transform: 'translateX(-50%)',
-          background: name.trim() ? '#D18622' : '#888',
-          border: name.trim() ? '1px solid #E0933A' : '1px solid #666',
+          background: name.trim() ? '#D18622' : '#777',
+          border: name.trim() ? '1px solid #E0933A' : '1px solid #555',
           borderRadius: 20,
           fontFamily: 'MedievalSharp, serif',
           fontWeight: 500,
           fontSize: 15,
-          lineHeight: '17px',
-          color: name.trim() ? '#191610' : '#444',
+          color: name.trim() ? '#191610' : '#333',
           cursor: name.trim() ? 'pointer' : 'not-allowed',
-          zIndex: 1,
+          zIndex: 2,
         }}
       >
         Start playing
