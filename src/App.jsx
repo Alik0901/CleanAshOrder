@@ -30,9 +30,6 @@ export default function App() {
 
   return (
     <>
-      {/* 2) NavBar только для залогиненных */}
-      {user && <NavBar />}
-
       <Routes>
         {/* 3) Login */}
         <Route
