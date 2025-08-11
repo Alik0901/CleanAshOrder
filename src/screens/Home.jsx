@@ -1,3 +1,5 @@
+// src/screens/Home.jsx
+
 import React, { useEffect, useContext, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import bgWelcome from '../assets/images/converted_minimal.jpg';
@@ -8,6 +10,7 @@ import referralBtn from '../assets/images/referral.png';
 import profileBtn from '../assets/images/profile.png';
 import { AuthContext } from '../context/AuthContext';
 
+// Простой инлайн-таймер до даты
 function CountdownInline({ to }) {
   const [ms, setMs] = useState(() => Math.max(0, new Date(to) - Date.now()));
   useEffect(() => {
@@ -17,6 +20,7 @@ function CountdownInline({ to }) {
     }, 1000);
     return () => clearInterval(id);
   }, [to]);
+
   const s = Math.floor(ms / 1000);
   const hh = String(Math.floor(s / 3600)).padStart(2, '0');
   const mm = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
@@ -27,25 +31,32 @@ function CountdownInline({ to }) {
 export default function Home() {
   const { user } = useContext(AuthContext);
 
-  const [showInitModal, setShowInitModal] = useState(false);
-  useEffect(() => {
-    if (localStorage.getItem('showInitialAward') === '1') {
-      setShowInitModal(true);
-      localStorage.removeItem('showInitialAward');
-    }
-  }, []);
+  // Текущие фрагменты игрока
+  const frags = Array.isArray(user?.fragments) ? user.fragments.map(Number) : [];
+  const has1 = frags.includes(1);
+  const has2 = frags.includes(2);
+  const has3 = frags.includes(3);
+  const mandatoryDone = has1 && has2 && has3;
 
+  // Активное проклятие
   const curse = useMemo(() => {
     if (!user?.is_cursed || !user?.curse_expires) return null;
     const active = new Date(user.curse_expires) > new Date();
     return active ? user.curse_expires : null;
   }, [user]);
 
-  const frags = Array.isArray(user?.fragments) ? user.fragments.map(Number) : [];
-  const has1 = frags.includes(1);
-  const has2 = frags.includes(2);
-  const has3 = frags.includes(3);
-  const mandatoryDone = has1 && has2 && has3;
+  // Модалка «получен #1» (поддерживаем два возможных ключа флага)
+  const [showInitModal, setShowInitModal] = useState(false);
+  useEffect(() => {
+    const flagA = localStorage.getItem('showInitialAward');
+    const flagB = localStorage.getItem('showFirstFragmentNotice');
+    const shouldShow = flagA === '1' || flagA === 'true' || flagB === 'true';
+    if (shouldShow && has1) {
+      setShowInitModal(true);
+      localStorage.removeItem('showInitialAward');
+      localStorage.removeItem('showFirstFragmentNotice');
+    }
+  }, [has1]);
 
   useEffect(() => {
     console.log('🏠 Home mounted, bgWelcome =', bgWelcome);
@@ -110,7 +121,7 @@ export default function Home() {
           alt="Order of Ash logo"
           style={{ height: '3rem', objectFit: 'contain' }}
         />
-        <div style={{ position:'absolute', right:'1rem', width:'1.5rem', height:0 }} />
+        <div style={{ position: 'absolute', right: '1rem', width: '1.5rem', height: 0 }} />
       </header>
 
       {/* Баннер проклятия */}
@@ -134,7 +145,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* Баннер — собери 1–3 */}
+      {/* Баннер — собери 1–3 до старта */}
       {!mandatoryDone && (
         <div
           style={{
@@ -151,12 +162,12 @@ export default function Home() {
             whiteSpace: 'nowrap',
           }}
         >
-          Collect fragments #1–#3 to start burning.{' '}
-          <Link to="/referral" style={{ color:'#fff', textDecoration:'underline', marginLeft:8 }}>
+          Collect fragments #1–#3 to start burning.&nbsp;
+          <Link to="/referral" style={{ color: '#fff', textDecoration: 'underline' }}>
             Invite friends
-          </Link>{' '}
-          ·{' '}
-          <Link to="/third" style={{ color:'#fff', textDecoration:'underline', marginLeft:8 }}>
+          </Link>
+          &nbsp;·&nbsp;
+          <Link to="/third" style={{ color: '#fff', textDecoration: 'underline' }}>
             Claim #3
           </Link>
         </div>
@@ -205,7 +216,10 @@ export default function Home() {
               opacity: curse || !mandatoryDone ? 0.6 : 1,
               pointerEvents: curse || !mandatoryDone ? 'none' : 'auto',
             }}
-            title={curse ? 'Cursed — wait for the timer' : (!mandatoryDone ? 'Collect 1–3 first' : undefined)}
+            title={
+              curse ? 'Cursed — wait for the timer'
+                : (!mandatoryDone ? 'Collect 1–3 first' : undefined)
+            }
           >
             <Link
               to="/burn"
@@ -225,7 +239,7 @@ export default function Home() {
         </div>
       </main>
 
-      {/* Кнопки-таблички */}
+      {/* Нижние кнопки */}
       <div
         style={{
           position: 'absolute',
@@ -259,29 +273,57 @@ export default function Home() {
 
       {/* Модалка «получен фрагмент #1» */}
       {showInitModal && (
-        <div style={{
-          position:'absolute', inset:0, background:'rgba(0,0,0,0.6)',
-          display:'flex', alignItems:'center', justifyContent:'center', zIndex:50
-        }}>
-          <div style={{
-            background:'#111', color:'#fff', border:'1px solid #9E9191',
-            padding:'16px 20px', borderRadius:12, width:320, textAlign:'center'
-          }}>
-            <h3 style={{margin:'0 0 8px'}}>Welcome, Initiate</h3>
-            <p style={{margin:'0 0 12px'}}>
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'rgba(0,0,0,0.6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 50,
+          }}
+        >
+          <div
+            style={{
+              background: '#111',
+              color: '#fff',
+              border: '1px solid #9E9191',
+              padding: '16px 20px',
+              borderRadius: 12,
+              width: 320,
+              textAlign: 'center',
+            }}
+          >
+            <h3 style={{ margin: '0 0 8px' }}>Welcome, Initiate</h3>
+            <p style={{ margin: '0 0 12px' }}>
               You received your first fragment <b>#1</b>.
             </p>
-            <div style={{display:'flex', gap:8, justifyContent:'center'}}>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
               <button
-                onClick={()=>setShowInitModal(false)}
-                style={{padding:'8px 14px', borderRadius:8, border:'1px solid #666', background:'#222', color:'#fff'}}
+                onClick={() => setShowInitModal(false)}
+                style={{
+                  padding: '8px 14px',
+                  borderRadius: 8,
+                  border: '1px solid #666',
+                  background: '#222',
+                  color: '#fff',
+                  cursor: 'pointer',
+                }}
               >
                 Close
               </button>
               <Link
                 to="/gallery"
-                onClick={()=>setShowInitModal(false)}
-                style={{padding:'8px 14px', borderRadius:8, border:'none', background:'#D81E5F', color:'#fff', textDecoration:'none'}}
+                onClick={() => setShowInitModal(false)}
+                style={{
+                  padding: '8px 14px',
+                  borderRadius: 8,
+                  border: 'none',
+                  background: '#D81E5F',
+                  color: '#fff',
+                  textDecoration: 'none',
+                }}
               >
                 View Gallery
               </Link>
