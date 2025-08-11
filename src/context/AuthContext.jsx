@@ -31,11 +31,11 @@ function AuthProvider({ children }) {
     localStorage.setItem('user', JSON.stringify(u));
   }, []);
 
-  const login = useCallback((u, token) => {
+  const doLogin = useCallback((u, token) => {
     saveSession(u, token);
   }, [saveSession]);
 
-  const logout = useCallback(() => {
+  const doLogout = useCallback(() => {
     try {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
@@ -59,19 +59,36 @@ function AuthProvider({ children }) {
     } catch (e) {
       if (!silent) console.warn('[refreshUser] error:', e);
       const msg = String(e?.message || '').toLowerCase();
-      if (msg.includes('invalid token') || msg.includes('forbidden') || msg.includes('unauthorized')) {
-        logout();
-      }
-    }
-  }, [user, saveSession, logout]);
 
+      // 🔴 КЛЮЧЕВОЕ: если игрок удалён -> /player/:tg_id вернёт 404 {error:"not found"}
+      // в этом случае сразу выходим из сессии, чтобы показать /login
+      if (
+        msg.includes('invalid token') ||
+        msg.includes('forbidden') ||
+        msg.includes('unauthorized') ||
+        msg.includes('not found')
+      ) {
+        doLogout();
+        return;
+      }
+
+      // На всякий случай: при любой другой фатальной ошибке, где сессия невалидна,
+      // тоже выходим (можешь убрать, если не нужно)
+      if (!silent) doLogout();
+    }
+  }, [user, saveSession, doLogout]);
+
+  // Инициализация: если есть токен и tg_id — подтягиваем свежего юзера
   useEffect(() => {
-    if (tokenRef.current && user?.tg_id) {
+    if (tokenRef.current && (user?.tg_id || localStorage.getItem('user'))) {
       refreshUser({ silent: true, force: true });
+    } else if (!tokenRef.current) {
+      setUser(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Авто-рефреш каждые 8 сек при активной вкладке
   useEffect(() => {
     if (!user || !tokenRef.current) return;
 
@@ -94,6 +111,7 @@ function AuthProvider({ children }) {
     return () => stop();
   }, [user, refreshUser]);
 
+  // Мгновенный рефреш при возврате фокуса/видимости
   useEffect(() => {
     const onFocus = () => refreshUser({ silent: true });
     const onVis   = () => document.visibilityState === 'visible' && refreshUser({ silent: true });
@@ -105,10 +123,11 @@ function AuthProvider({ children }) {
     };
   }, [refreshUser]);
 
+  // Синхронизация между вкладками
   useEffect(() => {
     const bc = 'BroadcastChannel' in window ? new BroadcastChannel('ash-session') : null;
     bc?.addEventListener('message', (e) => {
-      if (e.data?.type === 'logout') logout();
+      if (e.data?.type === 'logout') doLogout();
       if (e.data?.type === 'login' && e.data?.payload) {
         const { user: u, token } = e.data.payload;
         saveSession(u, token);
@@ -116,7 +135,7 @@ function AuthProvider({ children }) {
       if (e.data?.type === 'refresh') refreshUser({ silent: true, force: true });
     });
     return () => bc?.close();
-  }, [logout, saveSession, refreshUser]);
+  }, [doLogout, saveSession, refreshUser]);
 
   const value = {
     user,
@@ -126,7 +145,7 @@ function AuthProvider({ children }) {
         bc.postMessage({ type: 'login', payload: { user: u, token: t } });
         bc.close();
       } catch {}
-      login(u, t);
+      doLogin(u, t);
     },
     logout: () => {
       try {
@@ -134,7 +153,7 @@ function AuthProvider({ children }) {
         bc.postMessage({ type: 'logout' });
         bc.close();
       } catch {}
-      logout();
+      doLogout();
     },
     refreshUser,
   };
@@ -146,5 +165,4 @@ function AuthProvider({ children }) {
   );
 }
 
-export { AuthProvider };      // <- именованный экспорт
-export default AuthProvider;  // <- дефолтный экспорт
+export { AuthProvider as default, AuthProvider };
