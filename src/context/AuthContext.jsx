@@ -19,8 +19,11 @@ function AuthProvider({ children }) {
     }
   });
 
-  const tokenRef = useRef(localStorage.getItem('token') || null);
-  const refreshTimerRef = useRef(null);
+  const tokenRef           = useRef(localStorage.getItem('token') || null);
+  const refreshTimerRef    = useRef(null);
+  const refreshInFlightRef = useRef(false);
+  const lastRefreshedRef   = useRef(0);        // для троттлинга
+  const MIN_REFRESH_GAP    = 5000;             // не чаще чем раз в 5 сек фоново
 
   const saveSession = useCallback((u, token) => {
     if (token) {
@@ -46,11 +49,22 @@ function AuthProvider({ children }) {
 
   const refreshUser = useCallback(async ({ silent = true, force = false } = {}) => {
     try {
+      // троттлинг и защита от параллельных вызовов
+      const now = Date.now();
+      if (!force && now - lastRefreshedRef.current < MIN_REFRESH_GAP) return;
+      if (refreshInFlightRef.current) return;
       if (!tokenRef.current) return;
-      const tgId = user?.tg_id || (JSON.parse(localStorage.getItem('user') || '{}').tg_id);
+
+      const stored = localStorage.getItem('user');
+      const tgId = user?.tg_id || (stored ? JSON.parse(stored).tg_id : undefined);
       if (!tgId) return;
 
+      refreshInFlightRef.current = true;
+      lastRefreshedRef.current = now;
+
       const fresh = await API.getPlayer(tgId);
+
+      // обновляем только если реально изменилось
       const prev = user ? JSON.stringify(user) : null;
       const next = JSON.stringify(fresh);
       if (prev !== next || force) {
@@ -59,9 +73,7 @@ function AuthProvider({ children }) {
     } catch (e) {
       if (!silent) console.warn('[refreshUser] error:', e);
       const msg = String(e?.message || '').toLowerCase();
-
-      // 🔴 КЛЮЧЕВОЕ: если игрок удалён -> /player/:tg_id вернёт 404 {error:"not found"}
-      // в этом случае сразу выходим из сессии, чтобы показать /login
+      // если юзер пропал/токен битый — выходим
       if (
         msg.includes('invalid token') ||
         msg.includes('forbidden') ||
@@ -69,18 +81,16 @@ function AuthProvider({ children }) {
         msg.includes('not found')
       ) {
         doLogout();
-        return;
       }
-
-      // На всякий случай: при любой другой фатальной ошибке, где сессия невалидна,
-      // тоже выходим (можешь убрать, если не нужно)
-      if (!silent) doLogout();
+    } finally {
+      refreshInFlightRef.current = false;
     }
   }, [user, saveSession, doLogout]);
 
-  // Инициализация: если есть токен и tg_id — подтягиваем свежего юзера
+  // Инициализация — подтянуть /player если есть токен
   useEffect(() => {
     if (tokenRef.current && (user?.tg_id || localStorage.getItem('user'))) {
+      // принудительно, без троттлинга
       refreshUser({ silent: true, force: true });
     } else if (!tokenRef.current) {
       setUser(null);
@@ -88,7 +98,7 @@ function AuthProvider({ children }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Авто-рефреш каждые 8 сек при активной вкладке
+  // Фоновый опрос раз в 12 сек (раньше было чаще)
   useEffect(() => {
     if (!user || !tokenRef.current) return;
 
@@ -96,9 +106,9 @@ function AuthProvider({ children }) {
       if (refreshTimerRef.current) return;
       refreshTimerRef.current = setInterval(() => {
         if (document.visibilityState === 'visible') {
-          refreshUser({ silent: true });
+          refreshUser({ silent: true }); // троттлинг сам ограничит
         }
-      }, 8000);
+      }, 12000);
     };
     const stop = () => {
       if (refreshTimerRef.current) {
@@ -111,15 +121,31 @@ function AuthProvider({ children }) {
     return () => stop();
   }, [user, refreshUser]);
 
-  // Мгновенный рефреш при возврате фокуса/видимости
+  // Дебаунс для focus/visibility (случаются частые срабатывания в Telegram WebApp)
   useEffect(() => {
-    const onFocus = () => refreshUser({ silent: true });
-    const onVis   = () => document.visibilityState === 'visible' && refreshUser({ silent: true });
+    let visDebounce = null;
+    let focDebounce = null;
+
+    const onFocus = () => {
+      clearTimeout(focDebounce);
+      focDebounce = setTimeout(() => refreshUser({ silent: true }), 250);
+    };
+    const onVis = () => {
+      clearTimeout(visDebounce);
+      visDebounce = setTimeout(() => {
+        if (document.visibilityState === 'visible') {
+          refreshUser({ silent: true });
+        }
+      }, 250);
+    };
+
     window.addEventListener('focus', onFocus);
     document.addEventListener('visibilitychange', onVis);
     return () => {
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onVis);
+      clearTimeout(visDebounce);
+      clearTimeout(focDebounce);
     };
   }, [refreshUser]);
 
@@ -165,4 +191,5 @@ function AuthProvider({ children }) {
   );
 }
 
-export { AuthProvider as default, AuthProvider };
+export default AuthProvider;
+export { AuthProvider };
