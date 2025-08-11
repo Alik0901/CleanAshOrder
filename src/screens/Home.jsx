@@ -30,6 +30,8 @@ function CountdownInline({ to }) {
 
 export default function Home() {
   const { user } = useContext(AuthContext);
+  const { refreshUser } = useContext(AuthContext);
+  useEffect(() => { refreshUser({ force: true }); }, [refreshUser]);
 
   // Текущие фрагменты игрока
   const frags = Array.isArray(user?.fragments) ? user.fragments.map(Number) : [];
