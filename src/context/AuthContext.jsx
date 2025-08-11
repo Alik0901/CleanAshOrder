@@ -9,7 +9,7 @@ export const AuthContext = createContext({
   refreshUser: async () => {},
 });
 
-export default function AuthProvider({ children }) {
+function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     try {
       const raw = localStorage.getItem('user');
@@ -47,12 +47,10 @@ export default function AuthProvider({ children }) {
   const refreshUser = useCallback(async ({ silent = true, force = false } = {}) => {
     try {
       if (!tokenRef.current) return;
-      // если не знаем tg_id — пробовать нечего
       const tgId = user?.tg_id || (JSON.parse(localStorage.getItem('user') || '{}').tg_id);
       if (!tgId) return;
 
       const fresh = await API.getPlayer(tgId);
-      // только если реально есть изменения — обновим локально
       const prev = user ? JSON.stringify(user) : null;
       const next = JSON.stringify(fresh);
       if (prev !== next || force) {
@@ -67,7 +65,6 @@ export default function AuthProvider({ children }) {
     }
   }, [user, saveSession, logout]);
 
-  // При первом монтировании: если есть токен — подтянем свежего /player
   useEffect(() => {
     if (tokenRef.current && user?.tg_id) {
       refreshUser({ silent: true, force: true });
@@ -75,7 +72,6 @@ export default function AuthProvider({ children }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Авто-обновление каждые 8 сек, пока есть юзер и вкладка активна
   useEffect(() => {
     if (!user || !tokenRef.current) return;
 
@@ -98,7 +94,6 @@ export default function AuthProvider({ children }) {
     return () => stop();
   }, [user, refreshUser]);
 
-  // Мгновенный рефреш при возвращении фокуса/видимости
   useEffect(() => {
     const onFocus = () => refreshUser({ silent: true });
     const onVis   = () => document.visibilityState === 'visible' && refreshUser({ silent: true });
@@ -110,7 +105,6 @@ export default function AuthProvider({ children }) {
     };
   }, [refreshUser]);
 
-  // Синхронизация между вкладками
   useEffect(() => {
     const bc = 'BroadcastChannel' in window ? new BroadcastChannel('ash-session') : null;
     bc?.addEventListener('message', (e) => {
@@ -127,7 +121,6 @@ export default function AuthProvider({ children }) {
   const value = {
     user,
     login: (u, t) => {
-      // расшарим другим вкладкам
       try {
         const bc = new BroadcastChannel('ash-session');
         bc.postMessage({ type: 'login', payload: { user: u, token: t } });
@@ -152,3 +145,6 @@ export default function AuthProvider({ children }) {
     </AuthContext.Provider>
   );
 }
+
+export { AuthProvider };      // <- именованный экспорт
+export default AuthProvider;  // <- дефолтный экспорт
