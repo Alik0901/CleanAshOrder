@@ -50,18 +50,31 @@ const API = {
     return handleResponse(res);
   },
 
+  // Создание инвойса (бэкенд сам добавляет quest_data)
   createBurn: async (tgId, amount_nano = 500_000_000) => {
     const res = await fetch(`${BASE}/api/burn-invoice`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeader() },
+      // amount_nano можно не передавать — бэкенд его не требует, но оставим совместимость
       body: JSON.stringify({ tg_id: tgId, amount_nano }),
     });
     return handleResponse(res);
   },
 
+  // Статус оплаты/квеста
   getBurnStatus: async (invoiceId) => {
     const res = await fetch(`${BASE}/api/burn-status/${invoiceId}`, {
-      headers: authHeader(),
+      headers: { ...authHeader(), 'Cache-Control': 'no-store' },
+    });
+    return handleResponse(res);
+  },
+
+  // Завершение квеста (ВАЖНО для выдачи фрагмента)
+  completeBurn: async (invoiceId, success) => {
+    const res = await fetch(`${BASE}/api/burn-complete/${invoiceId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeader() },
+      body: JSON.stringify({ success }),
     });
     return handleResponse(res);
   },
@@ -112,7 +125,7 @@ const API = {
     return handleResponse(res);
   },
 
-  // Дополнительные эндпоинты, если нужны:
+  // Дополнительные эндпоинты
   getLeaderboard: async () => {
     const res = await fetch(`${BASE}/api/leaderboard`, { headers: authHeader() });
     return handleResponse(res);

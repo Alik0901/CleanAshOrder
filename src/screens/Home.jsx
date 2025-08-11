@@ -1,43 +1,48 @@
-import React, { useContext, useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import Countdown from 'react-countdown';
-import { AuthContext } from '../contexts/AuthContext';
+import React, { useEffect, useContext, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import bgWelcome from '../assets/images/converted_minimal.jpg';
 import logo from '../assets/images/logo_trimmed_optimized.png';
-
-// Кнопки-таблички
 import galleryBtn from '../assets/images/gallery.png';
 import leaderboardBtn from '../assets/images/leaderboard.png';
 import referralBtn from '../assets/images/referral.png';
 import profileBtn from '../assets/images/profile.png';
+import { AuthContext } from '../context/AuthContext';
+
+// Простой таймер
+function CountdownInline({ to }) {
+  const [ms, setMs] = useState(() => Math.max(0, new Date(to) - Date.now()));
+  useEffect(() => {
+    const id = setInterval(() => {
+      const left = Math.max(0, new Date(to) - Date.now());
+      setMs(left);
+    }, 1000);
+    return () => clearInterval(id);
+  }, [to]);
+  const s = Math.floor(ms / 1000);
+  const hh = String(Math.floor(s / 3600)).padStart(2, '0');
+  const mm = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+  const ss = String(s % 60).padStart(2, '0');
+  return <>{hh}:{mm}:{ss}</>;
+}
 
 export default function Home() {
   const { user } = useContext(AuthContext);
-  const navigate = useNavigate();
-  const [now, setNow] = useState(Date.now());
+
+  const curse = useMemo(() => {
+    if (!user?.is_cursed || !user?.curse_expires) return null;
+    const active = new Date(user.curse_expires) > new Date();
+    return active ? user.curse_expires : null;
+  }, [user]);
 
   useEffect(() => {
     console.log('🏠 Home mounted, bgWelcome =', bgWelcome);
   }, []);
 
-  // Обновляем текущее время каждую секунду для таймера
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  // Вычисляем, активно ли проклятие
-  const curseExpiresAt = user?.curse_expires ? new Date(user.curse_expires).getTime() : 0;
-  const isCursedActive = user?.is_cursed && now < curseExpiresAt;
-
   return (
     <div
       style={{
         position: 'fixed',
-        top: 0,
-        right: 0,
-        bottom: 0,
-        left: 0,
+        top: 0, right: 0, bottom: 0, left: 0,
         overflow: 'hidden',
       }}
     >
@@ -59,42 +64,7 @@ export default function Home() {
         }}
       />
 
-      {/* Оверлей проклятия */}
-      {isCursedActive && (
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.6)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 20,
-            color: 'white',
-            textAlign: 'center',
-            padding: '1rem',
-          }}
-        >
-          <h2 style={{ marginBottom: '1rem', fontSize: '1.5rem' }}>Вы прокляты!</h2>
-          <Countdown
-            date={curseExpiresAt}
-            renderer={({ hours, minutes, seconds, completed }) =>
-              completed ? (
-                <span style={{ fontSize: '2rem' }}>Проклятие снято</span>
-              ) : (
-                <span style={{ fontSize: '2rem' }}>
-                  {hours.toString().padStart(2, '0')}:
-                  {minutes.toString().padStart(2, '0')}:
-                  {seconds.toString().padStart(2, '0')}
-                </span>
-              )
-            }
-          />
-        </div>
-      )}
-
-      {/* Хедер с логотипом */}
+      {/* Хедер с логотипом по центру */}
       <header
         style={{
           position: 'absolute',
@@ -106,11 +76,57 @@ export default function Home() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 30,
+          zIndex: 20,
         }}
       >
-        <h1 style={{ color: 'white', fontSize: '1.5rem' }}>Order of Ash</h1>
+        <button
+          style={{
+            position: 'absolute',
+            left: '1rem',
+            background: 'none',
+            border: 'none',
+            color: 'white',
+            fontSize: '1.5rem',
+            cursor: 'pointer',
+          }}
+        >
+          ☰
+        </button>
+        <img
+          src={logo}
+          alt="Order of Ash logo"
+          style={{ height: '3rem', objectFit: 'contain' }}
+        />
+        <div
+          style={{
+            position: 'absolute',
+            right: '1rem',
+            width: '1.5rem',
+            height: 0,
+          }}
+        />
       </header>
+
+      {/* Баннер проклятия (если активно) */}
+      {curse && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 72,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'rgba(0,0,0,0.6)',
+            border: '1px solid #9E9191',
+            color: '#fff',
+            padding: '8px 12px',
+            borderRadius: 12,
+            zIndex: 30,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          You are cursed. Time left: <CountdownInline to={curse} />
+        </div>
+      )}
 
       {/* Основной контент */}
       <main
@@ -134,60 +150,48 @@ export default function Home() {
             alignItems: 'center',
             width: '100%',
             maxWidth: '800px',
+            marginLeft: 0,
           }}
         >
           <div style={{ flex: 1, textAlign: 'left' }}>
-            <h2
-              style={{
-                fontSize: '2rem',
-                fontFamily: '"MedievalSharp", serif',
-                margin: '0 0 1rem',
-              }}
-            >
+            <h2 style={{ fontSize: '2rem', fontFamily: '"MedievalSharp", serif', margin: '0 0 1rem' }}>
               Welcome to Order of Ash
             </h2>
             <p style={{ fontSize: '1.125rem', margin: 0 }}>
-              Burn yourself for power, collect the fragments, and uncover the
-              secrets of the Order of Ash.
+              Burn yourself for power, collect the fragments, and uncover the secrets of the Order of Ash.
             </p>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', marginLeft: '1rem' }}>
-            {isCursedActive ? (
-              <button
-                style={{
-                  padding: '0.75rem 1.5rem',
-                  background: '#444',
-                  color: 'white',
-                  borderRadius: '9999px',
-                  fontWeight: 'bold',
-                  cursor: 'not-allowed',
-                  opacity: 0.5,
-                }}
-                disabled
-              >
-                Проклятие активно
-              </button>
-            ) : (
-              <Link
-                to="/burn"
-                style={{
-                  padding: '0.75rem 1.5rem',
-                  background: 'linear-gradient(to right, #ef4444, #ec4899)',
-                  color: 'white',
-                  borderRadius: '9999px',
-                  fontWeight: 'bold',
-                  textDecoration: 'none',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                Burn Yourself
-              </Link>
-            )}
+
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'flex-end',
+              marginLeft: '1rem',
+              opacity: curse ? 0.6 : 1,
+              pointerEvents: curse ? 'none' : 'auto',
+            }}
+            title={curse ? 'Cursed — wait for the timer' : undefined}
+          >
+            <Link
+              to="/burn"
+              style={{
+                padding: '0.75rem 1.5rem',
+                background: 'linear-gradient(to right, #ef4444, #ec4899)',
+                color: 'white',
+                borderRadius: '9999px',
+                fontWeight: 'bold',
+                textDecoration: 'none',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Burn Yourself
+            </Link>
           </div>
         </div>
       </main>
 
-      {/* Кнопки-таблички: два ряда внизу */}
+      {/* Кнопки-таблички */}
       <div
         style={{
           position: 'absolute',
@@ -198,7 +202,7 @@ export default function Home() {
           flexDirection: 'column',
           alignItems: 'center',
           gap: '0.5rem',
-          zIndex: 30,
+          zIndex: 20,
         }}
       >
         <div style={{ display: 'flex', gap: '0.75rem' }}>
