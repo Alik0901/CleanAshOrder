@@ -1,4 +1,3 @@
-// src/screens/Home.jsx
 import React, { useEffect, useContext, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import bgWelcome from '../assets/images/converted_minimal.jpg';
@@ -9,7 +8,6 @@ import referralBtn from '../assets/images/referral.png';
 import profileBtn from '../assets/images/profile.png';
 import { AuthContext } from '../context/AuthContext';
 
-// Простой таймер
 function CountdownInline({ to }) {
   const [ms, setMs] = useState(() => Math.max(0, new Date(to) - Date.now()));
   useEffect(() => {
@@ -29,7 +27,6 @@ function CountdownInline({ to }) {
 export default function Home() {
   const { user } = useContext(AuthContext);
 
-  // единоразовая модалка “получен фрагмент #1”
   const [showInitModal, setShowInitModal] = useState(false);
   useEffect(() => {
     if (localStorage.getItem('showInitialAward') === '1') {
@@ -43,6 +40,12 @@ export default function Home() {
     const active = new Date(user.curse_expires) > new Date();
     return active ? user.curse_expires : null;
   }, [user]);
+
+  const frags = Array.isArray(user?.fragments) ? user.fragments.map(Number) : [];
+  const has1 = frags.includes(1);
+  const has2 = frags.includes(2);
+  const has3 = frags.includes(3);
+  const mandatoryDone = has1 && has2 && has3;
 
   useEffect(() => {
     console.log('🏠 Home mounted, bgWelcome =', bgWelcome);
@@ -131,6 +134,34 @@ export default function Home() {
         </div>
       )}
 
+      {/* Баннер — собери 1–3 */}
+      {!mandatoryDone && (
+        <div
+          style={{
+            position: 'absolute',
+            top: curse ? 110 : 72,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'rgba(0,0,0,0.6)',
+            border: '1px solid #9E9191',
+            color: '#fff',
+            padding: '10px 12px',
+            borderRadius: 12,
+            zIndex: 30,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          Collect fragments #1–#3 to start burning.{' '}
+          <Link to="/referral" style={{ color:'#fff', textDecoration:'underline', marginLeft:8 }}>
+            Invite friends
+          </Link>{' '}
+          ·{' '}
+          <Link to="/third" style={{ color:'#fff', textDecoration:'underline', marginLeft:8 }}>
+            Claim #3
+          </Link>
+        </div>
+      )}
+
       {/* Основной контент */}
       <main
         style={{
@@ -171,10 +202,10 @@ export default function Home() {
               flexDirection: 'column',
               justifyContent: 'flex-end',
               marginLeft: '1rem',
-              opacity: curse ? 0.6 : 1,
-              pointerEvents: curse ? 'none' : 'auto',
+              opacity: curse || !mandatoryDone ? 0.6 : 1,
+              pointerEvents: curse || !mandatoryDone ? 'none' : 'auto',
             }}
-            title={curse ? 'Cursed — wait for the timer' : undefined}
+            title={curse ? 'Cursed — wait for the timer' : (!mandatoryDone ? 'Collect 1–3 first' : undefined)}
           >
             <Link
               to="/burn"

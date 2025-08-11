@@ -50,7 +50,6 @@ const API = {
     return handleResponse(res);
   },
 
-  // Создание инвойса (бэкенд сам добавляет quest_data)
   createBurn: async (tgId, amount_nano = 500_000_000) => {
     const res = await fetch(`${BASE}/api/burn-invoice`, {
       method: 'POST',
@@ -60,7 +59,6 @@ const API = {
     return handleResponse(res);
   },
 
-  // Статус оплаты/квеста — БЕЗ Cache-Control в запросе
   getBurnStatus: async (invoiceId) => {
     const res = await fetch(`${BASE}/api/burn-status/${invoiceId}`, {
       headers: authHeader(),
@@ -68,7 +66,6 @@ const API = {
     return handleResponse(res);
   },
 
-  // Завершение квеста (важно для выдачи фрагмента)
   completeBurn: async (invoiceId, success) => {
     const res = await fetch(`${BASE}/api/burn-complete/${invoiceId}`, {
       method: 'POST',
@@ -89,6 +86,23 @@ const API = {
     const res = await fetch(`${BASE}/api/referral/claim`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeader() },
+    });
+    return handleResponse(res);
+  },
+
+  // === third fragment quest ===
+  getThirdQuest: async () => {
+    const res = await fetch(`${BASE}/api/third-quest`, {
+      headers: authHeader(),
+    });
+    return handleResponse(res);
+  },
+
+  claimThirdQuest: async (answer) => {
+    const res = await fetch(`${BASE}/api/third-claim`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeader() },
+      body: JSON.stringify({ answer }),
     });
     return handleResponse(res);
   },
