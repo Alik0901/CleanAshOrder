@@ -3,7 +3,7 @@ import React, { createContext, useCallback, useEffect, useRef, useState } from '
 import API from '../utils/apiClient';
 
 export const AuthContext = createContext({
-  user: undefined,          // undefined = инициализация; null = не залогинен; object = залогинен
+  user: undefined,
   login: () => {},
   logout: () => {},
   refreshUser: async () => {},
@@ -22,8 +22,17 @@ function AuthProvider({ children }) {
   const tokenRef           = useRef(localStorage.getItem('token') || null);
   const refreshTimerRef    = useRef(null);
   const refreshInFlightRef = useRef(false);
-  const lastRefreshedRef   = useRef(0);        // для троттлинга
-  const MIN_REFRESH_GAP    = 5000;             // не чаще чем раз в 5 сек фоново
+  const lastRefreshedRef   = useRef(0);
+  const initRunRef         = useRef(false);
+
+  const MIN_REFRESH_GAP = 10000; // 10s, а таймер тикает раз в 12s
+
+  // ── Singleton guard (на случай двойного монтирования) ────────────────
+  const globalKey = '__ASH_AUTH_SINGLETON__';
+  const singleton = (window[globalKey] ||= {
+    timer: null,
+    listeners: false,
+  });
 
   const saveSession = useCallback((u, token) => {
     if (token) {
@@ -49,11 +58,12 @@ function AuthProvider({ children }) {
 
   const refreshUser = useCallback(async ({ silent = true, force = false } = {}) => {
     try {
-      // троттлинг и защита от параллельных вызовов
+      if (!tokenRef.current) return;
+
+      // Троттлинг и дедуп
       const now = Date.now();
       if (!force && now - lastRefreshedRef.current < MIN_REFRESH_GAP) return;
       if (refreshInFlightRef.current) return;
-      if (!tokenRef.current) return;
 
       const stored = localStorage.getItem('user');
       const tgId = user?.tg_id || (stored ? JSON.parse(stored).tg_id : undefined);
@@ -64,7 +74,6 @@ function AuthProvider({ children }) {
 
       const fresh = await API.getPlayer(tgId);
 
-      // обновляем только если реально изменилось
       const prev = user ? JSON.stringify(user) : null;
       const next = JSON.stringify(fresh);
       if (prev !== next || force) {
@@ -73,7 +82,6 @@ function AuthProvider({ children }) {
     } catch (e) {
       if (!silent) console.warn('[refreshUser] error:', e);
       const msg = String(e?.message || '').toLowerCase();
-      // если юзер пропал/токен битый — выходим
       if (
         msg.includes('invalid token') ||
         msg.includes('forbidden') ||
@@ -87,48 +95,59 @@ function AuthProvider({ children }) {
     }
   }, [user, saveSession, doLogout]);
 
-  // Инициализация — подтянуть /player если есть токен
+  // Первый подтяг /player, строго один раз
   useEffect(() => {
-    if (tokenRef.current && (user?.tg_id || localStorage.getItem('user'))) {
-      // принудительно, без троттлинга
-      refreshUser({ silent: true, force: true });
-    } else if (!tokenRef.current) {
+    if (initRunRef.current) return;
+    initRunRef.current = true;
+
+    if (tokenRef.current) {
+      const stored = localStorage.getItem('user');
+      if (stored) {
+        refreshUser({ silent: true, force: true });
+      } else {
+        // нет user в storage — считаем как не залогинен
+        setUser(null);
+      }
+    } else {
       setUser(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Фоновый опрос раз в 12 сек (раньше было чаще)
+  // Фоновый таймер — один на приложение
   useEffect(() => {
     if (!user || !tokenRef.current) return;
 
     const start = () => {
-      if (refreshTimerRef.current) return;
-      refreshTimerRef.current = setInterval(() => {
+      if (singleton.timer) return;
+      singleton.timer = setInterval(() => {
         if (document.visibilityState === 'visible') {
-          refreshUser({ silent: true }); // троттлинг сам ограничит
+          refreshUser({ silent: true });
         }
       }, 12000);
     };
     const stop = () => {
-      if (refreshTimerRef.current) {
-        clearInterval(refreshTimerRef.current);
-        refreshTimerRef.current = null;
+      if (singleton.timer) {
+        clearInterval(singleton.timer);
+        singleton.timer = null;
       }
     };
 
     start();
     return () => stop();
-  }, [user, refreshUser]);
+  }, [user, refreshUser, singleton]);
 
-  // Дебаунс для focus/visibility (случаются частые срабатывания в Telegram WebApp)
+  // Дебаунс focus/visibility, навешиваем слушатели один раз глобально
   useEffect(() => {
+    if (singleton.listeners) return;
+    singleton.listeners = true;
+
     let visDebounce = null;
     let focDebounce = null;
 
     const onFocus = () => {
       clearTimeout(focDebounce);
-      focDebounce = setTimeout(() => refreshUser({ silent: true }), 250);
+      focDebounce = setTimeout(() => refreshUser({ silent: true }), 300);
     };
     const onVis = () => {
       clearTimeout(visDebounce);
@@ -136,18 +155,20 @@ function AuthProvider({ children }) {
         if (document.visibilityState === 'visible') {
           refreshUser({ silent: true });
         }
-      }, 250);
+      }, 300);
     };
 
     window.addEventListener('focus', onFocus);
     document.addEventListener('visibilitychange', onVis);
+
     return () => {
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onVis);
       clearTimeout(visDebounce);
       clearTimeout(focDebounce);
+      singleton.listeners = false;
     };
-  }, [refreshUser]);
+  }, [refreshUser, singleton]);
 
   // Синхронизация между вкладками
   useEffect(() => {

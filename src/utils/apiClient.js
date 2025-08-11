@@ -1,5 +1,4 @@
 // src/utils/apiClient.js
-
 const BASE = (
   import.meta.env.VITE_API_BASE_URL ||
   'https://clean-ash-order.vercel.app'
@@ -19,6 +18,12 @@ async function handleResponse(response) {
   return data;
 }
 
+/** ── Дедуп и троттлинг для /api/player/:tg_id ───────────────────────── */
+let _gpInFlight = null;
+let _gpLastTs   = 0;
+let _gpCache    = null;
+const GP_MIN_GAP = 5000; // не чаще 1 запроса в 5с
+
 const API = {
   init: async ({ tg_id, name, initData, referrer_code }) => {
     const res = await fetch(`${BASE}/api/init`, {
@@ -30,10 +35,28 @@ const API = {
   },
 
   getPlayer: async (tgId) => {
-    const res = await fetch(`${BASE}/api/player/${tgId}`, {
-      headers: authHeader(),
-    });
-    return handleResponse(res);
+    const now = Date.now();
+
+    // Если уже есть выполняющийся — вернём тот же промис
+    if (_gpInFlight) return _gpInFlight;
+
+    // Если недавно обновляли и есть кэш — вернём кэш
+    if (_gpCache && (now - _gpLastTs) < GP_MIN_GAP) return _gpCache;
+
+    const doFetch = async () => {
+      const res = await fetch(`${BASE}/api/player/${tgId}`, {
+        headers: authHeader(),
+      });
+      const data = await handleResponse(res);
+      _gpCache  = data;
+      _gpLastTs = Date.now();
+      return data;
+    };
+
+    _gpInFlight = doFetch()
+      .finally(() => { _gpInFlight = null; });
+
+    return _gpInFlight;
   },
 
   getFragments: async (tgId) => {
@@ -66,15 +89,6 @@ const API = {
     return handleResponse(res);
   },
 
-  completeBurn: async (invoiceId, success) => {
-    const res = await fetch(`${BASE}/api/burn-complete/${invoiceId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeader() },
-      body: JSON.stringify({ success }),
-    });
-    return handleResponse(res);
-  },
-
   getReferral: async () => {
     const res = await fetch(`${BASE}/api/referral`, {
       headers: authHeader(),
@@ -86,23 +100,6 @@ const API = {
     const res = await fetch(`${BASE}/api/referral/claim`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeader() },
-    });
-    return handleResponse(res);
-  },
-
-  // === third fragment quest ===
-  getThirdQuest: async () => {
-    const res = await fetch(`${BASE}/api/third-quest`, {
-      headers: authHeader(),
-    });
-    return handleResponse(res);
-  },
-
-  claimThirdQuest: async (answer) => {
-    const res = await fetch(`${BASE}/api/third-claim`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeader() },
-      body: JSON.stringify({ answer }),
     });
     return handleResponse(res);
   },
