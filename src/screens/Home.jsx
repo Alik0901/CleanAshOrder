@@ -1,5 +1,4 @@
 // src/screens/Home.jsx
-
 import React, { useEffect, useContext, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import bgWelcome from '../assets/images/converted_minimal.jpg';
@@ -29,9 +28,7 @@ function CountdownInline({ to }) {
 }
 
 export default function Home() {
-  const { user } = useContext(AuthContext);
-  const { refreshUser } = useContext(AuthContext);
-  useEffect(() => { refreshUser({ force: true }); }, [refreshUser]);
+  const { user, refreshUser } = useContext(AuthContext);
 
   // Текущие фрагменты игрока
   const frags = Array.isArray(user?.fragments) ? user.fragments.map(Number) : [];
@@ -47,7 +44,7 @@ export default function Home() {
     return active ? user.curse_expires : null;
   }, [user]);
 
-  // Модалка «получен #1» (поддерживаем два возможных ключа флага)
+  // Модалка «получен #1» (поддерживаем оба ключа флага)
   const [showInitModal, setShowInitModal] = useState(false);
   useEffect(() => {
     const flagA = localStorage.getItem('showInitialAward');
@@ -59,6 +56,25 @@ export default function Home() {
       localStorage.removeItem('showFirstFragmentNotice');
     }
   }, [has1]);
+
+  // Мгновенный рефреш при заходе на экран
+  useEffect(() => {
+    if (typeof refreshUser === 'function') {
+      refreshUser({ silent: true, force: true });
+    }
+  }, [refreshUser]);
+
+  // 🔁 Поллинг до тех пор, пока не собраны 1–3 или активно проклятие.
+  // Нужен для случаев, когда фрагменты меняются «в обход» (ручное редактирование БД, клейм на другом экране и т.п.)
+  useEffect(() => {
+    if (mandatoryDone && !curse) return; // всё ок — опрос не нужен
+    const id = setInterval(() => {
+      if (typeof refreshUser === 'function') {
+        refreshUser({ silent: true });
+      }
+    }, 3000);
+    return () => clearInterval(id);
+  }, [mandatoryDone, curse, refreshUser]);
 
   useEffect(() => {
     console.log('🏠 Home mounted, bgWelcome =', bgWelcome);

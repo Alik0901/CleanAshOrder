@@ -1,24 +1,78 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import BackButton from '../components/BackButton';
 import { AuthContext } from '../context/AuthContext';
 import API from '../utils/apiClient';
 
+function Countdown({ to }) {
+  const [ms, setMs] = useState(() => Math.max(0, new Date(to) - Date.now()));
+  useEffect(() => {
+    const id = setInterval(() => setMs(Math.max(0, new Date(to) - Date.now())), 1000);
+    return () => clearInterval(id);
+  }, [to]);
+  const s = Math.floor(ms / 1000);
+  const hh = String(Math.floor(s / 3600)).padStart(2, '0');
+  const mm = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+  const ss = String(s % 60).padStart(2, '0');
+  return <>{hh}:{mm}:{ss}</>;
+}
+
 export default function Burn() {
-  const { user, logout } = useContext(AuthContext);
+  const { user, logout, refreshUser } = useContext(AuthContext);
   const navigate = useNavigate();
 
-  const [status, setStatus] = useState('idle'); // idle | pending | inQuest | success | error | blocked
+  const [status, setStatus] = useState('idle');     // idle | pending | success | error
   const [invoiceId, setInvoiceId] = useState(null);
   const [paymentUrl, setPaymentUrl] = useState('');
-  const [task, setTask] = useState(null);       // квест после оплаты
-  const [answer, setAnswer] = useState('');     // ответ для легендарного ввода
-  const [result, setResult] = useState({});     // ответ с бэка после complete
+  const [result, setResult] = useState({});
   const [error, setError] = useState('');
 
   const BASE_AMOUNT_NANO = 500_000_000; // 0.5 TON
 
+  // Derived user state
+  const frags = Array.isArray(user?.fragments) ? user.fragments.map(Number) : [];
+  const has1 = frags.includes(1);
+  const has2 = frags.includes(2);
+  const has3 = frags.includes(3);
+  const mandatoryDone = has1 && has2 && has3;
+
+  const curse = useMemo(() => {
+    if (!user?.is_cursed || !user?.curse_expires) return null;
+    const active = new Date(user.curse_expires) > new Date();
+    return active ? user.curse_expires : null;
+  }, [user]);
+
+  // instant refresh on enter
+  useEffect(() => {
+    refreshUser?.({ silent: true, force: true });
+  }, [refreshUser]);
+
+  // poll while burn is blocked (no 1–3 or curse) OR while waiting for payment
+  useEffect(() => {
+    const needPoll = !mandatoryDone || !!curse || status === 'pending';
+    if (!needPoll) return;
+    const id = setInterval(() => refreshUser?.({ silent: true }), 3000);
+    return () => clearInterval(id);
+  }, [mandatoryDone, curse, status, refreshUser]);
+
+  // After success/error, pull fresh profile once (to get new fragment ASAP)
+  useEffect(() => {
+    if (status === 'success' || status === 'error') {
+      refreshUser?.({ silent: true, force: true });
+    }
+  }, [status, refreshUser]);
+
   const startBurn = async () => {
+    if (!mandatoryDone) {
+      setError('Collect fragments #1–#3 first.');
+      setStatus('error');
+      return;
+    }
+    if (curse) {
+      setError('You are cursed. Wait until the timer ends.');
+      setStatus('error');
+      return;
+    }
     setStatus('pending');
     setError('');
     try {
@@ -26,44 +80,31 @@ export default function Burn() {
       setInvoiceId(invoiceId);
       setPaymentUrl(paymentUrl);
     } catch (e) {
-      // обработка запрета до 1–3
-      const msg = e.message || 'Error creating invoice';
-      if (msg === 'burn_not_allowed' || msg.includes('need_fragments_1_2_3')) {
-        setStatus('blocked');
-        setError('Collect fragments #1–#3 to start burning.');
-        return;
-      }
-      setError(msg);
+      setError(e.message || 'Error creating invoice');
       setStatus('error');
-      if (msg.toLowerCase().includes('invalid token')) {
+      if (String(e.message || '').toLowerCase().includes('invalid token')) {
         logout();
         navigate('/login');
       }
     }
   };
 
-  // Поллинг оплаты → получение квеста
+  // Poll payment status when pending
   useEffect(() => {
     if (status !== 'pending' || !invoiceId) return;
     const timer = setInterval(async () => {
       try {
         const res = await API.getBurnStatus(invoiceId);
-        if (!res.paid) return; // ждём оплату
-        clearInterval(timer);
-        if (res.task) {
-          setTask(res.task);
-          setStatus('inQuest');
-        } else {
-          // fallback: если квест не прилетел — сразу успешное завершение
-          const done = await API.completeBurn(invoiceId, true);
-          setResult(done);
+        if (res.paid) {
+          clearInterval(timer);
+          setResult(res);
           setStatus('success');
         }
       } catch (e) {
         clearInterval(timer);
         setError(e.message || 'Error checking payment');
         setStatus('error');
-        if (String(e.message).toLowerCase().includes('invalid token')) {
+        if (String(e.message || '').toLowerCase().includes('invalid token')) {
           logout();
           navigate('/login');
         }
@@ -72,42 +113,14 @@ export default function Burn() {
     return () => clearInterval(timer);
   }, [status, invoiceId, logout, navigate]);
 
-  // Сабмит квеста
-  const submitQuest = async (selected) => {
-    if (!task) return;
-    try {
-      let success = false;
-      if (task.type === 'quiz') {
-        // варианты или ручной ввод
-        if (task.params?.options?.length) {
-          success = (selected === task.params.answer);
-        } else {
-          success = (answer === task.params?.answer);
-        }
-      } else {
-        success = true;
-      }
-
-      const done = await API.completeBurn(invoiceId, !!success);
-      setResult(done);
-      setStatus('success');
-    } catch (e) {
-      setError(e.message || 'Failed to complete quest');
-      setStatus('error');
-    }
-  };
-
   const rarityItems = [
     { key: 'legendary', label: 'Legendary', percent: '5%',    icon: '/images/icons/legendary.png', top: 149 },
     { key: 'rare',      label: 'Rare',      percent: '15%',   icon: '/images/icons/rare.png',      top: 218 },
-    { key: 'uncommon',  label: 'Uncommon',  percent: '80%',   icon: '/images/icons/uncommon.png',  top: 287 },
-    { key: 'common',    label: 'Common',    percent: '-',     icon: '/images/icons/common.png',    top: 356 },
+    { key: 'uncommon',  label: 'Uncommon',  percent: '30%',   icon: '/images/icons/uncommon.png',  top: 287 },
+    { key: 'common',    label: 'Common',    percent: '50%',   icon: '/images/icons/common.png',    top: 356 },
   ];
 
-  const mandatoryNotReady = !Array.isArray(user?.fragments) ||
-    !user.fragments.map(Number).includes(1) ||
-    !user.fragments.map(Number).includes(2) ||
-    !user.fragments.map(Number).includes(3);
+  const burnDisabled = !!curse || !mandatoryDone || status === 'pending';
 
   return (
     <div
@@ -173,6 +186,26 @@ export default function Burn() {
       >
         Burn&nbsp;Yourself
       </h1>
+
+      {/* Баннеры блокировки */}
+      {!mandatoryDone && (
+        <div style={{
+          position:'absolute', top:80, left:'50%', transform:'translateX(-50%)',
+          background:'rgba(0,0,0,0.6)', color:'#fff', border:'1px solid #979696',
+          padding:'8px 12px', borderRadius:12, zIndex:6, whiteSpace:'nowrap'
+        }}>
+          Collect fragments #1–#3 to start burning.
+        </div>
+      )}
+      {curse && (
+        <div style={{
+          position:'absolute', top:110, left:'50%', transform:'translateX(-50%)',
+          background:'rgba(0,0,0,0.6)', color:'#fff', border:'1px solid #979696',
+          padding:'8px 12px', borderRadius:12, zIndex:6, whiteSpace:'nowrap'
+        }}>
+          You are cursed. Time left: <Countdown to={curse} />
+        </div>
+      )}
 
       {/* Элемент редкости */}
       <h3
@@ -256,7 +289,7 @@ export default function Burn() {
       {/* Кнопка */}
       <button
         onClick={startBurn}
-        disabled={mandatoryNotReady}
+        disabled={burnDisabled}
         style={{
           position: 'absolute',
           left: 65,
@@ -271,10 +304,13 @@ export default function Burn() {
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 5,
-          cursor: mandatoryNotReady ? 'not-allowed' : 'pointer',
-          opacity: mandatoryNotReady ? 0.6 : 1,
+          cursor: burnDisabled ? 'not-allowed' : 'pointer',
+          opacity: burnDisabled ? 0.6 : 1,
         }}
-        title={mandatoryNotReady ? 'Collect fragments #1–#3 first' : undefined}
+        title={
+          curse ? 'Cursed — wait for timer'
+            : (!mandatoryDone ? 'Collect 1–3 first' : undefined)
+        }
       >
         <span
           style={{
@@ -308,7 +344,7 @@ export default function Burn() {
         Please ensure you send exactly 0.5 TON when making your payment. Transactions for any other amount may be lost.
       </p>
 
-      {/* Overlay: ожидание оплаты */}
+      {/* Оверлеи состояний */}
       {status === 'pending' && (
         <div
           style={{
@@ -324,73 +360,6 @@ export default function Burn() {
           <span style={{ color: '#fff', fontSize: 18 }}>Waiting for payment...</span>
         </div>
       )}
-
-      {/* Overlay: квест после оплаты */}
-      {status === 'inQuest' && task && (
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            backgroundColor: 'rgba(0,0,0,0.7)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 11,
-          }}
-        >
-          <div style={{
-            width: 320, background:'#111', border:'1px solid #9E9191', color:'#fff',
-            padding:16, borderRadius:12
-          }}>
-            <h3 style={{ marginTop:0, marginBottom:8, fontFamily:'Tajawal, sans-serif' }}>
-              Mini-quest ({task.rarity})
-            </h3>
-            <p style={{ margin:'0 0 12px' }}>{task.params?.question || task.question}</p>
-
-            {/* варианты ответа */}
-            {Array.isArray(task.params?.options) && task.params.options.length > 0 ? (
-              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-                {task.params.options.map(opt => (
-                  <button
-                    key={opt}
-                    onClick={() => submitQuest(opt)}
-                    style={{
-                      height:36, borderRadius:8, border:'1px solid #666',
-                      background:'#222', color:'#fff', cursor:'pointer'
-                    }}
-                  >
-                    {opt}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div style={{ display:'flex', gap:8 }}>
-                <input
-                  value={answer}
-                  onChange={e => setAnswer(e.target.value)}
-                  placeholder="Type answer…"
-                  style={{
-                    flex:1, height:36, borderRadius:8, border:'1px solid #666',
-                    background:'#222', color:'#fff', padding:'0 10px'
-                  }}
-                />
-                <button
-                  onClick={() => submitQuest(answer)}
-                  style={{
-                    height:36, borderRadius:8, border:'none',
-                    background:'linear-gradient(90deg,#D81E3D 0%, #D81E5F 100%)',
-                    color:'#fff', padding:'0 12px', cursor:'pointer'
-                  }}
-                >
-                  Submit
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Overlay: успех (фрагмент или проклятие, или fail квеста) */}
       {status === 'success' && (
         <div
           style={{
@@ -401,41 +370,17 @@ export default function Burn() {
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            zIndex: 12,
+            zIndex: 10,
             color: '#fff',
           }}
         >
-          {result.cursed ? (
-            <>
-              <span style={{ fontSize:18, marginBottom:12 }}>You are cursed.</span>
-              <button onClick={() => navigate('/')} style={{ marginTop: 8 }}>
-                Back to Home
-              </button>
-            </>
-          ) : typeof result.newFragment === 'number' ? (
-            <>
-              <span style={{ fontSize:18, marginBottom:12 }}>
-                Congratulations! You got fragment #{result.newFragment}.
-              </span>
-              <button onClick={() => navigate('/gallery')} style={{ marginTop: 8 }}>
-                View Gallery
-              </button>
-            </>
-          ) : (
-            <>
-              <span style={{ fontSize:18, marginBottom:12 }}>
-                Quest failed — better luck next time.
-              </span>
-              <button onClick={() => setStatus('idle')} style={{ marginTop: 8 }}>
-                Close
-              </button>
-            </>
-          )}
+          <span>Congratulations! Your burn was processed.</span>
+          <button onClick={() => navigate('/gallery')} style={{ marginTop: 16 }}>
+            View Gallery
+          </button>
         </div>
       )}
-
-      {/* Overlay: ошибка/блокировка */}
-      {(status === 'error' || status === 'blocked') && (
+      {status === 'error' && (
         <div
           style={{
             position: 'absolute',
@@ -446,22 +391,13 @@ export default function Burn() {
             alignItems: 'center',
             justifyContent: 'center',
             zIndex: 10,
-            color: status === 'blocked' ? '#fff' : 'tomato',
-            textAlign:'center',
-            padding:'0 20px'
+            color: 'tomato',
           }}
         >
-          <span>{error}</span>
-          {status === 'blocked' ? (
-            <div style={{ marginTop: 16, display:'flex', gap:12 }}>
-              <Link to="/referral" style={{ color:'#fff', textDecoration:'underline' }}>Invite friends</Link>
-              <Link to="/third" style={{ color:'#fff', textDecoration:'underline' }}>Claim fragment #3</Link>
-            </div>
-          ) : (
-            <button onClick={() => setStatus('idle')} style={{ marginTop: 16 }}>
-              Try Again
-            </button>
-          )}
+          <span>{error || 'Something went wrong'}</span>
+          <button onClick={() => setStatus('idle')} style={{ marginTop: 16 }}>
+            Try Again
+          </button>
         </div>
       )}
     </div>

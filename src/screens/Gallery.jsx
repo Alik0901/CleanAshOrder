@@ -1,11 +1,11 @@
 // src/screens/Gallery.jsx
 
-import React, { useState, useEffect, useContext } from 'react';
-import { useNavigate }                 from 'react-router-dom';
-import BackButton                      from '../components/BackButton';
-import Modal                           from '../components/Modal';
-import { AuthContext }                 from '../context/AuthContext';
-import API                             from '../utils/apiClient';
+import React, { useState, useEffect, useContext, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import BackButton from '../components/BackButton';
+import Modal from '../components/Modal';
+import { AuthContext } from '../context/AuthContext';
+import API from '../utils/apiClient';
 
 const FRAGMENT_FILES = {
   1: 'fragment_1_the_whisper.jpg',
@@ -40,60 +40,123 @@ const lockPositions = [
   { left: 310, top: 221 },
 ];
 
+// helpers
+const norm = (arr) => [...new Set((arr || []).map(Number))].sort((a, b) => a - b);
+const same = (a, b) => {
+  const A = norm(a), B = norm(b);
+  if (A.length !== B.length) return false;
+  for (let i = 0; i < A.length; i++) if (A[i] !== B[i]) return false;
+  return true;
+};
+
 export default function Gallery() {
   const { user, logout } = useContext(AuthContext);
-  const navigate         = useNavigate();
+  const navigate = useNavigate();
 
-  const [signedUrls, setSignedUrls]                           = useState({});
-  const [fragments, setFragments]                             = useState([]);
-  const [loading, setLoading]                                 = useState(true);
-  const [error, setError]                                     = useState('');
-  const [zoomUrl, setZoomUrl]                                 = useState(null);
+  const [signedUrls, setSignedUrls] = useState({});
+  const [fragments, setFragments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [zoomUrl, setZoomUrl] = useState(null);
   const [showFirstFragmentNotice, setShowFirstFragmentNotice] = useState(false);
 
-  // 1) Загружаем URL и список фрагментов
+  const lastUrlsRefresh = useRef(0);
+
+  // initial load
   useEffect(() => {
     let cancelled = false;
-    async function load() {
+    (async () => {
       setLoading(true); setError('');
       try {
-        const { signedUrls } = await API.getSignedFragmentUrls();
-        const { fragments } = await API.getFragments(user.tg_id);
-        if (!cancelled) {
-          setSignedUrls(signedUrls);
-          setFragments(fragments);
-        }
+        const [{ signedUrls }, { fragments }] = await Promise.all([
+          API.getSignedFragmentUrls(),
+          API.getFragments(user.tg_id),
+        ]);
+        if (cancelled) return;
+        setSignedUrls(signedUrls || {});
+        setFragments(norm(fragments));
+        lastUrlsRefresh.current = Date.now();
       } catch (e) {
-        if (e.message.toLowerCase().includes('invalid token')) {
+        if (String(e.message || '').toLowerCase().includes('invalid token')) {
           logout(); navigate('/login');
         } else {
-          setError(e.message);
+          setError(e.message || 'Failed to load');
         }
       } finally {
         if (!cancelled) setLoading(false);
       }
-    }
-    load();
-    return () => { cancelled = true };
+    })();
+    return () => { cancelled = true; };
   }, [user.tg_id, logout, navigate]);
 
-  // 2) Показать модалку **только один раз** после того, как впервые появился фрагмент #1
+  // poll fragments every 3s (live update without reload)
   useEffect(() => {
-    if (
-      !loading &&
-      fragments.includes(1) &&
-      localStorage.getItem('firstFragmentShown') !== 'true'
-    ) {
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const { fragments: fr } = await API.getFragments(user.tg_id);
+        if (cancelled) return;
+        const next = norm(fr);
+        if (!same(next, fragments)) {
+          setFragments(next);
+          // refresh signed URLs when collection changes (new images may be needed)
+          try {
+            const { signedUrls } = await API.getSignedFragmentUrls();
+            if (!cancelled) {
+              setSignedUrls(signedUrls || {});
+              lastUrlsRefresh.current = Date.now();
+            }
+          } catch (_) {}
+        }
+      } catch (e) {
+        // swallow intermittent errors, but handle auth
+        if (String(e.message || '').toLowerCase().includes('invalid token')) {
+          logout(); navigate('/login');
+        }
+      }
+    };
+    const id = setInterval(poll, 3000);
+    return () => { cancelled = true; clearInterval(id); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user.tg_id, fragments, logout, navigate]);
+
+  // refresh signed URLs TTL every ~4 minutes
+  useEffect(() => {
+    let cancelled = false;
+    const tick = async () => {
+      if (Date.now() - lastUrlsRefresh.current < 4 * 60 * 1000) return;
+      try {
+        const { signedUrls } = await API.getSignedFragmentUrls();
+        if (!cancelled) {
+          setSignedUrls(signedUrls || {});
+          lastUrlsRefresh.current = Date.now();
+        }
+      } catch (_) {}
+    };
+    const id = setInterval(tick, 60 * 1000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
+
+  // first fragment modal:
+  // - show if Login поставил флаг `showFirstFragmentNotice`
+  // - или если впервые увидели фрагмент #1
+  useEffect(() => {
+    if (loading) return;
+    if (localStorage.getItem('showFirstFragmentNotice') === 'true') {
+      setShowFirstFragmentNotice(true);
+      localStorage.removeItem('showFirstFragmentNotice');
+      localStorage.setItem('firstFragmentShown', 'true');
+      return;
+    }
+    if (fragments.includes(1) && localStorage.getItem('firstFragmentShown') !== 'true') {
       setShowFirstFragmentNotice(true);
       localStorage.setItem('firstFragmentShown', 'true');
     }
   }, [loading, fragments]);
 
-  // 3) Автоматически уходим на финальный экран, когда собрано 8
+  // go to final when full set collected
   useEffect(() => {
-    if (!loading && fragments.length >= 8) {
-      navigate('/final');
-    }
+    if (!loading && fragments.length >= 8) navigate('/final');
   }, [loading, fragments, navigate]);
 
   if (loading) return <p style={{ padding: 16 }}>Loading gallery…</p>;
@@ -144,10 +207,11 @@ export default function Gallery() {
         const owned = fragments.includes(id);
         const file  = FRAGMENT_FILES[id];
         const url   = signedUrls[file];
+        const bust  = `&ts=${Date.now()}`;
         return (
           <React.Fragment key={id}>
             <div
-              onClick={() => owned && url && setZoomUrl(`${url}&dummy=${Date.now()}`)}
+              onClick={() => owned && url && setZoomUrl(`${url}${bust}`)}
               style={{
                 position: 'absolute',
                 left:     pos.left,
@@ -162,7 +226,7 @@ export default function Gallery() {
             >
               {owned && url && (
                 <img
-                  src={`${url}&dummy=${Date.now()}`}
+                  src={`${url}${bust}`}
                   alt={`Fragment ${id}`}
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
