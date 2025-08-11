@@ -55,21 +55,20 @@ const API = {
     const res = await fetch(`${BASE}/api/burn-invoice`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeader() },
-      // amount_nano можно не передавать — бэкенд его не требует, но оставим совместимость
       body: JSON.stringify({ tg_id: tgId, amount_nano }),
     });
     return handleResponse(res);
   },
 
-  // Статус оплаты/квеста
+  // Статус оплаты/квеста — БЕЗ Cache-Control в запросе
   getBurnStatus: async (invoiceId) => {
     const res = await fetch(`${BASE}/api/burn-status/${invoiceId}`, {
-      headers: { ...authHeader(), 'Cache-Control': 'no-store' },
+      headers: authHeader(),
     });
     return handleResponse(res);
   },
 
-  // Завершение квеста (ВАЖНО для выдачи фрагмента)
+  // Завершение квеста (важно для выдачи фрагмента)
   completeBurn: async (invoiceId, success) => {
     const res = await fetch(`${BASE}/api/burn-complete/${invoiceId}`, {
       method: 'POST',
@@ -125,7 +124,6 @@ const API = {
     return handleResponse(res);
   },
 
-  // Дополнительные эндпоинты
   getLeaderboard: async () => {
     const res = await fetch(`${BASE}/api/leaderboard`, { headers: authHeader() });
     return handleResponse(res);
