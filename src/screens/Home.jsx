@@ -1,3 +1,4 @@
+// src/screens/Home.jsx
 import React, { useEffect, useContext, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import bgWelcome from '../assets/images/converted_minimal.jpg';
@@ -27,6 +28,15 @@ function CountdownInline({ to }) {
 
 export default function Home() {
   const { user } = useContext(AuthContext);
+
+  // единоразовая модалка “получен фрагмент #1”
+  const [showInitModal, setShowInitModal] = useState(false);
+  useEffect(() => {
+    if (localStorage.getItem('showInitialAward') === '1') {
+      setShowInitModal(true);
+      localStorage.removeItem('showInitialAward');
+    }
+  }, []);
 
   const curse = useMemo(() => {
     if (!user?.is_cursed || !user?.curse_expires) return null;
@@ -64,7 +74,7 @@ export default function Home() {
         }}
       />
 
-      {/* Хедер с логотипом по центру */}
+      {/* Хедер */}
       <header
         style={{
           position: 'absolute',
@@ -97,17 +107,10 @@ export default function Home() {
           alt="Order of Ash logo"
           style={{ height: '3rem', objectFit: 'contain' }}
         />
-        <div
-          style={{
-            position: 'absolute',
-            right: '1rem',
-            width: '1.5rem',
-            height: 0,
-          }}
-        />
+        <div style={{ position:'absolute', right:'1rem', width:'1.5rem', height:0 }} />
       </header>
 
-      {/* Баннер проклятия (если активно) */}
+      {/* Баннер проклятия */}
       {curse && (
         <div
           style={{
@@ -222,6 +225,39 @@ export default function Home() {
           </Link>
         </div>
       </div>
+
+      {/* Модалка «получен фрагмент #1» */}
+      {showInitModal && (
+        <div style={{
+          position:'absolute', inset:0, background:'rgba(0,0,0,0.6)',
+          display:'flex', alignItems:'center', justifyContent:'center', zIndex:50
+        }}>
+          <div style={{
+            background:'#111', color:'#fff', border:'1px solid #9E9191',
+            padding:'16px 20px', borderRadius:12, width:320, textAlign:'center'
+          }}>
+            <h3 style={{margin:'0 0 8px'}}>Welcome, Initiate</h3>
+            <p style={{margin:'0 0 12px'}}>
+              You received your first fragment <b>#1</b>.
+            </p>
+            <div style={{display:'flex', gap:8, justifyContent:'center'}}>
+              <button
+                onClick={()=>setShowInitModal(false)}
+                style={{padding:'8px 14px', borderRadius:8, border:'1px solid #666', background:'#222', color:'#fff'}}
+              >
+                Close
+              </button>
+              <Link
+                to="/gallery"
+                onClick={()=>setShowInitModal(false)}
+                style={{padding:'8px 14px', borderRadius:8, border:'none', background:'#D81E5F', color:'#fff', textDecoration:'none'}}
+              >
+                View Gallery
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
