@@ -37,7 +37,7 @@ export default function Burn() {
   const getOptions = (t) =>
   Array.isArray(t?.params?.options) ? t.params.options.filter(o => String(o).length > 0).map(String) : [];
 
-
+  
   const pollRef = useRef(null);
 
   useEffect(() => {
@@ -57,46 +57,89 @@ export default function Burn() {
   // clear poller on unmount
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
 
-  const startBurn = async () => {
-    if (burnDisabled) return;
-    setError('');
-    setLoading(true);
-    try {
-      const inv = await API.createBurn(user.tg_id); // { invoiceId, tonhubUrl/tonspaceUrl }
-      setInvoiceId(inv.invoiceId);
-      setStage('awaiting');
+  const handleServerResult = async (res) => {
+  // res: { ok, newFragment|null, cursed, pity_counter, curse_expires?, awarded_rarity? }
+  if (!res) return;
 
-      // start polling for payment → then expect task in /burn-status/:invoiceId
-      pollRef.current && clearInterval(pollRef.current);
-      pollRef.current = setInterval(async () => {
-        try {
-          const st = await API.getBurnStatus(inv.invoiceId); // { paid:boolean, task?: {...} }
-          if (st?.paid) {
-            clearInterval(pollRef.current); pollRef.current = null;
-            if (st.task) {
-              setTask(st.task);
-              setStage('task');
-            } else {
-              // small fallback retry (sometimes task propagation is a tick late)
-              setTimeout(async () => {
-                try {
-                  const st2 = await API.getBurnStatus(inv.invoiceId);
-                  if (st2?.task) { setTask(st2.task); setStage('task'); }
-                } catch (_) {}
-              }, 800);
-            }
-          }
-        } catch (e) {
-          const msg = (e?.message || '').toLowerCase();
-          if (msg.includes('invalid token')) { logout(); navigate('/login'); }
-        }
-      }, 2000);
-    } catch (e) {
-      setError(e.message || 'Failed to create burn invoice');
-    } finally {
-      setLoading(false);
+  if (res.cursed) {
+    setCurseModalUntil(res.curse_expires || activeCurseUntil || null);
+    if (typeof refreshUser === 'function') { try { await refreshUser({ force: true }); } catch {} }
+    setStage('idle');
+    return;
+  }
+
+  if (Number.isFinite(res.newFragment)) {
+    try {
+      localStorage.setItem('newFragmentNotice', JSON.stringify({
+        id: res.newFragment,
+        rarity: res.awarded_rarity || null,
+        ts: Date.now(),
+      }));
+    } catch {}
+    if (typeof refreshUser === 'function') { try { await refreshUser({ force: true }); } catch {} }
+    navigate('/gallery');
+    return;
+  }
+
+  // ничего не выдали (редкий кейс)
+  if (typeof refreshUser === 'function') { try { await refreshUser({ force: true }); } catch {} }
+  setStage('idle');
+};
+
+  const startBurn = async () => {
+  if (burnDisabled) return;
+  setError('');
+  setLoading(true);
+  try {
+    const inv = await API.createBurn(user.tg_id); // { invoiceId, paymentUrl, tonspaceUrl, task, paid }
+    setInvoiceId(inv.invoiceId);
+
+    if (inv.paid) {
+      // авто-оплата: сразу в квест
+      setTask(inv.task || null);
+      setStage('task');
+      return;
     }
-  };
+
+    setStage('awaiting');
+
+    // запуск поллера статуса
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(async () => {
+      try {
+        const st = await API.getBurnStatus(inv.invoiceId); // { paid, processed, task, result }
+        if (st.processed) {
+          clearInterval(pollRef.current); pollRef.current = null;
+          await handleServerResult(st.result);
+          return;
+        }
+        if (st.paid) {
+          clearInterval(pollRef.current); pollRef.current = null;
+          if (st.task) {
+            setTask(st.task);
+            setStage('task');
+          } else {
+            // редкая задержка: доубеждаемся
+            setTimeout(async () => {
+              try {
+                const st2 = await API.getBurnStatus(inv.invoiceId);
+                if (st2.processed) return handleServerResult(st2.result);
+                if (st2.task) { setTask(st2.task); setStage('task'); }
+              } catch (_) {}
+            }, 800);
+          }
+        }
+      } catch (e) {
+        const msg = (e?.message || '').toLowerCase();
+        if (msg.includes('invalid token')) { logout(); navigate('/login'); }
+      }
+    }, 2000);
+  } catch (e) {
+    setError(e.message || 'Failed to create burn invoice');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const submitQuest = async () => {
   if (!invoiceId || !task) return;
@@ -111,28 +154,15 @@ export default function Burn() {
       : String(answer).trim() === correctAnswer.trim();
 
     if (!isCorrect) {
-      // Засчитываем провал — только pity, без награды
+      // фиксируем провал (идемпотентно), processed=TRUE → дальнейший success не сработает
       try { await API.completeBurn(invoiceId, false); } catch {}
       setStage('idle');
       setError('Quest failed');
       return;
     }
 
-    const resp = await API.completeBurn(invoiceId, true, { answer });
-    if (resp?.ok) {
-      if (resp.cursed) {
-        setCurseModalUntil(resp.curse_expires || activeCurseUntil || null);
-        if (typeof refreshUser === 'function') { try { await refreshUser({ force: true }); } catch {} }
-        setStage('idle');
-      } else {
-        const awarded = (resp.newFragment ?? resp.awardedFragment);
-        if (Number.isFinite(awarded)) { try { localStorage.setItem('newFragmentNotice', String(awarded)); } catch {} }
-        if (typeof refreshUser === 'function') { try { await refreshUser({ force: true }); } catch {} }
-        navigate('/gallery');
-      }
-    } else {
-      setError(resp?.error || 'Quest failed');
-    }
+    const res = await API.completeBurn(invoiceId, true, { answer });
+    await handleServerResult(res);
   } catch (e) {
     setError(e?.message || 'Failed to complete burn');
   } finally {

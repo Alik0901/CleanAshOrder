@@ -1,3 +1,10 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.app-page {
+  max-width: 414px;   /* ширина макета под мобильный */
+  margin: 0 auto;     /* по центру экрана */
+  position: relative; /* чтобы абсолютные дети позиционировались внутри */
+  min-height: 100vh;
+}

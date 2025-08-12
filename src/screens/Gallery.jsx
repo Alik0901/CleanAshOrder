@@ -67,6 +67,7 @@ export default function Gallery() {
   // + новые стейты вверху компонента
   const [awardId, setAwardId] = useState(null);      // номер полученного фрагмента
   const [showAward, setShowAward] = useState(false); // модалка награды
+  const [awardRarity, setAwardRarity] = useState(null);
 
 
   // initial load: take fragments from context, fetch signed URLs once
@@ -85,11 +86,13 @@ useEffect(() => {
 
       let next = norm([...(frFromApi || []), ...(user?.fragments || [])]);
 
-      // 🔸 НЕ чистим флаг — запускаем модалку
-      const pending = Number(localStorage.getItem('newFragmentNotice'));
-      if (Number.isFinite(pending) && pending >= 1 && pending <= 8) {
-        if (!next.includes(pending)) next = norm([...next, pending]);
-        setAwardId(pending);
+      // ⬇ читаем JSON { id, rarity, ts } — не очищаем тут, модалка закроет сама
+      let pendingObj = null;
+      try { const raw = localStorage.getItem('newFragmentNotice'); if (raw) pendingObj = JSON.parse(raw); } catch {}
+      if (pendingObj && Number.isFinite(pendingObj.id) && pendingObj.id >= 1 && pendingObj.id <= 8) {
+        if (!next.includes(pendingObj.id)) next = norm([...next, pendingObj.id]);
+        setAwardId(pendingObj.id);
+        setAwardRarity(pendingObj.rarity || null);
         setShowAward(true);
       }
 
@@ -109,6 +112,7 @@ useEffect(() => {
   return () => { cancelled = true; };
 }, [user?.tg_id, logout, navigate]);
 
+
 // (опционально) когда модалка открылась, обновить ссылки (на случай TTL)
 useEffect(() => {
   if (!showAward) return;
@@ -126,10 +130,11 @@ useEffect(() => {
 useEffect(() => {
   let next = norm(user?.fragments || []);
 
-  // учитываем возможный pending для согласованности с сеткой
-  const pending = Number(localStorage.getItem('newFragmentNotice'));
-  if (Number.isFinite(pending) && pending >= 1 && pending <= 8 && !next.includes(pending)) {
-    next = norm([...next, pending]);
+  // учитываем возможный pending из JSON для согласованности сетки
+  let pendingObj = null;
+  try { const raw = localStorage.getItem('newFragmentNotice'); if (raw) pendingObj = JSON.parse(raw); } catch {}
+  if (pendingObj && Number.isFinite(pendingObj.id) && pendingObj.id >= 1 && pendingObj.id <= 8 && !next.includes(pendingObj.id)) {
+    next = norm([...next, pendingObj.id]);
   }
 
   if (!same(next, fragments)) {
@@ -142,9 +147,9 @@ useEffect(() => {
       } catch (_) {}
     })();
   }
-  // ❌ не удаляем newFragmentNotice здесь
   // eslint-disable-next-line react-hooks/exhaustive-deps
 }, [user?.fragments]);
+
 
 
 // refresh signed URLs TTL every ~4 minutes (keeps HMAC links fresh)
@@ -165,31 +170,30 @@ useEffect(() => {
   return () => { cancelled = true; clearInterval(id); };
 }, []);
 
-  // NOTICE LOGIC (fixed):
-  // - If `newFragmentNotice` exists in localStorage -> show generic modal for that fragment id, then clear it.
-  // - Else, if we have fragment #1 and `firstFragmentShown` not set -> show first-fragment modal, set flag.
-  useEffect(() => {
-    if (loading) return;
+// NOTICE LOGIC (JSON): показываем модалку награды с редкостью; фолбэк — приветствие за 1-й фрагмент
+useEffect(() => {
+  if (loading) return;
 
-    const raw = localStorage.getItem('newFragmentNotice');
-    if (raw) {
-      localStorage.removeItem('newFragmentNotice');
-      const id = parseInt(raw, 10);
-      if (Number.isFinite(id)) {
-        setFragmentNoticeId(id);
-        if (id === 1) {
-          try { localStorage.setItem('firstFragmentShown', 'true'); } catch {}
-        }
-        return; // do not also show first-fragment modal on the same render
-      }
-    }
+  let obj = null;
+  try { const raw = localStorage.getItem('newFragmentNotice'); if (raw) obj = JSON.parse(raw); } catch {}
 
-    // Fallback: first fragment welcome (only once)
-    if (fragments.includes(1) && localStorage.getItem('firstFragmentShown') !== 'true') {
-      setShowFirstFragmentNotice(true);
-      try { localStorage.setItem('firstFragmentShown', 'true'); } catch {}
+  if (obj && Number.isFinite(obj.id)) {
+    // Если по какой-то причине модалка ещё не показана — синхронизируем состояние
+    if (!showAward) {
+      setAwardId(obj.id);
+      setAwardRarity(obj.rarity || null);
+      setShowAward(true);
     }
-  }, [loading, fragments]);
+    return; // не показываем welcome одновременно
+  }
+
+  // Fallback: first fragment welcome (only once)
+  if (fragments.includes(1) && localStorage.getItem('firstFragmentShown') !== 'true') {
+    setShowFirstFragmentNotice(true);
+    try { localStorage.setItem('firstFragmentShown', 'true'); } catch {}
+  }
+}, [loading, fragments, showAward]);
+
 
   // go to final when full set collected
   useEffect(() => {
@@ -204,7 +208,6 @@ useEffect(() => {
       position:  'relative',
       width:     '100%',
       minHeight: '100vh',
-      overflowY: 'auto',
       fontFamily:'Tajawal, sans-serif',
     }}>
       {/* Background */}
@@ -216,7 +219,7 @@ useEffect(() => {
         backgroundPosition: 'center',
         zIndex:          0,
       }} />
-
+      <div className="app-page">
       {/* Back Button */}
       <BackButton style={{
         position: 'absolute',
@@ -224,6 +227,26 @@ useEffect(() => {
         left:     16,
         zIndex:   5,
       }} />
+      <button
+  onClick={() => navigate('/')}
+  style={{
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    zIndex: 5,
+    height: 36,
+    padding: '0 14px',
+    border: 'none',
+    borderRadius: 18,
+    background: 'linear-gradient(90deg, #D81E3D 0%, #D81E5F 100%)',
+    color: '#fff',
+    fontWeight: 700,
+    fontSize: 14,
+    cursor: 'pointer',
+    boxShadow: '0 4px 10px rgba(0,0,0,0.35)',
+  }}
+  title="Home"
+/>
 
       {/* Title */}
       <h1 style={{
@@ -398,7 +421,7 @@ useEffect(() => {
         </Modal>
       )}
 
-      // рендер модалки награды (поставь рядом с уже существующими модалками)
+ // рендер модалки награды (показываем также редкость)
 {showAward && awardId && (
   <div style={{
     position:'fixed', inset:0, background:'rgba(0,0,0,0.78)',
@@ -408,16 +431,24 @@ useEffect(() => {
       width:320, background:'#2a2a2a', color:'#fff',
       border:'1px solid #9E9191', borderRadius:16, padding:16, textAlign:'center'
     }}>
-      <h3 style={{ margin:'0 0 6px' }}>Fragment #{awardId} obtained!</h3>
+      <h3 style={{ margin:'0 6px 6px' }}>Fragment #{awardId} obtained!</h3>
+      {awardRarity && (
+        <p style={{ margin:'0 0 8px', fontSize:12, opacity:0.85 }}>
+          Rarity: <strong style={{ textTransform:'capitalize' }}>{awardRarity}</strong>
+        </p>
+      )}
       <p style={{ margin:'0 0 12px' }}>A new piece joins your collection.</p>
-      <img
-        alt={`Fragment ${awardId}`}
-        src={signedUrls[FRAGMENT_FILES[awardId]]}
-        style={{ width:150, height:150, objectFit:'cover', borderRadius:8, margin:'0 auto 16px' }}
-      />
+      {signedUrls[FRAGMENT_FILES[awardId]] && (
+        <img
+          alt={`Fragment ${awardId}`}
+          src={`${signedUrls[FRAGMENT_FILES[awardId]]}&ts=${Date.now()}`}
+          style={{ width:150, height:150, objectFit:'cover', borderRadius:8, margin:'0 auto 16px' }}
+        />
+      )}
       <button
         onClick={() => {
           setShowAward(false);
+          setAwardRarity(null);
           try { localStorage.removeItem('newFragmentNotice'); } catch {}
         }}
         style={{
@@ -428,9 +459,11 @@ useEffect(() => {
       >
         Continue
       </button>
+      
     </div>
   </div>
 )}
+
 
       {/* First Fragment Modal (kept) */}
       {showFirstFragmentNotice && (
@@ -485,7 +518,7 @@ useEffect(() => {
         </div>
       )}
 
-      {/* Generic Fragment Notice (NEW) */}
+      
       {fragmentNoticeId && (
         <div style={{
           position:        'fixed',
@@ -539,6 +572,7 @@ useEffect(() => {
           </div>
         </div>
       )}
+       </div>
     </div>
   );
 }

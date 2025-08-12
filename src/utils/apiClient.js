@@ -76,27 +76,43 @@ const API = {
 
   // Burn flow
   createBurn: async (tgId, amount_nano = 500_000_000) => {
-    const res = await fetch(`${BASE}/api/burn-invoice`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeader() },
-      body: JSON.stringify({ tg_id: tgId, amount_nano }),
-    });
-    return handleResponse(res);
-  },
-
+  const res = await fetch(`${BASE}/api/burn-invoice`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeader() },
+    body: JSON.stringify({ tg_id: tgId, amount_nano }),
+  });
+  const data = await handleResponse(res);
+  // data: { invoiceId, paymentUrl, tonspaceUrl, task, paid }
+  return {
+    invoiceId: data.invoiceId,
+    paymentUrl: data.paymentUrl,
+    tonspaceUrl: data.tonspaceUrl,
+    task: data.task || null,
+    paid: !!data.paid,
+  };
+},
   getBurnStatus: async (invoiceId) => {
-    const res = await fetch(`${BASE}/api/burn-status/${invoiceId}`, { headers: authHeader() });
-    return handleResponse(res);
-  },
+  const res = await fetch(`${BASE}/api/burn-status/${invoiceId}`, { headers: authHeader() });
+  const data = await handleResponse(res);
+  // data: { paid, task|null, processed?:bool, result?:obj }
+  return {
+    paid: !!data.paid,
+    processed: !!data.processed,
+    task: data.task || null,
+    result: data.result || null,
+  };
+},
 
   completeBurn: async (invoiceId, success = true, payload = {}) => {
-    const res = await fetch(`${BASE}/api/burn-complete/${invoiceId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeader() },
-      body: JSON.stringify({ success, ...payload }),
-    });
-    return handleResponse(res);
-  },
+  const res = await fetch(`${BASE}/api/burn-complete/${invoiceId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeader() },
+    body: JSON.stringify({ success, payload }),
+  });
+  // returns:
+  // { ok, newFragment|null, cursed, pity_counter, curse_expires?, awarded_rarity? }
+  return handleResponse(res);
+},
 
   // Referral
   getReferral: async () => {
