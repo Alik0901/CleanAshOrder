@@ -68,6 +68,18 @@ export default function Login() {
         }
       } catch {}
 
+      try {
+  const fr = Array.isArray(resp?.user?.fragments) ? resp.user.fragments : [];
+  // показываем «первый фрагмент» если он есть и это по сути стартовый профиль
+  if (fr.includes(1) && (fr.length === 1 || localStorage.getItem('firstFragmentShown') !== 'true')) {
+    localStorage.setItem('newFragmentNotice', '1');
+  }
+  // если дев-сценарий: тот же tg_id, но новая БД — снесём старый флаг
+  if (fr.length === 1) {
+    localStorage.removeItem('firstFragmentShown');
+  }
+} catch {}
+
       login(resp.user, resp.token);
       navigate('/', { replace: true });
     } catch (e) {

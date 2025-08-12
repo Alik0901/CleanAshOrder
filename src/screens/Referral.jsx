@@ -12,7 +12,7 @@ export default function Referral() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [refCode, setRefCode] = useState('');
-  const [count, setCount] = useState(0);
+  const [invitedCount, setInvitedCount] = useState(0);
   const [rewardIssued, setRewardIssued] = useState(false);
   const [claiming, setClaiming] = useState(false);
 
@@ -22,9 +22,10 @@ export default function Referral() {
       try {
         const res = await API.getReferral();
         if (!mounted) return;
-        setRefCode(res.ref_code || res.code || '');
-        setCount(res.invite_count ?? res.count ?? 0);
-        setRewardIssued(!!res.rewardIssued);
+        // API возвращает именно { refCode, invitedCount, rewardIssued }
+        setRefCode(res.refCode ?? res.ref_code ?? res.code ?? '');
+        setInvitedCount(Number(res.invitedCount ?? res.invite_count ?? res.count ?? 0));
+        setRewardIssued(Boolean(res.rewardIssued ?? res.reward_issued ?? false));
       } catch (e) {
         const msg = e?.message || 'Failed to load referral info';
         setError(msg);
@@ -36,7 +37,7 @@ export default function Referral() {
     return () => { mounted = false; };
   }, [logout, navigate]);
 
-  const eligible = !rewardIssued && count >= 3;
+  const eligible = !rewardIssued && invitedCount >= 3;
 
   const claim = async () => {
     if (!eligible || claiming) return;
@@ -45,9 +46,7 @@ export default function Referral() {
       const res = await API.claimReferral();
       if (res?.ok) {
         try { localStorage.setItem('newFragmentNotice', '2'); } catch {}
-        if (typeof refreshUser === 'function') {
-          try { await refreshUser({ force: true }); } catch {}
-        }
+        if (typeof refreshUser === 'function') { try { await refreshUser({ force: true }); } catch {} }
         navigate('/gallery', { replace: true });
       } else {
         setError(res?.error || 'Unable to claim now');
@@ -87,7 +86,7 @@ export default function Referral() {
 
         <div style={{ marginBottom:12 }}>
           <div style={{ opacity:0.8, fontSize:12 }}>Confirmed invites</div>
-          <div style={{ fontFamily:'Tajawal, sans-serif', fontWeight:700, fontSize:18 }}>{count}</div>
+          <div style={{ fontFamily:'Tajawal, sans-serif', fontWeight:700, fontSize:18 }}>{invitedCount}</div>
         </div>
 
         <button
