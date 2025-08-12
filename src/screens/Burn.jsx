@@ -6,6 +6,19 @@ import BackButton from '../components/BackButton';
 import API from '../utils/apiClient';
 import { AuthContext } from '../context/AuthContext';
 
+function Countdown({ to }) {
+  const [ms, setMs] = useState(() => Math.max(0, new Date(to) - Date.now()));
+  useEffect(() => {
+    const id = setInterval(() => setMs(Math.max(0, new Date(to) - Date.now())), 1000);
+    return () => clearInterval(id);
+  }, [to]);
+  const s = Math.floor(ms / 1000);
+  const hh = String(Math.floor(s / 3600)).padStart(2, '0');
+  const mm = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+  const ss = String(s % 60).padStart(2, '0');
+  return <>{hh}:{mm}:{ss}</>;
+}
+
 export default function Burn() {
   const { user, logout, refreshUser } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -15,6 +28,7 @@ export default function Burn() {
   const [loading, setLoading] = useState(false);
   const [invoiceId, setInvoiceId] = useState(null);
   const [error, setError] = useState('');
+  const [curseModalUntil, setCurseModalUntil] = useState(null); // show modal on fresh curse
 
   // quest
   const [task, setTask] = useState(null);
@@ -34,6 +48,7 @@ export default function Burn() {
   const fragments = useMemo(() => (Array.isArray(user?.fragments) ? user.fragments.map(Number) : []), [user?.fragments]);
   const hasTutorial = useMemo(() => [1, 2, 3].every((n) => fragments.includes(n)), [fragments]);
   const isCursed = !!user?.is_cursed;
+  const activeCurseUntil = useMemo(() => (isCursed && user?.curse_expires ? user.curse_expires : null), [isCursed, user?.curse_expires]);
   const burnDisabled = isCursed || !hasTutorial || loading || stage === 'awaiting' || stage === 'task';
 
   // clear poller on unmount
@@ -44,7 +59,7 @@ export default function Burn() {
     setError('');
     setLoading(true);
     try {
-      const inv = await API.createBurn(user.tg_id); // { invoiceId, tonhubUrl/tonspaceUrl, task? (not used here) }
+      const inv = await API.createBurn(user.tg_id); // { invoiceId, tonhubUrl/tonspaceUrl }
       setInvoiceId(inv.invoiceId);
       setStage('awaiting');
 
@@ -87,14 +102,17 @@ export default function Burn() {
     try {
       const resp = await API.completeBurn(invoiceId, true, { answer });
       if (resp?.ok) {
-        if (Number.isFinite(resp.awardedFragment)) {
-          try { localStorage.setItem('newFragmentNotice', String(resp.awardedFragment)); } catch {}
+        if (resp.cursed) {
+          // curse — show modal, refresh profile, do not navigate away
+          setCurseModalUntil(resp.curse_expires || activeCurseUntil || null);
+          if (typeof refreshUser === 'function') { try { await refreshUser({ force: true }); } catch {} }
+          setStage('idle'); // exit task stage
+        } else {
+          const awarded = (resp.newFragment ?? resp.awardedFragment);
+          if (Number.isFinite(awarded)) { try { localStorage.setItem('newFragmentNotice', String(awarded)); } catch {} }
+          if (typeof refreshUser === 'function') { try { await refreshUser({ force: true }); } catch {} }
+          navigate('/gallery');
         }
-        // refresh profile (fragments/curse timers)
-        if (typeof refreshUser === 'function') {
-          try { await refreshUser({ force: true }); } catch {}
-        }
-        navigate('/gallery');
       } else {
         setError(resp?.error || 'Quest failed');
       }
@@ -138,6 +156,17 @@ export default function Burn() {
       >
         Burn Yourself
       </h1>
+
+      {/* Curse banner (if user already cursed) */}
+      {activeCurseUntil && (
+        <div style={{
+          position:'absolute', top:80, left:'50%', transform:'translateX(-50%)',
+          background:'rgba(0,0,0,0.6)', color:'#fff', border:'1px solid #9E9191',
+          padding:'8px 12px', borderRadius:12, zIndex:6, whiteSpace:'nowrap'
+        }}>
+          You are cursed. Time left: <Countdown to={activeCurseUntil} />
+        </div>
+      )}
 
       {/* CTA — always visible, just disabled when blocked */}
       <div style={{ position: 'absolute', top: 120, left: '50%', transform: 'translateX(-50%)', zIndex: 5, width: 320, textAlign: 'center' }}>
@@ -262,6 +291,28 @@ export default function Burn() {
               }}
             >
               {submitting ? 'Submitting…' : 'Complete Burn'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Curse modal shown right after result with curse */}
+      {curseModalUntil && (
+        <div style={{ position:'absolute', inset:0, background:'rgba(0,0,0,0.78)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:30 }}>
+          <div style={{ width:320, background:'#2a2a2a', color:'#fff', border:'1px solid #9E9191', borderRadius:16, padding:16, textAlign:'center' }}>
+            <h3 style={{ margin:'0 0 10px' }}>You are cursed</h3>
+            <p style={{ margin:'0 0 6px' }}>The ritual failed. No fragment was granted.</p>
+            {curseModalUntil && (
+              <p style={{ margin:'0 0 12px' }}>Time left: <strong><Countdown to={curseModalUntil} /></strong></p>
+            )}
+            <button
+              onClick={async () => {
+                setCurseModalUntil(null);
+                if (typeof refreshUser === 'function') { try { await refreshUser({ force: true }); } catch {} }
+              }}
+              style={{ width:'100%', height:44, background:'linear-gradient(90deg,#D81E3D 0%, #D81E5F 100%)', border:'none', borderRadius:10, color:'#fff', fontWeight:700, cursor:'pointer' }}
+            >
+              OK
             </button>
           </div>
         </div>
