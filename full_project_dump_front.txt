@@ -3317,13 +3317,14 @@
     import FinalPhrase from './screens/FinalPhrase';
     import Congrats    from './screens/Congrats';
     import Profile     from './screens/Profile';
+    import ThirdQuest  from './screens/ThirdQuest';
     
     import { AuthContext } from './context/AuthContext';
     
     export default function App() {
       const { user } = useContext(AuthContext);
     
-      // 1) РџРѕРєР°Р·С‹РІР°РµРј Р·Р°РіР»СѓС€РєСѓ, РїРѕРєР° РїСЂРѕРІРµСЂСЏРµРј СЃРµСЃСЃРёСЋ
+      // РџРѕРєР° РёРЅРёС†РёР°Р»РёР·РёСЂСѓРµРј СЃРµСЃСЃРёСЋ
       if (user === undefined) {
         return (
           <div style={{ padding: 20, textAlign: 'center' }}>
@@ -3337,87 +3338,51 @@
           {/* Login */}
           <Route
             path="/login"
-            element={
-              user
-                ? <Navigate to="/" replace />
-                : <Login />
-            }
+            element={ user ? <Navigate to="/" replace /> : <Login /> }
           />
     
           {/* Р—Р°С‰РёС‰С‘РЅРЅС‹Рµ РјР°СЂС€СЂСѓС‚С‹ */}
           <Route
             path="/"
-            element={
-              user
-                ? <Home />
-                : <Navigate to="/login" replace />
-            }
+            element={ user ? <Home /> : <Navigate to="/login" replace /> }
           />
           <Route
             path="/burn"
-            element={
-              user
-                ? <Burn />
-                : <Navigate to="/login" replace />
-            }
+            element={ user ? <Burn /> : <Navigate to="/login" replace /> }
           />
           <Route
             path="/gallery"
-            element={
-              user
-                ? <Gallery />
-                : <Navigate to="/login" replace />
-            }
+            element={ user ? <Gallery /> : <Navigate to="/login" replace /> }
           />
           <Route
             path="/referral"
-            element={
-              user
-                ? <Referral />
-                : <Navigate to="/login" replace />
-            }
+            element={ user ? <Referral /> : <Navigate to="/login" replace /> }
           />
           <Route
             path="/leaderboard"
-            element={
-              user
-                ? <Leaderboard />
-                : <Navigate to="/login" replace />
-            }
+            element={ user ? <Leaderboard /> : <Navigate to="/login" replace /> }
           />
           <Route
             path="/final"
-            element={
-              user
-                ? <FinalPhrase />
-                : <Navigate to="/login" replace />
-            }
+            element={ user ? <FinalPhrase /> : <Navigate to="/login" replace /> }
           />
           <Route
             path="/congrats"
-            element={
-              user
-                ? <Congrats />
-                : <Navigate to="/login" replace />
-            }
+            element={ user ? <Congrats /> : <Navigate to="/login" replace /> }
           />
           <Route
             path="/profile"
-            element={
-              user
-                ? <Profile />
-                : <Navigate to="/login" replace />
-            }
+            element={ user ? <Profile /> : <Navigate to="/login" replace /> }
+          />
+          <Route
+            path="/third"
+            element={ user ? <ThirdQuest /> : <Navigate to="/login" replace /> }
           />
     
-          {/* Р›СЋР±РѕР№ РґСЂСѓРіРѕР№ РїСѓС‚СЊ */}
+          {/* Р¤РѕР»Р»Р±РµРє */}
           <Route
             path="*"
-            element={
-              user
-                ? <Navigate to="/" replace />
-                : <Navigate to="/login" replace />
-            }
+            element={ user ? <Navigate to="/" replace /> : <Navigate to="/login" replace /> }
           />
         </Routes>
       );
@@ -3621,67 +3586,221 @@
 
 ===== FILE: src\context\AuthContext.jsx =====
     // src/context/AuthContext.jsx
-    
-    import React, { createContext, useState, useEffect } from 'react';
+    import React, { createContext, useCallback, useEffect, useRef, useState } from 'react';
     import API from '../utils/apiClient';
     
     export const AuthContext = createContext({
       user: undefined,
       login: () => {},
-      logout: () => {}
+      logout: () => {},
+      refreshUser: async () => {},
     });
     
-    export function AuthProvider({ children }) {
-      const [user, setUser] = useState(undefined);
-    
-      const login = (userData, token) => {
-        localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify(userData));
-        setUser(userData);
-      };
-    
-      const logout = () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        setUser(null);
-      };
-    
-      // 1) РџСЂРё СЃС‚Р°СЂС‚Рµ РїСЂРёР»РѕР¶РµРЅРёСЏ РїСЂРѕРІРµСЂСЏРµРј С‚РѕРєРµРЅ + СЃСѓС‰РµСЃС‚РІРѕРІР°РЅРёРµ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ
-      useEffect(() => {
-        const token = localStorage.getItem('token');
-        const saved = localStorage.getItem('user');
-        const initUser = saved ? JSON.parse(saved) : null;
-    
-        if (!token || !initUser?.tg_id) {
-          // РµСЃР»Рё РЅРµС‚ С‚РѕРєРµРЅР° РёР»Рё user РІ localStorage вЂ” СЃСЂР°Р·Сѓ РїРµСЂРµС…РѕРґРёРј РІ СЃРѕСЃС‚РѕСЏРЅРёРµ В«РЅРµР°РІС‚РѕСЂРёР·РѕРІР°РЅВ»
-          setUser(null);
-          return;
+    function AuthProvider({ children }) {
+      const [user, setUser] = useState(() => {
+        try {
+          const raw = localStorage.getItem('user');
+          return raw ? JSON.parse(raw) : null;
+        } catch {
+          return null;
         }
+      });
     
-        API.getPlayer(initUser.tg_id)
-          .then(data => {
-            // РёРіСЂРѕРє РЅР°Р№РґРµРЅ вЂ” РѕР±РЅРѕРІР»СЏРµРј РєРѕРЅС‚РµРєСЃС‚
-            setUser(data);
-            localStorage.setItem('user', JSON.stringify(data));
-          })
-          .catch(err => {
-            // 401 РёР»Рё В«player not foundВ» в†’ СЂР°Р·Р»РѕРіРёРЅРёРІР°РµРј
-            const msg = (err.message||'').toLowerCase();
-            if (/invalid token|no token provided|player not found/.test(msg)) {
-              logout();
-            } else {
-              // РІСЂРµРјРµРЅРЅР°СЏ СЃРµС‚РµРІР°СЏ РѕС€РёР±РєР° вЂ” РІСЃС‘ СЂР°РІРЅРѕ РїРѕРєР°Р·С‹РІР°РµРј Login, РјРѕР¶РЅРѕ РїРµСЂРµР·Р°РіСЂСѓР·РёС‚СЊ
-              setUser(null);
-            }
-          });
+      const tokenRef           = useRef(localStorage.getItem('token') || null);
+      const refreshTimerRef    = useRef(null);
+      const refreshInFlightRef = useRef(false);
+      const lastRefreshedRef   = useRef(0);
+      const initRunRef         = useRef(false);
+    
+      const MIN_REFRESH_GAP = 10000; // 10s, Р° С‚Р°Р№РјРµСЂ С‚РёРєР°РµС‚ СЂР°Р· РІ 12s
+    
+      // в”Ђв”Ђ Singleton guard (РЅР° СЃР»СѓС‡Р°Р№ РґРІРѕР№РЅРѕРіРѕ РјРѕРЅС‚РёСЂРѕРІР°РЅРёСЏ) в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+      const globalKey = '__ASH_AUTH_SINGLETON__';
+      const singleton = (window[globalKey] ||= {
+        timer: null,
+        listeners: false,
+      });
+    
+      const saveSession = useCallback((u, token) => {
+        if (token) {
+          tokenRef.current = token;
+          localStorage.setItem('token', token);
+        }
+        setUser(u);
+        localStorage.setItem('user', JSON.stringify(u));
       }, []);
     
+      const doLogin = useCallback((u, token) => {
+        saveSession(u, token);
+      }, [saveSession]);
+    
+      const doLogout = useCallback(() => {
+        try {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+        } catch {}
+        tokenRef.current = null;
+        setUser(null);
+      }, []);
+    
+      const refreshUser = useCallback(async ({ silent = true, force = false } = {}) => {
+        try {
+          if (!tokenRef.current) return;
+    
+          // РўСЂРѕС‚С‚Р»РёРЅРі Рё РґРµРґСѓРї
+          const now = Date.now();
+          if (!force && now - lastRefreshedRef.current < MIN_REFRESH_GAP) return;
+          if (refreshInFlightRef.current) return;
+    
+          const stored = localStorage.getItem('user');
+          const tgId = user?.tg_id || (stored ? JSON.parse(stored).tg_id : undefined);
+          if (!tgId) return;
+    
+          refreshInFlightRef.current = true;
+          lastRefreshedRef.current = now;
+    
+          const fresh = await API.getPlayer(tgId);
+    
+          const prev = user ? JSON.stringify(user) : null;
+          const next = JSON.stringify(fresh);
+          if (prev !== next || force) {
+            saveSession(fresh, tokenRef.current);
+          }
+        } catch (e) {
+          if (!silent) console.warn('[refreshUser] error:', e);
+          const msg = String(e?.message || '').toLowerCase();
+          if (
+            msg.includes('invalid token') ||
+            msg.includes('forbidden') ||
+            msg.includes('unauthorized') ||
+            msg.includes('not found')
+          ) {
+            doLogout();
+          }
+        } finally {
+          refreshInFlightRef.current = false;
+        }
+      }, [user, saveSession, doLogout]);
+    
+      // РџРµСЂРІС‹Р№ РїРѕРґС‚СЏРі /player, СЃС‚СЂРѕРіРѕ РѕРґРёРЅ СЂР°Р·
+      useEffect(() => {
+        if (initRunRef.current) return;
+        initRunRef.current = true;
+    
+        if (tokenRef.current) {
+          const stored = localStorage.getItem('user');
+          if (stored) {
+            refreshUser({ silent: true, force: true });
+          } else {
+            // РЅРµС‚ user РІ storage вЂ” СЃС‡РёС‚Р°РµРј РєР°Рє РЅРµ Р·Р°Р»РѕРіРёРЅРµРЅ
+            setUser(null);
+          }
+        } else {
+          setUser(null);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+      }, []);
+    
+      // Р¤РѕРЅРѕРІС‹Р№ С‚Р°Р№РјРµСЂ вЂ” РѕРґРёРЅ РЅР° РїСЂРёР»РѕР¶РµРЅРёРµ
+      useEffect(() => {
+        if (!user || !tokenRef.current) return;
+    
+        const start = () => {
+          if (singleton.timer) return;
+          singleton.timer = setInterval(() => {
+            if (document.visibilityState === 'visible') {
+              refreshUser({ silent: true });
+            }
+          }, 12000);
+        };
+        const stop = () => {
+          if (singleton.timer) {
+            clearInterval(singleton.timer);
+            singleton.timer = null;
+          }
+        };
+    
+        start();
+        return () => stop();
+      }, [user, refreshUser, singleton]);
+    
+      // Р”РµР±Р°СѓРЅСЃ focus/visibility, РЅР°РІРµС€РёРІР°РµРј СЃР»СѓС€Р°С‚РµР»Рё РѕРґРёРЅ СЂР°Р· РіР»РѕР±Р°Р»СЊРЅРѕ
+      useEffect(() => {
+        if (singleton.listeners) return;
+        singleton.listeners = true;
+    
+        let visDebounce = null;
+        let focDebounce = null;
+    
+        const onFocus = () => {
+          clearTimeout(focDebounce);
+          focDebounce = setTimeout(() => refreshUser({ silent: true }), 300);
+        };
+        const onVis = () => {
+          clearTimeout(visDebounce);
+          visDebounce = setTimeout(() => {
+            if (document.visibilityState === 'visible') {
+              refreshUser({ silent: true });
+            }
+          }, 300);
+        };
+    
+        window.addEventListener('focus', onFocus);
+        document.addEventListener('visibilitychange', onVis);
+    
+        return () => {
+          window.removeEventListener('focus', onFocus);
+          document.removeEventListener('visibilitychange', onVis);
+          clearTimeout(visDebounce);
+          clearTimeout(focDebounce);
+          singleton.listeners = false;
+        };
+      }, [refreshUser, singleton]);
+    
+      // РЎРёРЅС…СЂРѕРЅРёР·Р°С†РёСЏ РјРµР¶РґСѓ РІРєР»Р°РґРєР°РјРё
+      useEffect(() => {
+        const bc = 'BroadcastChannel' in window ? new BroadcastChannel('ash-session') : null;
+        bc?.addEventListener('message', (e) => {
+          if (e.data?.type === 'logout') doLogout();
+          if (e.data?.type === 'login' && e.data?.payload) {
+            const { user: u, token } = e.data.payload;
+            saveSession(u, token);
+          }
+          if (e.data?.type === 'refresh') refreshUser({ silent: true, force: true });
+        });
+        return () => bc?.close();
+      }, [doLogout, saveSession, refreshUser]);
+    
+      const value = {
+        user,
+        login: (u, t) => {
+          try {
+            const bc = new BroadcastChannel('ash-session');
+            bc.postMessage({ type: 'login', payload: { user: u, token: t } });
+            bc.close();
+          } catch {}
+          doLogin(u, t);
+        },
+        logout: () => {
+          try {
+            const bc = new BroadcastChannel('ash-session');
+            bc.postMessage({ type: 'logout' });
+            bc.close();
+          } catch {}
+          doLogout();
+        },
+        refreshUser,
+      };
+    
       return (
-        <AuthContext.Provider value={{ user, login, logout }}>
+        <AuthContext.Provider value={value}>
           {children}
         </AuthContext.Provider>
       );
     }
+    
+    export default AuthProvider;
+    export { AuthProvider };
 
 ===== FILE: src\main.jsx =====
     import React from 'react';
@@ -3701,17 +3820,30 @@
     );
 
 ===== FILE: src\screens\Burn.jsx =====
-    import React, { useState, useEffect, useContext } from 'react';
+    import React, { useState, useEffect, useContext, useMemo } from 'react';
     import { useNavigate } from 'react-router-dom';
     import BackButton from '../components/BackButton';
     import { AuthContext } from '../context/AuthContext';
     import API from '../utils/apiClient';
     
+    function Countdown({ to }) {
+      const [ms, setMs] = useState(() => Math.max(0, new Date(to) - Date.now()));
+      useEffect(() => {
+        const id = setInterval(() => setMs(Math.max(0, new Date(to) - Date.now())), 1000);
+        return () => clearInterval(id);
+      }, [to]);
+      const s = Math.floor(ms / 1000);
+      const hh = String(Math.floor(s / 3600)).padStart(2, '0');
+      const mm = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+      const ss = String(s % 60).padStart(2, '0');
+      return <>{hh}:{mm}:{ss}</>;
+    }
+    
     export default function Burn() {
-      const { user, logout } = useContext(AuthContext);
+      const { user, logout, refreshUser } = useContext(AuthContext);
       const navigate = useNavigate();
     
-      const [status, setStatus] = useState('idle');
+      const [status, setStatus] = useState('idle');     // idle | pending | success | error
       const [invoiceId, setInvoiceId] = useState(null);
       const [paymentUrl, setPaymentUrl] = useState('');
       const [result, setResult] = useState({});
@@ -3719,7 +3851,50 @@
     
       const BASE_AMOUNT_NANO = 500_000_000; // 0.5 TON
     
+      // Derived user state
+      const frags = Array.isArray(user?.fragments) ? user.fragments.map(Number) : [];
+      const has1 = frags.includes(1);
+      const has2 = frags.includes(2);
+      const has3 = frags.includes(3);
+      const mandatoryDone = has1 && has2 && has3;
+    
+      const curse = useMemo(() => {
+        if (!user?.is_cursed || !user?.curse_expires) return null;
+        const active = new Date(user.curse_expires) > new Date();
+        return active ? user.curse_expires : null;
+      }, [user]);
+    
+      // instant refresh on enter
+      useEffect(() => {
+        refreshUser?.({ silent: true, force: true });
+      }, [refreshUser]);
+    
+      // poll while burn is blocked (no 1вЂ“3 or curse) OR while waiting for payment
+      useEffect(() => {
+        const needPoll = !mandatoryDone || !!curse || status === 'pending';
+        if (!needPoll) return;
+        const id = setInterval(() => refreshUser?.({ silent: true }), 3000);
+        return () => clearInterval(id);
+      }, [mandatoryDone, curse, status, refreshUser]);
+    
+      // After success/error, pull fresh profile once (to get new fragment ASAP)
+      useEffect(() => {
+        if (status === 'success' || status === 'error') {
+          refreshUser?.({ silent: true, force: true });
+        }
+      }, [status, refreshUser]);
+    
       const startBurn = async () => {
+        if (!mandatoryDone) {
+          setError('Collect fragments #1вЂ“#3 first.');
+          setStatus('error');
+          return;
+        }
+        if (curse) {
+          setError('You are cursed. Wait until the timer ends.');
+          setStatus('error');
+          return;
+        }
         setStatus('pending');
         setError('');
         try {
@@ -3729,13 +3904,14 @@
         } catch (e) {
           setError(e.message || 'Error creating invoice');
           setStatus('error');
-          if (e.message.toLowerCase().includes('invalid token')) {
+          if (String(e.message || '').toLowerCase().includes('invalid token')) {
             logout();
             navigate('/login');
           }
         }
       };
     
+      // Poll payment status when pending
       useEffect(() => {
         if (status !== 'pending' || !invoiceId) return;
         const timer = setInterval(async () => {
@@ -3750,7 +3926,7 @@
             clearInterval(timer);
             setError(e.message || 'Error checking payment');
             setStatus('error');
-            if (e.message.toLowerCase().includes('invalid token')) {
+            if (String(e.message || '').toLowerCase().includes('invalid token')) {
               logout();
               navigate('/login');
             }
@@ -3765,6 +3941,8 @@
         { key: 'uncommon',  label: 'Uncommon',  percent: '30%',   icon: '/images/icons/uncommon.png',  top: 287 },
         { key: 'common',    label: 'Common',    percent: '50%',   icon: '/images/icons/common.png',    top: 356 },
       ];
+    
+      const burnDisabled = !!curse || !mandatoryDone || status === 'pending';
     
       return (
         <div
@@ -3830,6 +4008,26 @@
           >
             Burn&nbsp;Yourself
           </h1>
+    
+          {/* Р‘Р°РЅРЅРµСЂС‹ Р±Р»РѕРєРёСЂРѕРІРєРё */}
+          {!mandatoryDone && (
+            <div style={{
+              position:'absolute', top:80, left:'50%', transform:'translateX(-50%)',
+              background:'rgba(0,0,0,0.6)', color:'#fff', border:'1px solid #979696',
+              padding:'8px 12px', borderRadius:12, zIndex:6, whiteSpace:'nowrap'
+            }}>
+              Collect fragments #1вЂ“#3 to start burning.
+            </div>
+          )}
+          {curse && (
+            <div style={{
+              position:'absolute', top:110, left:'50%', transform:'translateX(-50%)',
+              background:'rgba(0,0,0,0.6)', color:'#fff', border:'1px solid #979696',
+              padding:'8px 12px', borderRadius:12, zIndex:6, whiteSpace:'nowrap'
+            }}>
+              You are cursed. Time left: <Countdown to={curse} />
+            </div>
+          )}
     
           {/* Р­Р»РµРјРµРЅС‚ СЂРµРґРєРѕСЃС‚Рё */}
           <h3
@@ -3913,6 +4111,7 @@
           {/* РљРЅРѕРїРєР° */}
           <button
             onClick={startBurn}
+            disabled={burnDisabled}
             style={{
               position: 'absolute',
               left: 65,
@@ -3927,8 +4126,13 @@
               alignItems: 'center',
               justifyContent: 'center',
               zIndex: 5,
-              cursor: 'pointer',
+              cursor: burnDisabled ? 'not-allowed' : 'pointer',
+              opacity: burnDisabled ? 0.6 : 1,
             }}
+            title={
+              curse ? 'Cursed вЂ” wait for timer'
+                : (!mandatoryDone ? 'Collect 1вЂ“3 first' : undefined)
+            }
           >
             <span
               style={{
@@ -3962,7 +4166,7 @@
             Please ensure you send exactly 0.5 TON when making your payment. Transactions for any other amount may be lost.
           </p>
     
-          {/* РћР±СЂР°Р±РѕС‚РєР° СЃРѕСЃС‚РѕСЏРЅРёР№ */}
+          {/* РћРІРµСЂР»РµРё СЃРѕСЃС‚РѕСЏРЅРёР№ */}
           {status === 'pending' && (
             <div
               style={{
@@ -3992,7 +4196,7 @@
                 color: '#fff',
               }}
             >
-              <span>Congratulations! You got a {result.category} fragment.</span>
+              <span>Congratulations! Your burn was processed.</span>
               <button onClick={() => navigate('/gallery')} style={{ marginTop: 16 }}>
                 View Gallery
               </button>
@@ -4012,7 +4216,7 @@
                 color: 'tomato',
               }}
             >
-              <span>{error}</span>
+              <span>{error || 'Something went wrong'}</span>
               <button onClick={() => setStatus('idle')} style={{ marginTop: 16 }}>
                 Try Again
               </button>
@@ -4255,12 +4459,12 @@
 ===== FILE: src\screens\Gallery.jsx =====
     // src/screens/Gallery.jsx
     
-    import React, { useState, useEffect, useContext } from 'react';
-    import { useNavigate }                 from 'react-router-dom';
-    import BackButton                      from '../components/BackButton';
-    import Modal                           from '../components/Modal';
-    import { AuthContext }                 from '../context/AuthContext';
-    import API                             from '../utils/apiClient';
+    import React, { useState, useEffect, useContext, useRef } from 'react';
+    import { useNavigate } from 'react-router-dom';
+    import BackButton from '../components/BackButton';
+    import Modal from '../components/Modal';
+    import { AuthContext } from '../context/AuthContext';
+    import API from '../utils/apiClient';
     
     const FRAGMENT_FILES = {
       1: 'fragment_1_the_whisper.jpg',
@@ -4295,60 +4499,123 @@
       { left: 310, top: 221 },
     ];
     
+    // helpers
+    const norm = (arr) => [...new Set((arr || []).map(Number))].sort((a, b) => a - b);
+    const same = (a, b) => {
+      const A = norm(a), B = norm(b);
+      if (A.length !== B.length) return false;
+      for (let i = 0; i < A.length; i++) if (A[i] !== B[i]) return false;
+      return true;
+    };
+    
     export default function Gallery() {
       const { user, logout } = useContext(AuthContext);
-      const navigate         = useNavigate();
+      const navigate = useNavigate();
     
-      const [signedUrls, setSignedUrls]                           = useState({});
-      const [fragments, setFragments]                             = useState([]);
-      const [loading, setLoading]                                 = useState(true);
-      const [error, setError]                                     = useState('');
-      const [zoomUrl, setZoomUrl]                                 = useState(null);
+      const [signedUrls, setSignedUrls] = useState({});
+      const [fragments, setFragments] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [error, setError] = useState('');
+      const [zoomUrl, setZoomUrl] = useState(null);
       const [showFirstFragmentNotice, setShowFirstFragmentNotice] = useState(false);
     
-      // 1) Р—Р°РіСЂСѓР¶Р°РµРј URL Рё СЃРїРёСЃРѕРє С„СЂР°РіРјРµРЅС‚РѕРІ
+      const lastUrlsRefresh = useRef(0);
+    
+      // initial load
       useEffect(() => {
         let cancelled = false;
-        async function load() {
+        (async () => {
           setLoading(true); setError('');
           try {
-            const { signedUrls } = await API.getSignedFragmentUrls();
-            const { fragments } = await API.getFragments(user.tg_id);
-            if (!cancelled) {
-              setSignedUrls(signedUrls);
-              setFragments(fragments);
-            }
+            const [{ signedUrls }, { fragments }] = await Promise.all([
+              API.getSignedFragmentUrls(),
+              API.getFragments(user.tg_id),
+            ]);
+            if (cancelled) return;
+            setSignedUrls(signedUrls || {});
+            setFragments(norm(fragments));
+            lastUrlsRefresh.current = Date.now();
           } catch (e) {
-            if (e.message.toLowerCase().includes('invalid token')) {
+            if (String(e.message || '').toLowerCase().includes('invalid token')) {
               logout(); navigate('/login');
             } else {
-              setError(e.message);
+              setError(e.message || 'Failed to load');
             }
           } finally {
             if (!cancelled) setLoading(false);
           }
-        }
-        load();
-        return () => { cancelled = true };
+        })();
+        return () => { cancelled = true; };
       }, [user.tg_id, logout, navigate]);
     
-      // 2) РџРѕРєР°Р·Р°С‚СЊ РјРѕРґР°Р»РєСѓ **С‚РѕР»СЊРєРѕ РѕРґРёРЅ СЂР°Р·** РїРѕСЃР»Рµ С‚РѕРіРѕ, РєР°Рє РІРїРµСЂРІС‹Рµ РїРѕСЏРІРёР»СЃСЏ С„СЂР°РіРјРµРЅС‚ #1
+      // poll fragments every 3s (live update without reload)
       useEffect(() => {
-        if (
-          !loading &&
-          fragments.includes(1) &&
-          localStorage.getItem('firstFragmentShown') !== 'true'
-        ) {
+        let cancelled = false;
+        const poll = async () => {
+          try {
+            const { fragments: fr } = await API.getFragments(user.tg_id);
+            if (cancelled) return;
+            const next = norm(fr);
+            if (!same(next, fragments)) {
+              setFragments(next);
+              // refresh signed URLs when collection changes (new images may be needed)
+              try {
+                const { signedUrls } = await API.getSignedFragmentUrls();
+                if (!cancelled) {
+                  setSignedUrls(signedUrls || {});
+                  lastUrlsRefresh.current = Date.now();
+                }
+              } catch (_) {}
+            }
+          } catch (e) {
+            // swallow intermittent errors, but handle auth
+            if (String(e.message || '').toLowerCase().includes('invalid token')) {
+              logout(); navigate('/login');
+            }
+          }
+        };
+        const id = setInterval(poll, 3000);
+        return () => { cancelled = true; clearInterval(id); };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+      }, [user.tg_id, fragments, logout, navigate]);
+    
+      // refresh signed URLs TTL every ~4 minutes
+      useEffect(() => {
+        let cancelled = false;
+        const tick = async () => {
+          if (Date.now() - lastUrlsRefresh.current < 4 * 60 * 1000) return;
+          try {
+            const { signedUrls } = await API.getSignedFragmentUrls();
+            if (!cancelled) {
+              setSignedUrls(signedUrls || {});
+              lastUrlsRefresh.current = Date.now();
+            }
+          } catch (_) {}
+        };
+        const id = setInterval(tick, 60 * 1000);
+        return () => { cancelled = true; clearInterval(id); };
+      }, []);
+    
+      // first fragment modal:
+      // - show if Login РїРѕСЃС‚Р°РІРёР» С„Р»Р°Рі `showFirstFragmentNotice`
+      // - РёР»Рё РµСЃР»Рё РІРїРµСЂРІС‹Рµ СѓРІРёРґРµР»Рё С„СЂР°РіРјРµРЅС‚ #1
+      useEffect(() => {
+        if (loading) return;
+        if (localStorage.getItem('showFirstFragmentNotice') === 'true') {
+          setShowFirstFragmentNotice(true);
+          localStorage.removeItem('showFirstFragmentNotice');
+          localStorage.setItem('firstFragmentShown', 'true');
+          return;
+        }
+        if (fragments.includes(1) && localStorage.getItem('firstFragmentShown') !== 'true') {
           setShowFirstFragmentNotice(true);
           localStorage.setItem('firstFragmentShown', 'true');
         }
       }, [loading, fragments]);
     
-      // 3) РђРІС‚РѕРјР°С‚РёС‡РµСЃРєРё СѓС…РѕРґРёРј РЅР° С„РёРЅР°Р»СЊРЅС‹Р№ СЌРєСЂР°РЅ, РєРѕРіРґР° СЃРѕР±СЂР°РЅРѕ 8
+      // go to final when full set collected
       useEffect(() => {
-        if (!loading && fragments.length >= 8) {
-          navigate('/final');
-        }
+        if (!loading && fragments.length >= 8) navigate('/final');
       }, [loading, fragments, navigate]);
     
       if (loading) return <p style={{ padding: 16 }}>Loading galleryвЂ¦</p>;
@@ -4399,10 +4666,11 @@
             const owned = fragments.includes(id);
             const file  = FRAGMENT_FILES[id];
             const url   = signedUrls[file];
+            const bust  = `&ts=${Date.now()}`;
             return (
               <React.Fragment key={id}>
                 <div
-                  onClick={() => owned && url && setZoomUrl(`${url}&dummy=${Date.now()}`)}
+                  onClick={() => owned && url && setZoomUrl(`${url}${bust}`)}
                   style={{
                     position: 'absolute',
                     left:     pos.left,
@@ -4417,7 +4685,7 @@
                 >
                   {owned && url && (
                     <img
-                      src={`${url}&dummy=${Date.now()}`}
+                      src={`${url}${bust}`}
                       alt={`Fragment ${id}`}
                       style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                     />
@@ -4609,18 +4877,84 @@
     }
 
 ===== FILE: src\screens\Home.jsx =====
-    import React, { useEffect } from 'react';
+    // src/screens/Home.jsx
+    import React, { useEffect, useContext, useMemo, useState } from 'react';
     import { Link } from 'react-router-dom';
     import bgWelcome from '../assets/images/converted_minimal.jpg';
     import logo from '../assets/images/logo_trimmed_optimized.png';
-    
-    // РљРЅРѕРїРєРё-С‚Р°Р±Р»РёС‡РєРё
     import galleryBtn from '../assets/images/gallery.png';
     import leaderboardBtn from '../assets/images/leaderboard.png';
     import referralBtn from '../assets/images/referral.png';
     import profileBtn from '../assets/images/profile.png';
+    import { AuthContext } from '../context/AuthContext';
+    
+    // РџСЂРѕСЃС‚РѕР№ РёРЅР»Р°Р№РЅ-С‚Р°Р№РјРµСЂ РґРѕ РґР°С‚С‹
+    function CountdownInline({ to }) {
+      const [ms, setMs] = useState(() => Math.max(0, new Date(to) - Date.now()));
+      useEffect(() => {
+        const id = setInterval(() => {
+          const left = Math.max(0, new Date(to) - Date.now());
+          setMs(left);
+        }, 1000);
+        return () => clearInterval(id);
+      }, [to]);
+    
+      const s = Math.floor(ms / 1000);
+      const hh = String(Math.floor(s / 3600)).padStart(2, '0');
+      const mm = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+      const ss = String(s % 60).padStart(2, '0');
+      return <>{hh}:{mm}:{ss}</>;
+    }
     
     export default function Home() {
+      const { user, refreshUser } = useContext(AuthContext);
+    
+      // РўРµРєСѓС‰РёРµ С„СЂР°РіРјРµРЅС‚С‹ РёРіСЂРѕРєР°
+      const frags = Array.isArray(user?.fragments) ? user.fragments.map(Number) : [];
+      const has1 = frags.includes(1);
+      const has2 = frags.includes(2);
+      const has3 = frags.includes(3);
+      const mandatoryDone = has1 && has2 && has3;
+    
+      // РђРєС‚РёРІРЅРѕРµ РїСЂРѕРєР»СЏС‚РёРµ
+      const curse = useMemo(() => {
+        if (!user?.is_cursed || !user?.curse_expires) return null;
+        const active = new Date(user.curse_expires) > new Date();
+        return active ? user.curse_expires : null;
+      }, [user]);
+    
+      // РњРѕРґР°Р»РєР° В«РїРѕР»СѓС‡РµРЅ #1В» (РїРѕРґРґРµСЂР¶РёРІР°РµРј РѕР±Р° РєР»СЋС‡Р° С„Р»Р°РіР°)
+      const [showInitModal, setShowInitModal] = useState(false);
+      useEffect(() => {
+        const flagA = localStorage.getItem('showInitialAward');
+        const flagB = localStorage.getItem('showFirstFragmentNotice');
+        const shouldShow = flagA === '1' || flagA === 'true' || flagB === 'true';
+        if (shouldShow && has1) {
+          setShowInitModal(true);
+          localStorage.removeItem('showInitialAward');
+          localStorage.removeItem('showFirstFragmentNotice');
+        }
+      }, [has1]);
+    
+      // РњРіРЅРѕРІРµРЅРЅС‹Р№ СЂРµС„СЂРµС€ РїСЂРё Р·Р°С…РѕРґРµ РЅР° СЌРєСЂР°РЅ
+      useEffect(() => {
+        if (typeof refreshUser === 'function') {
+          refreshUser({ silent: true, force: true });
+        }
+      }, [refreshUser]);
+    
+      // рџ”Ѓ РџРѕР»Р»РёРЅРі РґРѕ С‚РµС… РїРѕСЂ, РїРѕРєР° РЅРµ СЃРѕР±СЂР°РЅС‹ 1вЂ“3 РёР»Рё Р°РєС‚РёРІРЅРѕ РїСЂРѕРєР»СЏС‚РёРµ.
+      // РќСѓР¶РµРЅ РґР»СЏ СЃР»СѓС‡Р°РµРІ, РєРѕРіРґР° С„СЂР°РіРјРµРЅС‚С‹ РјРµРЅСЏСЋС‚СЃСЏ В«РІ РѕР±С…РѕРґВ» (СЂСѓС‡РЅРѕРµ СЂРµРґР°РєС‚РёСЂРѕРІР°РЅРёРµ Р‘Р”, РєР»РµР№Рј РЅР° РґСЂСѓРіРѕРј СЌРєСЂР°РЅРµ Рё С‚.Рї.)
+      useEffect(() => {
+        if (mandatoryDone && !curse) return; // РІСЃС‘ РѕРє вЂ” РѕРїСЂРѕСЃ РЅРµ РЅСѓР¶РµРЅ
+        const id = setInterval(() => {
+          if (typeof refreshUser === 'function') {
+            refreshUser({ silent: true });
+          }
+        }, 3000);
+        return () => clearInterval(id);
+      }, [mandatoryDone, curse, refreshUser]);
+    
       useEffect(() => {
         console.log('рџЏ  Home mounted, bgWelcome =', bgWelcome);
       }, []);
@@ -4629,10 +4963,7 @@
         <div
           style={{
             position: 'fixed',
-            top: 0,
-            right: 0,
-            bottom: 0,
-            left: 0,
+            top: 0, right: 0, bottom: 0, left: 0,
             overflow: 'hidden',
           }}
         >
@@ -4650,11 +4981,11 @@
             style={{
               position: 'absolute',
               inset: 0,
-              backgroundColor: 'rgba(0, 0, 0, 0.3)', // 30% РѕРІРµСЂР»РµР№
+              backgroundColor: 'rgba(0, 0, 0, 0.3)',
             }}
           />
     
-          {/* РҐРµРґРµСЂ СЃ Р»РѕРіРѕС‚РёРїРѕРј РїРѕ С†РµРЅС‚СЂСѓ */}
+          {/* РҐРµРґРµСЂ */}
           <header
             style={{
               position: 'absolute',
@@ -4687,15 +5018,57 @@
               alt="Order of Ash logo"
               style={{ height: '3rem', objectFit: 'contain' }}
             />
+            <div style={{ position: 'absolute', right: '1rem', width: '1.5rem', height: 0 }} />
+          </header>
+    
+          {/* Р‘Р°РЅРЅРµСЂ РїСЂРѕРєР»СЏС‚РёСЏ */}
+          {curse && (
             <div
               style={{
-              position: 'absolute',
-              right: '1rem',
-              width: '1.5rem',     // С€РёСЂРёРЅР° РїСЂРёРјРµСЂРЅРѕ СЂР°РІРЅР° С€РёСЂРёРЅРµ РєРЅРѕРїРєРё-Р±СѓСЂРіРµСЂР°
-              height: '0',
+                position: 'absolute',
+                top: 72,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                background: 'rgba(0,0,0,0.6)',
+                border: '1px solid #9E9191',
+                color: '#fff',
+                padding: '8px 12px',
+                borderRadius: 12,
+                zIndex: 30,
+                whiteSpace: 'nowrap',
               }}
-            />
-            </header>
+            >
+              You are cursed. Time left: <CountdownInline to={curse} />
+            </div>
+          )}
+    
+          {/* Р‘Р°РЅРЅРµСЂ вЂ” СЃРѕР±РµСЂРё 1вЂ“3 РґРѕ СЃС‚Р°СЂС‚Р° */}
+          {!mandatoryDone && (
+            <div
+              style={{
+                position: 'absolute',
+                top: curse ? 110 : 72,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                background: 'rgba(0,0,0,0.6)',
+                border: '1px solid #9E9191',
+                color: '#fff',
+                padding: '10px 12px',
+                borderRadius: 12,
+                zIndex: 30,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Collect fragments #1вЂ“#3 to start burning.&nbsp;
+              <Link to="/referral" style={{ color: '#fff', textDecoration: 'underline' }}>
+                Invite friends
+              </Link>
+              &nbsp;В·&nbsp;
+              <Link to="/third" style={{ color: '#fff', textDecoration: 'underline' }}>
+                Claim #3
+              </Link>
+            </div>
+          )}
     
           {/* РћСЃРЅРѕРІРЅРѕР№ РєРѕРЅС‚РµРЅС‚ */}
           <main
@@ -4722,7 +5095,6 @@
                 marginLeft: 0,
               }}
             >
-              {/* Р›РµРІС‹Р№ Р±Р»РѕРє СЃ Р·Р°РіРѕР»РѕРІРєРѕРј Рё РѕРїРёСЃР°РЅРёРµРј */}
               <div style={{ flex: 1, textAlign: 'left' }}>
                 <h2 style={{ fontSize: '2rem', fontFamily: '"MedievalSharp", serif', margin: '0 0 1rem' }}>
                   Welcome to Order of Ash
@@ -4732,14 +5104,19 @@
                 </p>
               </div>
     
-              {/* РћР±РµСЂС‚РєР° РґР»СЏ РєРЅРѕРїРєРё, С‡С‚РѕР±С‹ РѕРїСѓСЃС‚РёС‚СЊ РµС‘ С‡СѓС‚СЊ РЅРёР¶Рµ */}
               <div
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
                   justifyContent: 'flex-end',
                   marginLeft: '1rem',
+                  opacity: curse || !mandatoryDone ? 0.6 : 1,
+                  pointerEvents: curse || !mandatoryDone ? 'none' : 'auto',
                 }}
+                title={
+                  curse ? 'Cursed вЂ” wait for the timer'
+                    : (!mandatoryDone ? 'Collect 1вЂ“3 first' : undefined)
+                }
               >
                 <Link
                   to="/burn"
@@ -4759,7 +5136,7 @@
             </div>
           </main>
     
-          {/* РљРЅРѕРїРєРё-С‚Р°Р±Р»РёС‡РєРё: РґРІР° СЂСЏРґР° РІРЅРёР·Сѓ */}
+          {/* РќРёР¶РЅРёРµ РєРЅРѕРїРєРё */}
           <div
             style={{
               position: 'absolute',
@@ -4773,7 +5150,6 @@
               zIndex: 20,
             }}
           >
-            {/* Р’РµСЂС…РЅРёР№ СЂСЏРґ */}
             <div style={{ display: 'flex', gap: '0.75rem' }}>
               <Link to="/gallery">
                 <img src={galleryBtn} alt="Gallery" style={{ height: '2.5rem' }} />
@@ -4782,7 +5158,6 @@
                 <img src={leaderboardBtn} alt="Leaderboard" style={{ height: '2.5rem' }} />
               </Link>
             </div>
-            {/* РќРёР¶РЅРёР№ СЂСЏРґ */}
             <div style={{ display: 'flex', gap: '0.75rem' }}>
               <Link to="/referral">
                 <img src={referralBtn} alt="Referral" style={{ height: '2.5rem' }} />
@@ -4792,6 +5167,67 @@
               </Link>
             </div>
           </div>
+    
+          {/* РњРѕРґР°Р»РєР° В«РїРѕР»СѓС‡РµРЅ С„СЂР°РіРјРµРЅС‚ #1В» */}
+          {showInitModal && (
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                background: 'rgba(0,0,0,0.6)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 50,
+              }}
+            >
+              <div
+                style={{
+                  background: '#111',
+                  color: '#fff',
+                  border: '1px solid #9E9191',
+                  padding: '16px 20px',
+                  borderRadius: 12,
+                  width: 320,
+                  textAlign: 'center',
+                }}
+              >
+                <h3 style={{ margin: '0 0 8px' }}>Welcome, Initiate</h3>
+                <p style={{ margin: '0 0 12px' }}>
+                  You received your first fragment <b>#1</b>.
+                </p>
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+                  <button
+                    onClick={() => setShowInitModal(false)}
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: 8,
+                      border: '1px solid #666',
+                      background: '#222',
+                      color: '#fff',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Close
+                  </button>
+                  <Link
+                    to="/gallery"
+                    onClick={() => setShowInitModal(false)}
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: 8,
+                      border: 'none',
+                      background: '#D81E5F',
+                      color: '#fff',
+                      textDecoration: 'none',
+                    }}
+                  >
+                    View Gallery
+                  </Link>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       );
     }
@@ -4909,16 +5345,21 @@
         }
         setError('');
         try {
-          const { user: userObj, token } = await API.init({
+          const resp = await API.init({
             tg_id: tgId,
             name: name.trim(),
             initData,
             referrer_code: refCode.trim() || null
           });
-          // РџРѕРјРµС‡Р°РµРј, С‡С‚Рѕ РїРµСЂРІС‹Р№ С„СЂР°РіРјРµРЅС‚ РІС‹РґР°РЅ Рё РЅСѓР¶РЅРѕ РїРѕРєР°Р·Р°С‚СЊ СѓРІРµРґРѕРјР»РµРЅРёРµ
-          localStorage.setItem('showFirstFragmentNotice', 'true');
-          login(userObj, token);
-          navigate('/gallery', { replace: true });
+    
+          // РїРѕРєР°Р·Р°С‚СЊ СЃС‚Р°СЂС‚РѕРІСѓСЋ РјРѕРґР°Р»РєСѓ С‚РѕР»СЊРєРѕ РµСЃР»Рё РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ СЃРѕР·РґР°РЅ Рё Р±СЌРє РїСЂРёСЃР»Р°Р» initial_award
+          if (resp.initial_award && resp.initial_award.fragment === 1) {
+            localStorage.setItem('showInitialAward', '1');
+          }
+    
+          login(resp.user, resp.token);
+          // РІРµРґС‘Рј РЅР° РґРѕРј, С‚Р°Рј РІСЃРїР»С‹РІС‘С‚ РјРѕРґР°Р»РєР° (Рё СЃСЂР°Р·Сѓ РѕС‡РёСЃС‚РёС‚СЃСЏ С„Р»Р°Рі)
+          navigate('/', { replace: true });
         } catch (e) {
           setError(e.message || 'Login failed');
         }
@@ -4927,14 +5368,8 @@
       if (loading) {
         return (
           <div style={{
-            display:        'flex',
-            height:         '100vh',
-            background:     '#000',
-            color:          '#fff',
-            alignItems:     'center',
-            justifyContent: 'center',
-            fontFamily:     'MedievalSharp, serif',
-            fontSize:       16
+            display:'flex', height:'100vh', background:'#000', color:'#fff',
+            alignItems:'center', justifyContent:'center', fontFamily:'MedievalSharp, serif', fontSize:16
           }}>
             Loading Telegram WebAppвЂ¦
           </div>
@@ -4943,129 +5378,59 @@
     
       return (
         <div style={{
-          position:   'relative',
-          width:      '100%',
-          height:     '100vh',
-          overflow:   'hidden',
-          fontFamily: 'MedievalSharp, serif',
+          position:'relative', width:'100%', height:'100vh', overflow:'hidden', fontFamily:'MedievalSharp, serif',
         }}>
           {/* Р¤РѕРЅ */}
           <div style={{
-            position:        'absolute',
-            inset:           0,
-            backgroundImage: "url('/images/bg-welcome.png')",
-            backgroundSize:  'cover',
-            backgroundPosition: 'center',
-            zIndex:          0,
+            position:'absolute', inset:0,
+            backgroundImage:"url('/images/bg-welcome.webp')",
+            backgroundSize:'cover', backgroundPosition:'center', zIndex:0,
           }}/>
-    
           {/* РћРІРµСЂР»РµР№ */}
-          <div style={{
-            position:      'absolute',
-            inset:         0,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            zIndex:        1,
-          }}/>
-    
-          {/* РџСЂРѕРєСЂСѓС‚РєР° */}
-          <div style={{
-            position:               'absolute',
-            inset:                  0,
-            overflowY:              'auto',
-            WebkitOverflowScrolling: 'touch',
-            zIndex:                 2,
-          }}>
-            <div style={{
-              display:        'flex',
-              flexDirection:  'column',
-              alignItems:     'center',
-              paddingTop:     39,
-              paddingBottom:  40,
-            }}>
-              {/* Р›РѕРіРѕС‚РёРї */}
+          <div style={{ position:'absolute', inset:0, backgroundColor:'rgba(0,0,0,0.5)', zIndex:1 }}/>
+          {/* РљРѕРЅС‚РµРЅС‚ */}
+          <div style={{ position:'absolute', inset:0, overflowY:'auto', WebkitOverflowScrolling:'touch', zIndex:2 }}>
+            <div style={{ display:'flex', flexDirection:'column', alignItems:'center', paddingTop:39, paddingBottom:40 }}>
               <div style={{
-                width:           212,
-                height:          180,
-                backgroundImage: "url('/images/logo_trimmed_optimized.png')",
-                backgroundSize:  'contain',
-                backgroundRepeat:'no-repeat',
+                width:212, height:180, backgroundImage:"url('/images/logo_trimmed_optimized.png')",
+                backgroundSize:'contain', backgroundRepeat:'no-repeat',
               }}/>
-    
-              {/* Welcome */}
-              <h1 style={{
-                marginTop:   56,   // в‰€275px РѕС‚ РІРµСЂС…Р°
-                fontSize:    48,
-                lineHeight: '54px',
-                color:       '#D6CEBD',
-                textAlign:   'center',
-              }}>
+              <h1 style={{ marginTop:56, fontSize:48, lineHeight:'54px', color:'#D6CEBD', textAlign:'center' }}>
                 Welcome
               </h1>
     
-              {/* РћС€РёР±РєР° */}
               {error && (
-                <p style={{
-                  marginTop: 16,
-                  color:     'tomato',
-                  textAlign: 'center',
-                  width:     '80%',
-                }}>
-                  {error}
-                </p>
+                <p style={{ marginTop:16, color:'tomato', textAlign:'center', width:'80%' }}>{error}</p>
               )}
     
-              {/* Name */}
               <input
-                type="text"
-                placeholder="Name"
-                value={name}
-                onChange={e => setName(e.target.value)}
+                type="text" placeholder="Name" value={name} onChange={e=>setName(e.target.value)}
                 style={{
-                  marginTop:           40,
-                  width:               256,
-                  height:              36,
-                  padding:             '0 12px',
-                  background:          'rgba(180,180,180,0.51)',
-                  border:              '1px solid #D6CEBD',
-                  borderRadius:        20,
-                  fontSize:            15,
-                  color:               '#D6CEBD',
+                  marginTop:40, width:256, height:36, padding:'0 12px',
+                  background:'rgba(180,180,180,0.51)', border:'1px solid #D6CEBD',
+                  borderRadius:20, fontSize:15, color:'#D6CEBD',
                 }}
               />
     
-              {/* Referral */}
               <input
-                type="text"
-                placeholder="Referral code (optional)"
-                value={refCode}
-                onChange={e => setRefCode(e.target.value)}
+                type="text" placeholder="Referral code (optional)" value={refCode} onChange={e=>setRefCode(e.target.value)}
                 style={{
-                  marginTop:           20,
-                  width:               256,
-                  height:              36,
-                  padding:             '0 12px',
-                  background:          'rgba(180,180,180,0.51)',
-                  border:              '1px solid #D6CEBD',
-                  borderRadius:        20,
-                  fontSize:            15,
-                  color:               '#D6CEBD',
+                  marginTop:20, width:256, height:36, padding:'0 12px',
+                  background:'rgba(180,180,180,0.51)', border:'1px solid #D6CEBD',
+                  borderRadius:20, fontSize:15, color:'#D6CEBD',
                 }}
               />
     
-              {/* Start playing */}
               <button
                 onClick={handleStart}
                 disabled={!name.trim()}
                 style={{
-                  marginTop:  30,
-                  width:      256,
-                  height:     36,
+                  marginTop:30, width:256, height:36,
                   background: name.trim() ? '#D18622' : '#777',
-                  border:     name.trim() ? '1px solid #E0933A' : '1px solid #555',
-                  borderRadius: 20,
-                  fontSize:     15,
-                  color:        name.trim() ? '#191610' : '#333',
-                  cursor:       name.trim() ? 'pointer' : 'not-allowed',
+                  border: name.trim() ? '1px solid #E0933A' : '1px solid #555',
+                  borderRadius:20, fontSize:15,
+                  color: name.trim() ? '#191610' : '#333',
+                  cursor: name.trim() ? 'pointer' : 'not-allowed',
                 }}
               >
                 Start playing
@@ -5360,9 +5725,149 @@
       );
     }
 
+===== FILE: src\screens\ThirdQuest.jsx =====
+    import React, { useEffect, useState, useContext } from 'react';
+    import { useNavigate } from 'react-router-dom';
+    import BackButton from '../components/BackButton';
+    import API from '../utils/apiClient';
+    import { AuthContext } from '../context/AuthContext';
+    
+    export default function ThirdQuest() {
+      const { user, logout } = useContext(AuthContext);
+      const navigate = useNavigate();
+    
+      const [loading, setLoading] = useState(true);
+      const [task, setTask] = useState(null);
+      const [error, setError] = useState('');
+      const [selected, setSelected] = useState('');
+    
+      useEffect(() => {
+        let mounted = true;
+        (async () => {
+          try {
+            const res = await API.getThirdQuest();
+            if (!mounted) return;
+            if (!res.available) {
+              // СѓР¶Рµ РїРѕР»СѓС‡РµРЅ #3 вЂ” СѓРІРѕРґРёРј РІ РіР°Р»РµСЂРµСЋ
+              navigate('/gallery', { replace: true });
+              return;
+            }
+            setTask(res.task);
+          } catch (e) {
+            setError(e.message || 'Failed to load quest');
+            if (String(e.message).toLowerCase().includes('invalid token')) {
+              logout();
+              navigate('/login');
+            }
+          } finally {
+            if (mounted) setLoading(false);
+          }
+        })();
+        return () => { mounted = false; };
+      }, [logout, navigate]);
+    
+      const submit = async () => {
+        if (!task) return;
+        if (!selected) {
+          setError('Choose the answer');
+          return;
+        }
+        setError('');
+        try {
+          const resp = await API.claimThirdQuest(selected);
+          if (resp.ok) {
+            // РїРѕР»СѓС‡РёР»Рё С„СЂР°РіРјРµРЅС‚ #3
+            navigate('/gallery', { replace: true });
+          } else {
+            setError('Wrong answer');
+          }
+        } catch (e) {
+          setError(e.message || 'Failed to submit');
+        }
+      };
+    
+      if (loading) {
+        return (
+          <div style={{
+            position:'relative', width:'100%', height:'100vh', background:'#000',
+            color:'#fff', display:'flex', alignItems:'center', justifyContent:'center'
+          }}>
+            LoadingвЂ¦
+          </div>
+        );
+      }
+    
+      return (
+        <div style={{ position:'relative', width:'100%', height:'100vh', overflow:'hidden' }}>
+          <div style={{
+            position:'absolute', inset:0,
+            backgroundImage:"url('/images/bg-final.webp')",
+            backgroundSize:'cover', backgroundPosition:'center'
+          }}/>
+          <div style={{ position:'absolute', inset:0, background:'rgba(0,0,0,0.56)' }}/>
+    
+          <BackButton
+            style={{ position:'absolute', top:16, left:16, zIndex:5, color:'#fff' }}
+          />
+    
+          <h1 style={{
+            position:'absolute', top:25, left:'50%', transform:'translateX(-50%)',
+            fontFamily:'Tajawal, sans-serif', fontWeight:700, fontSize:40, lineHeight:'48px',
+            color:'#D6CEBD', zIndex:5, whiteSpace:'nowrap'
+          }}>
+            Third Fragment Quest
+          </h1>
+    
+          <div style={{
+            position:'absolute', top:120, left:'50%', transform:'translateX(-50%)',
+            width:320, background:'rgba(0,0,0,0.6)', border:'1px solid #9E9191',
+            color:'#fff', borderRadius:16, padding:'16px', zIndex:5
+          }}>
+            {task && (
+              <>
+                <p style={{ margin:'0 0 12px', fontFamily:'Tajawal, sans-serif', fontWeight:700 }}>
+                  {task.question}
+                </p>
+                <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                  {Array.isArray(task.options) && task.options.map(opt => (
+                    <label key={opt} style={{
+                      display:'flex', alignItems:'center', gap:8, cursor:'pointer'
+                    }}>
+                      <input
+                        type="radio"
+                        name="third-q"
+                        value={opt}
+                        checked={selected === opt}
+                        onChange={() => setSelected(opt)}
+                      />
+                      <span>{opt}</span>
+                    </label>
+                  ))}
+                </div>
+    
+                {error && (
+                  <div style={{ color:'tomato', marginTop:10 }}>{error}</div>
+                )}
+    
+                <button
+                  onClick={submit}
+                  style={{
+                    marginTop:16, width:'100%', height:40,
+                    background:'linear-gradient(90deg,#D81E3D 0%, #D81E5F 100%)',
+                    border:'none', borderRadius:10, color:'#fff', fontWeight:700, cursor:'pointer'
+                  }}
+                >
+                  Claim Fragment #3
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      );
+    }
+
 ===== FILE: src\utils\apiClient.js =====
     // src/utils/apiClient.js
-    
     const BASE = (
       import.meta.env.VITE_API_BASE_URL ||
       'https://clean-ash-order.vercel.app'
@@ -5382,6 +5887,12 @@
       return data;
     }
     
+    /** в”Ђв”Ђ Р”РµРґСѓРї Рё С‚СЂРѕС‚С‚Р»РёРЅРі РґР»СЏ /api/player/:tg_id в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ */
+    let _gpInFlight = null;
+    let _gpLastTs   = 0;
+    let _gpCache    = null;
+    const GP_MIN_GAP = 5000; // РЅРµ С‡Р°С‰Рµ 1 Р·Р°РїСЂРѕСЃР° РІ 5СЃ
+    
     const API = {
       init: async ({ tg_id, name, initData, referrer_code }) => {
         const res = await fetch(`${BASE}/api/init`, {
@@ -5393,10 +5904,28 @@
       },
     
       getPlayer: async (tgId) => {
-        const res = await fetch(`${BASE}/api/player/${tgId}`, {
-          headers: authHeader(),
-        });
-        return handleResponse(res);
+        const now = Date.now();
+    
+        // Р•СЃР»Рё СѓР¶Рµ РµСЃС‚СЊ РІС‹РїРѕР»РЅСЏСЋС‰РёР№СЃСЏ вЂ” РІРµСЂРЅС‘Рј С‚РѕС‚ Р¶Рµ РїСЂРѕРјРёСЃ
+        if (_gpInFlight) return _gpInFlight;
+    
+        // Р•СЃР»Рё РЅРµРґР°РІРЅРѕ РѕР±РЅРѕРІР»СЏР»Рё Рё РµСЃС‚СЊ РєСЌС€ вЂ” РІРµСЂРЅС‘Рј РєСЌС€
+        if (_gpCache && (now - _gpLastTs) < GP_MIN_GAP) return _gpCache;
+    
+        const doFetch = async () => {
+          const res = await fetch(`${BASE}/api/player/${tgId}`, {
+            headers: authHeader(),
+          });
+          const data = await handleResponse(res);
+          _gpCache  = data;
+          _gpLastTs = Date.now();
+          return data;
+        };
+    
+        _gpInFlight = doFetch()
+          .finally(() => { _gpInFlight = null; });
+    
+        return _gpInFlight;
       },
     
       getFragments: async (tgId) => {
@@ -5475,7 +6004,6 @@
         return handleResponse(res);
       },
     
-      // Р”РѕРїРѕР»РЅРёС‚РµР»СЊРЅС‹Рµ СЌРЅРґРїРѕРёРЅС‚С‹, РµСЃР»Рё РЅСѓР¶РЅС‹:
       getLeaderboard: async () => {
         const res = await fetch(`${BASE}/api/leaderboard`, { headers: authHeader() });
         return handleResponse(res);
