@@ -71,127 +71,144 @@ export default function Gallery() {
 
   const lastUrlsRefresh = useRef(0);
 
-  // initial load: union(API, context) + optimistic add from localStorage (JSON {id, rarity, ts})
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true); setError('');
-      try {
-        const [{ signedUrls }, { fragments: frFromApi }] = await Promise.all([
-          API.getSignedFragmentUrls(),
-          API.getFragments(user.tg_id),
-        ]);
-        if (cancelled) return;
+// универсальный парсер pending notice (JSON и legacy-строка)
+const readPendingNotice = () => {
+  try {
+    const raw = localStorage.getItem('newFragmentNotice');
+    if (!raw) return null;
 
-        let next = norm([...(frFromApi || []), ...(user?.fragments || [])]);
-
-        let pendingObj = null;
-        try { const raw = localStorage.getItem('newFragmentNotice'); if (raw) pendingObj = JSON.parse(raw); } catch {}
-        if (pendingObj && Number.isFinite(pendingObj.id) && pendingObj.id >= 1 && pendingObj.id <= 8) {
-          if (!next.includes(pendingObj.id)) next = norm([...next, pendingObj.id]);
-          setAwardId(pendingObj.id);
-          setAwardRarity(pendingObj.rarity || null);
-          setShowAward(true);
-        }
-
-        setSignedUrls(signedUrls || {});
-        lastUrlsRefresh.current = Date.now();
-        setFragments(next);
-      } catch (e) {
-        if (String(e?.message || '').toLowerCase().includes('invalid token')) {
-          logout(); navigate('/login');
-        } else {
-          setError(e?.message || 'Failed to load');
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [user?.tg_id, logout, navigate]);
-
-  // когда модалка награды открылась — обновить ссылки (на случай TTL)
-  useEffect(() => {
-    if (!showAward) return;
-    (async () => {
-      try {
-        const { signedUrls } = await API.getSignedFragmentUrls();
-        setSignedUrls(signedUrls || {});
-        lastUrlsRefresh.current = Date.now();
-      } catch {}
-    })();
-  }, [showAward]);
-
-  // react to context user.fragments changes + optimistic merge pending JSON
-  useEffect(() => {
-    let next = norm(user?.fragments || []);
-
-    let pendingObj = null;
-    try { const raw = localStorage.getItem('newFragmentNotice'); if (raw) pendingObj = JSON.parse(raw); } catch {}
-    if (pendingObj && Number.isFinite(pendingObj.id) && pendingObj.id >= 1 && pendingObj.id <= 8 && !next.includes(pendingObj.id)) {
-      next = norm([...next, pendingObj.id]);
+    // сначала пробуем JSON { id, rarity, ts }
+    try {
+      const obj = JSON.parse(raw);
+      const id = Number(obj?.id);
+      if (Number.isFinite(id)) return { id, rarity: obj?.rarity || null };
+    } catch (_) {
+      // fallback: legacy строка "2"/"3"
+      const id = parseInt(raw, 10);
+      if (Number.isFinite(id)) return { id, rarity: null };
     }
+  } catch (_) {}
+  return null;
+};
 
-    if (!same(next, fragments)) {
-      setFragments(next);
-      (async () => {
-        try {
-          const { signedUrls } = await API.getSignedFragmentUrls();
-          setSignedUrls(signedUrls || {});
-          lastUrlsRefresh.current = Date.now();
-        } catch (_) {}
-      })();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.fragments]);
+// initial load: union(API, context) + optimistic add from localStorage (JSON {id, rarity, ts} или legacy строка)
+useEffect(() => {
+  let cancelled = false;
+  (async () => {
+    setLoading(true); setError('');
+    try {
+      const [{ signedUrls }, { fragments: frFromApi }] = await Promise.all([
+        API.getSignedFragmentUrls(),
+        API.getFragments(user.tg_id),
+      ]);
+      if (cancelled) return;
 
-  // refresh signed URLs TTL every ~4 minutes
-  useEffect(() => {
-    let cancelled = false;
-    const tick = async () => {
-      if (Date.now() - lastUrlsRefresh.current < 4 * 60 * 1000) return;
-      try {
-        const { signedUrls } = await API.getSignedFragmentUrls();
-        if (!cancelled) {
-          setSignedUrls(signedUrls || {});
-          lastUrlsRefresh.current = Date.now();
-        }
-      } catch (_) {}
-    };
-    const id = setInterval(tick, 60 * 1000);
-    return () => { cancelled = true; clearInterval(id); };
-  }, []);
+      let next = norm([...(frFromApi || []), ...(user?.fragments || [])]);
 
-  // NOTICE LOGIC (JSON): показываем модалку награды с редкостью; фолбэк — приветствие за 1-й фрагмент
-  useEffect(() => {
-    if (loading) return;
-
-    let obj = null;
-    try { const raw = localStorage.getItem('newFragmentNotice'); if (raw) obj = JSON.parse(raw); } catch {}
-
-    if (obj && Number.isFinite(obj.id)) {
-      if (!showAward) {
-        setAwardId(obj.id);
-        setAwardRarity(obj.rarity || null);
+      const pending = readPendingNotice();
+      if (pending && pending.id >= 1 && pending.id <= 8) {
+        if (!next.includes(pending.id)) next = norm([...next, pending.id]);
+        setAwardId(pending.id);
+        setAwardRarity(pending.rarity || null);
         setShowAward(true);
       }
-      return; // не показываем welcome одновременно
+
+      setSignedUrls(signedUrls || {});
+      lastUrlsRefresh.current = Date.now();
+      setFragments(next);
+    } catch (e) {
+      if (String(e?.message || '').toLowerCase().includes('invalid token')) {
+        logout(); navigate('/login');
+      } else {
+        setError(e?.message || 'Failed to load');
+      }
+    } finally {
+      if (!cancelled) setLoading(false);
     }
+  })();
+  return () => { cancelled = true; };
+}, [user?.tg_id, logout, navigate]);
 
-    // Fallback: first fragment welcome (only once)
-    if (fragments.includes(1) && localStorage.getItem('firstFragmentShown') !== 'true') {
-      setShowFirstFragmentNotice(true);
-      try { localStorage.setItem('firstFragmentShown', 'true'); } catch {}
+// когда модалка награды открылась — обновить ссылки (на случай TTL)
+useEffect(() => {
+  if (!showAward) return;
+  (async () => {
+    try {
+      const { signedUrls } = await API.getSignedFragmentUrls();
+      setSignedUrls(signedUrls || {});
+      lastUrlsRefresh.current = Date.now();
+    } catch {}
+  })();
+}, [showAward]);
+
+// react to context user.fragments changes + optimistic merge pending
+useEffect(() => {
+  let next = norm(user?.fragments || []);
+
+  const pending = readPendingNotice();
+  if (pending && pending.id >= 1 && pending.id <= 8 && !next.includes(pending.id)) {
+    next = norm([...next, pending.id]);
+  }
+
+  if (!same(next, fragments)) {
+    setFragments(next);
+    (async () => {
+      try {
+        const { signedUrls } = await API.getSignedFragmentUrls();
+        setSignedUrls(signedUrls || {});
+        lastUrlsRefresh.current = Date.now();
+      } catch (_) {}
+    })();
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [user?.fragments]);
+
+// refresh signed URLs TTL every ~4 minutes
+useEffect(() => {
+  let cancelled = false;
+  const tick = async () => {
+    if (Date.now() - lastUrlsRefresh.current < 4 * 60 * 1000) return;
+    try {
+      const { signedUrls } = await API.getSignedFragmentUrls();
+      if (!cancelled) {
+        setSignedUrls(signedUrls || {});
+        lastUrlsRefresh.current = Date.now();
+      }
+    } catch (_) {}
+  };
+  const id = setInterval(tick, 60 * 1000);
+  return () => { cancelled = true; clearInterval(id); };
+}, []);
+
+// NOTICE LOGIC: показываем модалку награды (любой формат notice); фолбэк — приветствие за 1-й фрагмент
+useEffect(() => {
+  if (loading) return;
+
+  const obj = readPendingNotice();
+  if (obj && Number.isFinite(obj.id)) {
+    if (!showAward) {
+      setAwardId(obj.id);
+      setAwardRarity(obj.rarity || null);
+      setShowAward(true);
     }
-  }, [loading, fragments, showAward]);
+    return; // не показываем welcome одновременно
+  }
 
-  // go to final when full set collected
-  useEffect(() => {
-    if (!loading && fragments.length >= 8) navigate('/final');
-  }, [loading, fragments, navigate]);
+  // Fallback: first fragment welcome (only once)
+  if (fragments.includes(1) && localStorage.getItem('firstFragmentShown') !== 'true') {
+    setShowFirstFragmentNotice(true);
+    try { localStorage.setItem('firstFragmentShown', 'true'); } catch {}
+  }
+}, [loading, fragments, showAward]);
 
-  if (loading) return <p style={{ padding: 16 }}>Loading gallery…</p>;
-  if (error)   return <p style={{ padding: 16, color: 'tomato' }}>{error}</p>;
+// go to final when full set collected
+useEffect(() => {
+  if (!loading && fragments.length >= 8) navigate('/final');
+}, [loading, fragments, navigate]);
+
+if (loading) return <p style={{ padding: 16 }}>Loading gallery…</p>;
+if (error)   return <p style={{ padding: 16, color: 'tomato' }}>{error}</p>;
+
 
   return (
     <div style={{
