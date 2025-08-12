@@ -34,6 +34,9 @@ export default function Burn() {
   const [task, setTask] = useState(null);
   const [answer, setAnswer] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const getOptions = (t) =>
+  Array.isArray(t?.params?.options) ? t.params.options.filter(o => String(o).length > 0).map(String) : [];
+
 
   const pollRef = useRef(null);
 
@@ -96,32 +99,46 @@ export default function Burn() {
   };
 
   const submitQuest = async () => {
-    if (!invoiceId || !task) return;
-    if (!answer) { setError('Choose or enter the answer'); return; }
-    setSubmitting(true); setError('');
-    try {
-      const resp = await API.completeBurn(invoiceId, true, { answer });
-      if (resp?.ok) {
-        if (resp.cursed) {
-          // curse — show modal, refresh profile, do not navigate away
-          setCurseModalUntil(resp.curse_expires || activeCurseUntil || null);
-          if (typeof refreshUser === 'function') { try { await refreshUser({ force: true }); } catch {} }
-          setStage('idle'); // exit task stage
-        } else {
-          const awarded = (resp.newFragment ?? resp.awardedFragment);
-          if (Number.isFinite(awarded)) { try { localStorage.setItem('newFragmentNotice', String(awarded)); } catch {} }
-          if (typeof refreshUser === 'function') { try { await refreshUser({ force: true }); } catch {} }
-          navigate('/gallery');
-        }
-      } else {
-        setError(resp?.error || 'Quest failed');
-      }
-    } catch (e) {
-      setError(e?.message || 'Failed to complete burn');
-    } finally {
-      setSubmitting(false);
+  if (!invoiceId || !task) return;
+  if (!answer) { setError('Choose or enter the answer'); return; }
+
+  setSubmitting(true); setError('');
+  try {
+    const opts = getOptions(task);
+    const correctAnswer = String(task?.params?.answer ?? '');
+    const isCorrect = opts.length > 0
+      ? String(answer) === correctAnswer
+      : String(answer).trim() === correctAnswer.trim();
+
+    if (!isCorrect) {
+      // Засчитываем провал — только pity, без награды
+      try { await API.completeBurn(invoiceId, false); } catch {}
+      setStage('idle');
+      setError('Quest failed');
+      return;
     }
-  };
+
+    const resp = await API.completeBurn(invoiceId, true, { answer });
+    if (resp?.ok) {
+      if (resp.cursed) {
+        setCurseModalUntil(resp.curse_expires || activeCurseUntil || null);
+        if (typeof refreshUser === 'function') { try { await refreshUser({ force: true }); } catch {} }
+        setStage('idle');
+      } else {
+        const awarded = (resp.newFragment ?? resp.awardedFragment);
+        if (Number.isFinite(awarded)) { try { localStorage.setItem('newFragmentNotice', String(awarded)); } catch {} }
+        if (typeof refreshUser === 'function') { try { await refreshUser({ force: true }); } catch {} }
+        navigate('/gallery');
+      }
+    } else {
+      setError(resp?.error || 'Quest failed');
+    }
+  } catch (e) {
+    setError(e?.message || 'Failed to complete burn');
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100vh' }}>
@@ -230,71 +247,50 @@ export default function Burn() {
 
       {/* Task overlay (after paid) */}
       {stage === 'task' && task && (
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            backgroundColor: 'rgba(0,0,0,0.6)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 20,
-          }}
-        >
-          <div style={{
-            width: 320,
-            background: 'rgba(0,0,0,0.6)',
-            border: '1px solid #9E9191',
-            color: '#fff',
-            borderRadius: 16,
-            padding: 16,
-          }}>
-            <p style={{ margin: '0 0 12px', fontFamily: 'Tajawal, sans-serif', fontWeight: 700 }}>
-              {task.params?.question || 'Solve the quest to complete the burn:'}
-            </p>
+  <div style={{ position:'absolute', inset:0, backgroundColor:'rgba(0,0,0,0.6)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:20 }}>
+    <div style={{ width:320, background:'rgba(0,0,0,0.6)', border:'1px solid #9E9191', color:'#fff', borderRadius:16, padding:16 }}>
+      <p style={{ margin:'0 0 12px', fontFamily:'Tajawal, sans-serif', fontWeight:700 }}>
+        {task.params?.question || 'Solve the quest to complete the burn:'}
+      </p>
 
-            {task.type === 'quiz' ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {(task.params?.options || []).map((opt) => (
-                  <label key={String(opt)} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                    <input type="radio" name="burn-quiz" value={String(opt)} onChange={(e) => setAnswer(e.target.value)} />
-                    <span>{String(opt)}</span>
-                  </label>
-                ))}
-              </div>
-            ) : (
+      {getOptions(task).length > 0 ? (
+        <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+          {getOptions(task).map(opt => (
+            <label key={opt} style={{ display:'flex', alignItems:'center', gap:8, cursor:'pointer' }}>
               <input
-                type="text"
-                placeholder="Your answer"
-                value={answer}
+                type="radio"
+                name="burn-quiz"
+                value={opt}
                 onChange={(e) => setAnswer(e.target.value)}
-                style={{ width: '100%', height: 40, padding: '0 12px', borderRadius: 10, border: '1px solid #9E9191', background: '#161616', color: '#fff' }}
               />
-            )}
-
-            {error && <div style={{ color: 'tomato', marginTop: 10 }}>{error}</div>}
-
-            <button
-              onClick={submitQuest}
-              disabled={!answer || submitting}
-              style={{
-                marginTop: 16,
-                width: '100%',
-                height: 44,
-                background: 'linear-gradient(90deg,#D81E3D 0%, #D81E5F 100%)',
-                border: 'none',
-                borderRadius: 10,
-                color: '#fff',
-                fontWeight: 700,
-                cursor: !answer || submitting ? 'default' : 'pointer',
-                opacity: !answer || submitting ? 0.6 : 1,
-              }}
-            >
-              {submitting ? 'Submitting…' : 'Complete Burn'}
-            </button>
-          </div>
+              <span>{opt}</span>
+            </label>
+          ))}
         </div>
+      ) : (
+        <input
+          type="text"
+          placeholder="Введите ответ"
+          value={answer}
+          onChange={(e) => setAnswer(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') submitQuest(); }}
+          autoFocus
+          style={{ width:'100%', height:40, padding:'0 12px', borderRadius:10, border:'1px solid #9E9191', background:'#161616', color:'#fff' }}
+        />
       )}
+
+      {error && <div style={{ color:'tomato', marginTop:10 }}>{error}</div>}
+
+      <button
+        onClick={submitQuest}
+        disabled={!answer || submitting}
+        style={{ marginTop:16, width:'100%', height:44, background:'linear-gradient(90deg,#D81E3D 0%, #D81E5F 100%)', border:'none', borderRadius:10, color:'#fff', fontWeight:700, cursor:(!answer||submitting)?'default':'pointer', opacity:(!answer||submitting)?0.6:1 }}
+      >
+        {submitting ? 'Submitting…' : 'Complete Burn'}
+      </button>
+    </div>
+  </div>
+)}
 
       {/* Curse modal shown right after result with curse */}
       {curseModalUntil && (
