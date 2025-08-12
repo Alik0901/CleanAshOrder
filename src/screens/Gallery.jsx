@@ -57,8 +57,10 @@ export default function Gallery() {
   const [fragments, setFragments] = useState(() => norm(user?.fragments || []));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
   const [zoomUrl, setZoomUrl] = useState(null);
   const [showFirstFragmentNotice, setShowFirstFragmentNotice] = useState(false);
+  const [fragmentNoticeId, setFragmentNoticeId] = useState(null); // NEW: generic notice for any fragment
 
   const lastUrlsRefresh = useRef(0);
 
@@ -122,18 +124,29 @@ export default function Gallery() {
     return () => { cancelled = true; clearInterval(id); };
   }, []);
 
-  // first fragment modal
+  // NOTICE LOGIC (fixed):
+  // - If `newFragmentNotice` exists in localStorage -> show generic modal for that fragment id, then clear it.
+  // - Else, if we have fragment #1 and `firstFragmentShown` not set -> show first-fragment modal, set flag.
   useEffect(() => {
     if (loading) return;
-    if (localStorage.getItem('showFirstFragmentNotice') === 'true') {
-      setShowFirstFragmentNotice(true);
-      localStorage.removeItem('showFirstFragmentNotice');
-      localStorage.setItem('firstFragmentShown', 'true');
-      return;
+
+    const raw = localStorage.getItem('newFragmentNotice');
+    if (raw) {
+      localStorage.removeItem('newFragmentNotice');
+      const id = parseInt(raw, 10);
+      if (Number.isFinite(id)) {
+        setFragmentNoticeId(id);
+        if (id === 1) {
+          try { localStorage.setItem('firstFragmentShown', 'true'); } catch {}
+        }
+        return; // do not also show first-fragment modal on the same render
+      }
     }
+
+    // Fallback: first fragment welcome (only once)
     if (fragments.includes(1) && localStorage.getItem('firstFragmentShown') !== 'true') {
       setShowFirstFragmentNotice(true);
-      localStorage.setItem('firstFragmentShown', 'true');
+      try { localStorage.setItem('firstFragmentShown', 'true'); } catch {}
     }
   }, [loading, fragments]);
 
@@ -344,7 +357,7 @@ export default function Gallery() {
         </Modal>
       )}
 
-      {/* First Fragment Modal */}
+      {/* First Fragment Modal (kept) */}
       {showFirstFragmentNotice && (
         <div style={{
           position:        'fixed',
@@ -392,6 +405,61 @@ export default function Gallery() {
               }}
             >
               Got it!
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Generic Fragment Notice (NEW) */}
+      {fragmentNoticeId && (
+        <div style={{
+          position:        'fixed',
+          inset:           0,
+          backgroundColor: 'rgba(0,0,0,0.8)',
+          display:         'flex',
+          alignItems:      'center',
+          justifyContent:  'center',
+          zIndex:          9999,
+        }}>
+          <div style={{
+            backgroundColor: '#2a2a2a',
+            borderRadius:    16,
+            padding:         24,
+            maxWidth:        '90%',
+            width:           320,
+            textAlign:       'center',
+            color:           '#fff',
+          }}>
+            <h2 style={{ margin: 0, fontSize: 20 }}>Fragment #{fragmentNoticeId} obtained!</h2>
+            <p style={{ margin: '12px 0' }}>A new piece joins your collection.</p>
+            {signedUrls[FRAGMENT_FILES[fragmentNoticeId]] && (
+              <img
+                src={signedUrls[FRAGMENT_FILES[fragmentNoticeId]]}
+                alt={`Fragment ${fragmentNoticeId}`}
+                style={{
+                  width:        120,
+                  height:       120,
+                  objectFit:    'cover',
+                  borderRadius: 8,
+                  margin:       '0 auto 16px',
+                }}
+              />
+            )}
+            <button
+              onClick={() => setFragmentNoticeId(null)}
+              style={{
+                display:         'block',
+                margin:          '16px auto 0',
+                padding:         '10px 20px',
+                backgroundColor: '#D81E3D',
+                color:           '#fff',
+                border:          'none',
+                borderRadius:    20,
+                cursor:          'pointer',
+                fontSize:        16,
+              }}
+            >
+              Continue
             </button>
           </div>
         </div>

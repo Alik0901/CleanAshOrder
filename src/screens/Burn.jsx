@@ -325,12 +325,45 @@ export default function Burn() {
         </span>
       </button>
 
+      {/* Back to Gallery */}
+<div
+  onClick={() => navigate('/gallery')}
+  style={{
+    position: 'absolute',
+    left: 65,
+    top: 566,                  // ниже основной кнопки
+    width: 265,
+    height: 56,                // чуть ниже и компактнее
+    backgroundImage: 'linear-gradient(90deg, #D81E3D 0%, #D81E5F 100%)',
+    boxShadow: '0px 6px 6px rgba(0,0,0,0.87)',
+    borderRadius: 40,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    zIndex: 5,
+  }}
+>
+  <span
+    style={{
+      fontFamily: 'Tajawal, sans-serif',
+      fontWeight: 700,
+      fontSize: 20,
+      color: '#FFF',
+      letterSpacing: 0.5,
+    }}
+  >
+    TO GALLERY
+  </span>
+</div>
+
+
       {/* Подсказка */}
       <p
         style={{
           position: 'absolute',
           left: 42,
-          top: 594,
+          top: 650,
           width: 318,
           fontFamily: 'Tajawal, sans-serif',
           fontWeight: 700,

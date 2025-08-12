@@ -5,16 +5,8 @@ import BackButton from '../components/BackButton';
 import API from '../utils/apiClient';
 import { AuthContext } from '../context/AuthContext';
 
-/**
- * Third Fragment Quest
- * - Loads a one-off quest from /api/third-quest
- * - Renders quiz (options) or free-text answer depending on task.type
- * - Submits answer to /api/third-claim
- * - On success: sets showFirstFragmentNotice flag, forces user refresh (if available), navigates to /gallery
- * - No polling, no duplicate requests
- */
 export default function ThirdQuest() {
-  const { user, logout, refreshUser } = useContext(AuthContext);
+  const { logout, refreshUser } = useContext(AuthContext);
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
@@ -30,7 +22,6 @@ export default function ThirdQuest() {
         const res = await API.getThirdQuest();
         if (!mounted) return;
         if (!res?.available) {
-          // Already awarded — go to gallery
           navigate('/gallery', { replace: true });
           return;
         }
@@ -50,7 +41,6 @@ export default function ThirdQuest() {
   }, [logout, navigate]);
 
   const isQuiz = useMemo(() => (task?.type || 'quiz') === 'quiz', [task]);
-
   const canSubmit = useMemo(() => {
     if (!task) return false;
     if (isQuiz) return !!selected;
@@ -64,11 +54,9 @@ export default function ThirdQuest() {
     try {
       const resp = await API.claimThirdQuest(selected);
       if (resp?.ok) {
-        // Show first-fragment (or third-fragment) notice in Gallery
-        try { localStorage.setItem('showFirstFragmentNotice', 'true'); } catch {}
-        // Force refresh to bring new fragments[] immediately
+        try { localStorage.setItem('newFragmentNotice', '3'); } catch {}
         if (typeof refreshUser === 'function') {
-          try { await refreshUser({ force: true }); } catch { /* ignore */ }
+          try { await refreshUser({ force: true }); } catch {}
         }
         navigate('/gallery', { replace: true });
       } else {
@@ -94,7 +82,6 @@ export default function ThirdQuest() {
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100vh', overflow: 'hidden' }}>
-      {/* Background */}
       <div style={{
         position: 'absolute', inset: 0,
         backgroundImage: "url('/images/bg-final.webp')",
@@ -104,7 +91,6 @@ export default function ThirdQuest() {
 
       <BackButton style={{ position: 'absolute', top: 16, left: 16, zIndex: 5, color: '#fff' }} />
 
-      {/* Title */}
       <h1 style={{
         position: 'absolute', top: 25, left: '50%', transform: 'translateX(-50%)',
         fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 40, lineHeight: '48px',
@@ -113,7 +99,6 @@ export default function ThirdQuest() {
         Third Fragment Quest
       </h1>
 
-      {/* Card */}
       <div style={{
         position: 'absolute', top: 120, left: '50%', transform: 'translateX(-50%)',
         width: 320, background: 'rgba(0,0,0,0.6)', border: '1px solid #9E9191',
@@ -125,12 +110,10 @@ export default function ThirdQuest() {
 
         {task && (
           <>
-            {/* Question */}
             <p style={{ margin: '0 0 12px', fontFamily: 'Tajawal, sans-serif', fontWeight: 700 }}>
               {task.question || 'Answer the question to claim Fragment #3:'}
             </p>
 
-            {/* Options or Text */}
             {isQuiz ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {(task.options || []).map((opt) => (
@@ -159,12 +142,10 @@ export default function ThirdQuest() {
               />
             )}
 
-            {/* Error */}
             {error && (
               <div style={{ color: 'tomato', marginTop: 10 }}>{error}</div>
             )}
 
-            {/* Submit */}
             <button
               onClick={submit}
               disabled={!canSubmit || submitting}
