@@ -1,4 +1,4 @@
-// src/utils/apiClient.js
+// src/utils/apiClient.js — full rewrite
 
 // Base URL
 const BASE = (
@@ -16,23 +16,22 @@ async function handleResponse(response) {
   try {
     data = await response.json();
   } catch (_) {
-    // non-JSON (shouldn't happen in our API) — fabricate a minimal error
     if (!response.ok) throw new Error(response.statusText || 'HTTP error');
     return {};
   }
   if (!response.ok) {
-    const err = data.error || response.statusText;
+    const err = data?.error || response.statusText || 'Request failed';
     throw new Error(err);
   }
-  return data;
+  return data ?? {};
 }
 
 /**
- * Get-player throttling & in-flight dedup
+ * getPlayer throttling & in-flight dedup to avoid request storms
  */
 let _gpInFlight = null;
-let _gpLastTs   = 0;
-let _gpCache    = null;
+let _gpLastTs = 0;
+let _gpCache = null;
 const GP_MIN_GAP = 5000; // 1 call / 5s per tg_id
 
 const API = {
@@ -55,7 +54,7 @@ const API = {
     const doFetch = async () => {
       const res = await fetch(`${BASE}/api/player/${tgId}`, { headers: authHeader() });
       const data = await handleResponse(res);
-      _gpCache  = data;
+      _gpCache = data;
       _gpLastTs = Date.now();
       return data;
     };
@@ -90,6 +89,15 @@ const API = {
     return handleResponse(res);
   },
 
+  completeBurn: async (invoiceId, success = true, payload = {}) => {
+    const res = await fetch(`${BASE}/api/burn-complete/${invoiceId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeader() },
+      body: JSON.stringify({ success, ...payload }),
+    });
+    return handleResponse(res);
+  },
+
   // Referral
   getReferral: async () => {
     const res = await fetch(`${BASE}/api/referral`, { headers: authHeader() });
@@ -119,7 +127,7 @@ const API = {
     return handleResponse(res);
   },
 
-  // Third Fragment Quest (NEW)
+  // Third Fragment Quest
   getThirdQuest: async () => {
     const res = await fetch(`${BASE}/api/third-quest`, { headers: authHeader() });
     return handleResponse(res);
@@ -129,7 +137,7 @@ const API = {
     const res = await fetch(`${BASE}/api/third-claim`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeader() },
-      body: JSON.stringify({ answer })
+      body: JSON.stringify({ answer }),
     });
     return handleResponse(res);
   },

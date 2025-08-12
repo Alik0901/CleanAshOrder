@@ -48,16 +48,27 @@ export default function Login() {
         tg_id: tgId,
         name: name.trim(),
         initData,
-        referrer_code: refCode.trim() || null
+        referrer_code: refCode.trim() || null,
       });
 
-      // показать стартовую модалку только если пользователь создан и бэк прислал initial_award
-      if (resp.initial_award && resp.initial_award.fragment === 1) {
-        localStorage.setItem('showInitialAward', '1');
-      }
+      // Если это новый пользователь (на этом устройстве) — сбрасываем локальные флаги модалок
+      try {
+        const prev = localStorage.getItem('last_tg_id');
+        if (String(prev) !== String(resp.user?.tg_id)) {
+          ['firstFragmentShown','newFragmentNotice','showFirstFragmentNotice','showInitialAward']
+            .forEach((k) => localStorage.removeItem(k));
+          localStorage.setItem('last_tg_id', String(resp.user?.tg_id || ''));
+        }
+      } catch {}
+
+      // Если бэк сразу выдал фрагмент #1 — покажем универсальную нотификацию
+      try {
+        if (resp?.initial_award && Number(resp.initial_award.fragment) === 1) {
+          localStorage.setItem('newFragmentNotice', '1');
+        }
+      } catch {}
 
       login(resp.user, resp.token);
-      // ведём на дом, там всплывёт модалка (и сразу очистится флаг)
       navigate('/', { replace: true });
     } catch (e) {
       setError(e.message || 'Login failed');

@@ -1,438 +1,223 @@
-import React, { useState, useEffect, useContext, useMemo } from 'react';
+// src/screens/Burn.jsx
+import React, { useEffect, useMemo, useRef, useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BackButton from '../components/BackButton';
 import { AuthContext } from '../context/AuthContext';
 import API from '../utils/apiClient';
 
-function Countdown({ to }) {
-  const [ms, setMs] = useState(() => Math.max(0, new Date(to) - Date.now()));
-  useEffect(() => {
-    const id = setInterval(() => setMs(Math.max(0, new Date(to) - Date.now())), 1000);
-    return () => clearInterval(id);
-  }, [to]);
-  const s = Math.floor(ms / 1000);
-  const hh = String(Math.floor(s / 3600)).padStart(2, '0');
-  const mm = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
-  const ss = String(s % 60).padStart(2, '0');
-  return <>{hh}:{mm}:{ss}</>;
-}
+/**
+ * Burn screen — quest-first flow
+ *
+ * 1) idle → create invoice
+ * 2) awaiting → poll /burn-status/:id until { paid: true, task }
+ * 3) task → user solves and submits → POST /burn-complete/:id { success:true, answer }
+ * 4) if awardedFragment -> set newFragmentNotice, refresh user, go /gallery
+ *
+ * No extra polling outside of payment wait. "To Gallery" button included.
+ */
+
+const TON_AMOUNT_NANO = 500_000_000; // 0.5 TON
 
 export default function Burn() {
-  const { user, logout, refreshUser } = useContext(AuthContext);
   const navigate = useNavigate();
+  const { user, logout, refreshUser } = useContext(AuthContext);
 
-  const [status, setStatus] = useState('idle');     // idle | pending | success | error
+  const [stage, setStage] = useState('idle'); // idle | awaiting | task
   const [invoiceId, setInvoiceId] = useState(null);
-  const [paymentUrl, setPaymentUrl] = useState('');
-  const [result, setResult] = useState({});
-  const [error, setError] = useState('');
+  const [statusErr, setStatusErr] = useState('');
 
-  const BASE_AMOUNT_NANO = 500_000_000; // 0.5 TON
+  // quest
+  const [task, setTask] = useState(null);
+  const [answer, setAnswer] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  // Derived user state
-  const frags = Array.isArray(user?.fragments) ? user.fragments.map(Number) : [];
-  const has1 = frags.includes(1);
-  const has2 = frags.includes(2);
-  const has3 = frags.includes(3);
-  const mandatoryDone = has1 && has2 && has3;
+  const pollRef = useRef(null);
 
-  const curse = useMemo(() => {
-    if (!user?.is_cursed || !user?.curse_expires) return null;
-    const active = new Date(user.curse_expires) > new Date();
-    return active ? user.curse_expires : null;
-  }, [user]);
+  const isCursed = !!user?.is_cursed;
+  const hasTutorial = useMemo(() => {
+    const fr = user?.fragments || [];
+    return fr.includes(1) && fr.includes(2) && fr.includes(3);
+  }, [user?.fragments]);
 
-  // instant refresh on enter
-  useEffect(() => {
-    refreshUser?.({ silent: true, force: true });
-  }, [refreshUser]);
-
-  // poll while burn is blocked (no 1–3 or curse) OR while waiting for payment
-  useEffect(() => {
-    const needPoll = !mandatoryDone || !!curse || status === 'pending';
-    if (!needPoll) return;
-    const id = setInterval(() => refreshUser?.({ silent: true }), 3000);
-    return () => clearInterval(id);
-  }, [mandatoryDone, curse, status, refreshUser]);
-
-  // After success/error, pull fresh profile once (to get new fragment ASAP)
-  useEffect(() => {
-    if (status === 'success' || status === 'error') {
-      refreshUser?.({ silent: true, force: true });
-    }
-  }, [status, refreshUser]);
+  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
 
   const startBurn = async () => {
-    if (!mandatoryDone) {
-      setError('Collect fragments #1–#3 first.');
-      setStatus('error');
-      return;
-    }
-    if (curse) {
-      setError('You are cursed. Wait until the timer ends.');
-      setStatus('error');
-      return;
-    }
-    setStatus('pending');
-    setError('');
+    if (!user || isCursed || !hasTutorial) return;
+    setStatusErr('');
     try {
-      const { invoiceId, paymentUrl } = await API.createBurn(user.tg_id, BASE_AMOUNT_NANO);
-      setInvoiceId(invoiceId);
-      setPaymentUrl(paymentUrl);
+      const res = await API.createBurn(user.tg_id, TON_AMOUNT_NANO);
+      setInvoiceId(res.invoiceId);
+      setStage('awaiting');
+
+      // Poll payment status ONLY while awaiting
+      pollRef.current && clearInterval(pollRef.current);
+      pollRef.current = setInterval(async () => {
+        try {
+          const st = await API.getBurnStatus(res.invoiceId);
+          if (st?.paid) {
+            clearInterval(pollRef.current); pollRef.current = null;
+            if (st.task) {
+              setTask(st.task);
+              setStage('task');
+            } else {
+              // small retry after 1s in case task propagation lags
+              setTimeout(async () => {
+                try {
+                  const st2 = await API.getBurnStatus(res.invoiceId);
+                  if (st2?.task) { setTask(st2.task); setStage('task'); }
+                } catch (_) {}
+              }, 1000);
+            }
+          }
+        } catch (e) {
+          const msg = (e?.message || '').toLowerCase();
+          if (msg.includes('invalid token')) { logout(); navigate('/login'); }
+        }
+      }, 2000);
     } catch (e) {
-      setError(e.message || 'Error creating invoice');
-      setStatus('error');
-      if (String(e.message || '').toLowerCase().includes('invalid token')) {
-        logout();
-        navigate('/login');
-      }
+      const msg = e?.message || 'Failed to create burn';
+      setStatusErr(msg);
+      if (msg.toLowerCase().includes('invalid token')) { logout(); navigate('/login'); }
     }
   };
 
-  // Poll payment status when pending
-  useEffect(() => {
-    if (status !== 'pending' || !invoiceId) return;
-    const timer = setInterval(async () => {
-      try {
-        const res = await API.getBurnStatus(invoiceId);
-        if (res.paid) {
-          clearInterval(timer);
-          setResult(res);
-          setStatus('success');
+  const submitQuest = async () => {
+    if (!invoiceId || !task) return;
+    if (!answer) { setStatusErr('Choose or enter the answer'); return; }
+    setSubmitting(true); setStatusErr('');
+    try {
+      const resp = await API.completeBurn(invoiceId, true, { answer });
+      if (resp?.ok) {
+        if (Number.isFinite(resp.awardedFragment)) {
+          try { localStorage.setItem('newFragmentNotice', String(resp.awardedFragment)); } catch {}
         }
-      } catch (e) {
-        clearInterval(timer);
-        setError(e.message || 'Error checking payment');
-        setStatus('error');
-        if (String(e.message || '').toLowerCase().includes('invalid token')) {
-          logout();
-          navigate('/login');
+        if (resp?.cursed) {
+          // nothing special: UI will pick up curse on refresh
         }
+        if (typeof refreshUser === 'function') {
+          try { await refreshUser({ force: true }); } catch {}
+        }
+        navigate('/gallery');
+      } else {
+        setStatusErr(resp?.error || 'Quest failed');
       }
-    }, 3000);
-    return () => clearInterval(timer);
-  }, [status, invoiceId, logout, navigate]);
-
-  const rarityItems = [
-    { key: 'legendary', label: 'Legendary', percent: '5%',    icon: '/images/icons/legendary.png', top: 149 },
-    { key: 'rare',      label: 'Rare',      percent: '15%',   icon: '/images/icons/rare.png',      top: 218 },
-    { key: 'uncommon',  label: 'Uncommon',  percent: '30%',   icon: '/images/icons/uncommon.png',  top: 287 },
-    { key: 'common',    label: 'Common',    percent: '50%',   icon: '/images/icons/common.png',    top: 356 },
-  ];
-
-  const burnDisabled = !!curse || !mandatoryDone || status === 'pending';
+    } catch (e) {
+      setStatusErr(e?.message || 'Failed to complete burn');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
-    <div
-      style={{
-        position: 'relative',
-        width: '100%',
-        height: '100vh',
-        overflowX: 'hidden',
-        overflowY: 'auto',
-      }}
-    >
-      {/* Checker background */}
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          backgroundImage: "url('/images/Checker.webp')",
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          zIndex: 0,
-        }}
-      />
+    <div style={{ position: 'relative', width: '100%', minHeight: '100vh', overflow: 'hidden' }}>
+      {/* Background */}
+      <div style={{ position:'absolute', inset:0, backgroundImage:"url('/images/bg-burn.webp')", backgroundSize:'cover', backgroundPosition:'center' }} />
+      <div style={{ position:'absolute', inset:0, background:'rgba(0,0,0,0.6)' }} />
 
-      {/* Burn background + gradient */}
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          backgroundImage:
-            "linear-gradient(0deg, rgba(0,0,0,0.56), rgba(0,0,0,0.56)), url('/images/bg-burn.webp')",
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          zIndex: 1,
-        }}
-      />
+      <BackButton style={{ position:'absolute', top:16, left:16, zIndex:5, color:'#fff' }} />
 
-      {/* Навигация */}
-      <BackButton
-        style={{
-          position: 'absolute',
-          top: 16,
-          left: 16,
-          zIndex: 5,
-          color: '#ffffff',
-        }}
-      />
+      <h1 style={{ position:'absolute', top:25, left:41, fontSize:36, fontWeight:700, color:'#D6CEBD', zIndex:5 }}>Burn Yourself</h1>
 
-      {/* Заголовок */}
-      <h1
-        style={{
-          position: 'absolute',
-          top: 25,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          fontFamily: 'Tajawal, sans-serif',
-          fontWeight: 700,
-          fontSize: 40,
-          lineHeight: '48px',
-          color: '#9E9191',
-          whiteSpace: 'nowrap',
-          zIndex: 5,
-        }}
-      >
-        Burn&nbsp;Yourself
-      </h1>
-
-      {/* Баннеры блокировки */}
-      {!mandatoryDone && (
-        <div style={{
-          position:'absolute', top:80, left:'50%', transform:'translateX(-50%)',
-          background:'rgba(0,0,0,0.6)', color:'#fff', border:'1px solid #979696',
-          padding:'8px 12px', borderRadius:12, zIndex:6, whiteSpace:'nowrap'
-        }}>
-          Collect fragments #1–#3 to start burning.
+      {/* Rarity panel placeholder — keep your actual UI */}
+      <div style={{ position:'absolute', top:100, left:40, width:280, color:'#fff', zIndex:5 }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', border:'1px solid rgba(255,255,255,0.2)', borderRadius:16, padding:'12px 16px', marginBottom:12 }}>
+          <strong>Legendary</strong><span>5%</span>
         </div>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', border:'1px solid rgba(255,255,255,0.2)', borderRadius:16, padding:'12px 16px', marginBottom:12 }}>
+          <strong>Rare</strong><span>15%</span>
+        </div>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', border:'1px solid rgba(255,255,255,0.2)', borderRadius:16, padding:'12px 16px', marginBottom:12 }}>
+          <strong>Uncommon</strong><span>30%</span>
+        </div>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', border:'1px solid rgba(255,255,255,0.2)', borderRadius:16, padding:'12px 16px' }}>
+          <strong>Common</strong><span>50%</span>
+        </div>
+      </div>
+
+      {/* Error */}
+      {statusErr && (
+        <div style={{ position:'absolute', top:380, left:40, width:280, color:'tomato', zIndex:5 }}>{statusErr}</div>
       )}
-      {curse && (
-        <div style={{
-          position:'absolute', top:110, left:'50%', transform:'translateX(-50%)',
-          background:'rgba(0,0,0,0.6)', color:'#fff', border:'1px solid #979696',
-          padding:'8px 12px', borderRadius:12, zIndex:6, whiteSpace:'nowrap'
+
+      {/* CTA */}
+      {stage === 'idle' && !isCursed && hasTutorial && (
+        <div onClick={startBurn} style={{
+          position:'absolute', left:64, top:436, width:265, height:76,
+          backgroundImage:'linear-gradient(90deg, #D81E3D 0%, #D81E5F 100%)', boxShadow:'0px 6px 6px rgba(0,0,0,0.87)', borderRadius:40,
+          display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', zIndex:5,
         }}>
-          You are cursed. Time left: <Countdown to={curse} />
+          <span style={{ fontFamily:'Tajawal, sans-serif', fontWeight:700, fontSize:24, color:'#FFF' }}>BURN 0,5 TON</span>
         </div>
       )}
 
-      {/* Элемент редкости */}
-      <h3
-        style={{
-          position: 'absolute',
-          left: 46,
-          top: 90,
-          fontFamily: 'Tajawal, sans-serif',
-          fontWeight: 700,
-          fontSize: 20,
-          lineHeight: '24px',
-          color: '#9E9191',
-          zIndex: 5,
-        }}
-      >
-        Element rarity
-      </h3>
+      {/* Locked states */}
+      {stage === 'idle' && (!hasTutorial || isCursed) && (
+        <div style={{ position:'absolute', top:430, left:40, width:280, color:'#fff', zIndex:5, textAlign:'center', opacity:0.85 }}>
+          {!hasTutorial && <p style={{ margin:0 }}>Collect fragments #1–#3 to unlock burns.</p>}
+          {isCursed && <p style={{ margin:'6px 0 0' }}>You are cursed. Wait until the curse expires to burn again.</p>}
+        </div>
+      )}
 
-      {/* Ряды редкостей */}
-      {rarityItems.map(({ key, label, percent, icon, top }) => (
-        <React.Fragment key={key}>
-          <div
+      {/* Awaiting payment */}
+      {stage === 'awaiting' && (
+        <div style={{ position:'absolute', top:430, left:40, width:280, color:'#fff', zIndex:5, textAlign:'center' }}>
+          <p style={{ margin:0 }}>Waiting for payment…</p>
+          <p style={{ margin:'6px 0 0', fontSize:12, opacity:0.8 }}>Invoice: {invoiceId}</p>
+        </div>
+      )}
+
+      {/* Task */}
+      {stage === 'task' && task && (
+        <div style={{ position:'absolute', top:420, left:'50%', transform:'translateX(-50%)', width:320, background:'rgba(0,0,0,0.6)', border:'1px solid #9E9191', color:'#fff', borderRadius:16, padding:16, zIndex:6 }}>
+          <p style={{ margin:'0 0 12px', fontFamily:'Tajawal, sans-serif', fontWeight:700 }}>
+            {task.params?.question || 'Solve the quest to complete the burn:'}
+          </p>
+
+          {task.type === 'quiz' ? (
+            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+              {(task.params?.options || []).map((opt) => (
+                <label key={String(opt)} style={{ display:'flex', alignItems:'center', gap:8, cursor:'pointer' }}>
+                  <input type='radio' name='burn-quiz' value={String(opt)} onChange={(e) => setAnswer(e.target.value)} />
+                  <span>{String(opt)}</span>
+                </label>
+              ))}
+            </div>
+          ) : (
+            <input
+              type='text'
+              placeholder='Your answer'
+              value={answer}
+              onChange={(e)=>setAnswer(e.target.value)}
+              style={{ width:'100%', height:40, padding:'0 12px', borderRadius:10, border:'1px solid #9E9191', background:'#161616', color:'#fff' }}
+            />
+          )}
+
+          <button
+            onClick={submitQuest}
+            disabled={!answer || submitting}
             style={{
-              position: 'absolute',
-              left: 26,
-              top,
-              width: 58,
-              height: 58,
-              backgroundImage: `url('${icon}')`,
-              backgroundSize: 'contain',
-              backgroundPosition: 'center',
-              backgroundRepeat: 'no-repeat',
-              zIndex: 5,
-            }}
-          />
-          <div
-            style={{
-              position: 'absolute',
-              left: 102,
-              top,
-              width: 193,
-              height: 58,
-              border: '1px solid #979696',
-              borderRadius: 16,
-              zIndex: 5,
-            }}
-          />
-          <span
-            style={{
-              position: 'absolute',
-              left: 152,
-              top: top + 21,
-              fontFamily: 'Tajawal, sans-serif',
-              fontWeight: 700,
-              fontSize: 20,
-              lineHeight: '24px',
-              color: '#9E9191',
-              zIndex: 5,
+              marginTop:16, width:'100%', height:44,
+              background:'linear-gradient(90deg,#D81E3D 0%, #D81E5F 100%)',
+              border:'none', borderRadius:10, color:'#fff', fontWeight:700,
+              cursor:(!answer||submitting)?'default':'pointer', opacity:(!answer||submitting)?0.6:1
             }}
           >
-            {label}
-          </span>
-          <span
-            style={{
-              position: 'absolute',
-              left: 316,
-              top: top + 21,
-              fontFamily: 'Tajawal, sans-serif',
-              fontWeight: 700,
-              fontSize: 20,
-              lineHeight: '24px',
-              color: '#9E9191',
-              zIndex: 5,
-            }}
-          >
-            {percent}
-          </span>
-        </React.Fragment>
-      ))}
-
-      {/* Кнопка */}
-      <button
-        onClick={startBurn}
-        disabled={burnDisabled}
-        style={{
-          position: 'absolute',
-          left: 65,
-          top: 480,
-          width: 265,
-          height: 76,
-          backgroundImage: 'linear-gradient(90deg, #D81E3D 0%, #D81E5F 100%)',
-          boxShadow: '0px 6px 6px rgba(0,0,0,0.87)',
-          border: 'none',
-          borderRadius: 40,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 5,
-          cursor: burnDisabled ? 'not-allowed' : 'pointer',
-          opacity: burnDisabled ? 0.6 : 1,
-        }}
-        title={
-          curse ? 'Cursed — wait for timer'
-            : (!mandatoryDone ? 'Collect 1–3 first' : undefined)
-        }
-      >
-        <span
-          style={{
-            fontFamily: 'Tajawal, sans-serif',
-            fontWeight: 700,
-            fontSize: 24,
-            lineHeight: '29px',
-            color: '#FFFFFF',
-          }}
-        >
-          BURN&nbsp;0,5&nbsp;TON
-        </span>
-      </button>
-
-      {/* Back to Gallery */}
-<div
-  onClick={() => navigate('/gallery')}
-  style={{
-    position: 'absolute',
-    left: 65,
-    top: 566,                  // ниже основной кнопки
-    width: 265,
-    height: 56,                // чуть ниже и компактнее
-    backgroundImage: 'linear-gradient(90deg, #D81E3D 0%, #D81E5F 100%)',
-    boxShadow: '0px 6px 6px rgba(0,0,0,0.87)',
-    borderRadius: 40,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    cursor: 'pointer',
-    zIndex: 5,
-  }}
->
-  <span
-    style={{
-      fontFamily: 'Tajawal, sans-serif',
-      fontWeight: 700,
-      fontSize: 20,
-      color: '#FFF',
-      letterSpacing: 0.5,
-    }}
-  >
-    TO GALLERY
-  </span>
-</div>
-
-
-      {/* Подсказка */}
-      <p
-        style={{
-          position: 'absolute',
-          left: 42,
-          top: 650,
-          width: 318,
-          fontFamily: 'Tajawal, sans-serif',
-          fontWeight: 700,
-          fontSize: 15,
-          lineHeight: '18px',
-          color: '#9E9191',
-          textAlign: 'center',
-          zIndex: 5,
-        }}
-      >
-        Please ensure you send exactly 0.5 TON when making your payment. Transactions for any other amount may be lost.
-      </p>
-
-      {/* Оверлеи состояний */}
-      {status === 'pending' && (
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            backgroundColor: 'rgba(0,0,0,0.6)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 10,
-          }}
-        >
-          <span style={{ color: '#fff', fontSize: 18 }}>Waiting for payment...</span>
-        </div>
-      )}
-      {status === 'success' && (
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            backgroundColor: 'rgba(0,0,0,0.6)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 10,
-            color: '#fff',
-          }}
-        >
-          <span>Congratulations! Your burn was processed.</span>
-          <button onClick={() => navigate('/gallery')} style={{ marginTop: 16 }}>
-            View Gallery
+            {submitting ? 'Submitting…' : 'Complete Burn'}
           </button>
         </div>
       )}
-      {status === 'error' && (
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            backgroundColor: 'rgba(0,0,0,0.6)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 10,
-            color: 'tomato',
-          }}
-        >
-          <span>{error || 'Something went wrong'}</span>
-          <button onClick={() => setStatus('idle')} style={{ marginTop: 16 }}>
-            Try Again
-          </button>
-        </div>
-      )}
+
+      {/* To Gallery */}
+      <div
+        onClick={() => navigate('/gallery')}
+        style={{
+          position:'absolute', left:65, top:566, width:265, height:56,
+          backgroundImage:'linear-gradient(90deg, #D81E3D 0%, #D81E5F 100%)', boxShadow:'0px 6px 6px rgba(0,0,0,0.87)', borderRadius:40,
+          display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', zIndex:5,
+        }}
+      >
+        <span style={{ fontFamily:'Tajawal, sans-serif', fontWeight:700, fontSize:20, color:'#FFF', letterSpacing:0.5 }}>TO GALLERY</span>
+      </div>
     </div>
   );
 }

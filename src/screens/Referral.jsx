@@ -1,138 +1,107 @@
-// файл: src/screens/Referral.jsx
-import React, { useState, useEffect, useContext } from 'react';
+// src/screens/Referral.jsx
+import React, { useEffect, useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BackButton from '../components/BackButton';
-import { AuthContext } from '../context/AuthContext';
 import API from '../utils/apiClient';
+import { AuthContext } from '../context/AuthContext';
 
 export default function Referral() {
-  const { user, logout } = useContext(AuthContext);
+  const { logout, refreshUser } = useContext(AuthContext);
   const navigate = useNavigate();
 
-  const [refCode, setRefCode] = useState('');
-  const [invited, setInvited] = useState([]); // [{ name, date }]
-  const [bonusCount, setBonusCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [refCode, setRefCode] = useState('');
+  const [count, setCount] = useState(0);
+  const [rewardIssued, setRewardIssued] = useState(false);
   const [claiming, setClaiming] = useState(false);
-  const [message, setMessage] = useState('');
 
   useEffect(() => {
-    async function fetchReferral() {
-      setLoading(true);
-      setError('');
+    let mounted = true;
+    (async () => {
       try {
-        const data = await API.getReferral();
-        setRefCode(data.refCode);
-        setInvited([]); // API does not return list details by default
-        setBonusCount(data.invitedCount);
+        const res = await API.getReferral();
+        if (!mounted) return;
+        setRefCode(res.ref_code || res.code || '');
+        setCount(res.invite_count ?? res.count ?? 0);
+        setRewardIssued(!!res.rewardIssued);
       } catch (e) {
-        console.error('[Referral] load error', e);
-        if (e.message.toLowerCase().includes('invalid token')) {
-          logout();
-          navigate('/login');
-        } else {
-          setError('Не удалось загрузить реферальные данные');
-        }
+        const msg = e?.message || 'Failed to load referral info';
+        setError(msg);
+        if (msg.toLowerCase().includes('invalid token')) { logout(); navigate('/login'); }
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
-    }
-    fetchReferral();
-  }, [user, logout, navigate]);
+    })();
+    return () => { mounted = false; };
+  }, [logout, navigate]);
 
-  const shareUrl = `${window.location.origin}/?ref=${refCode}`;
+  const eligible = !rewardIssued && count >= 3;
 
-  const handleClaim = async () => {
-    setClaiming(true);
-    setMessage('');
+  const claim = async () => {
+    if (!eligible || claiming) return;
+    setClaiming(true); setError('');
     try {
-      await API.claimReferral();
-      setBonusCount(prev => prev + 1);
-      setMessage('Бонус успешно получен!');
+      const res = await API.claimReferral();
+      if (res?.ok) {
+        try { localStorage.setItem('newFragmentNotice', '2'); } catch {}
+        if (typeof refreshUser === 'function') {
+          try { await refreshUser({ force: true }); } catch {}
+        }
+        navigate('/gallery', { replace: true });
+      } else {
+        setError(res?.error || 'Unable to claim now');
+      }
     } catch (e) {
-      console.error('[Referral] claim error', e);
-      setMessage('Ошибка при получении бонуса');
+      setError(e?.message || 'Claim failed');
     } finally {
       setClaiming(false);
     }
   };
 
+  if (loading) {
+    return (
+      <div style={{ position:'relative', width:'100%', height:'100vh', background:'#000', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center' }}>
+        Loading…
+      </div>
+    );
+  }
+
   return (
-    <div className="relative min-h-screen bg-gradient-to-br from-[#1A1A2E] to-[#16213E] text-white">
-      <div className="absolute inset-0 bg-black opacity-60" />
-      <div className="relative z-10 max-w-md mx-auto px-4 py-8">
-        <BackButton className="text-white mb-4" />
-        <h2 className="text-3xl font-bold font-montserrat text-center mb-6">Referral Program</h2>
+    <div style={{ position:'relative', width:'100%', height:'100vh', overflow:'hidden' }}>
+      {/* Background */}
+      <div style={{ position:'absolute', inset:0, backgroundImage:"url('/images/bg-path.webp')", backgroundSize:'cover', backgroundPosition:'center' }} />
+      <div style={{ position:'absolute', inset:0, background:'rgba(0,0,0,0.5)' }} />
 
-        {loading && <p className="text-gray-300 text-center">Loading...</p>}
-        {error && <p className="text-red-400 text-center">{error}</p>}
+      <BackButton style={{ position:'absolute', top:16, left:16, zIndex:5, color:'#fff' }} />
 
-        {!loading && !error && (
-          <div className="bg-gray-800 bg-opacity-90 backdrop-blur-sm rounded-xl p-6 space-y-6">
-            {/* Code & Link */}
-            <div className="space-y-2">
-              <span className="font-inter text-sm text-gray-400">Your code:</span>
-              <div className="flex">
-                <input
-                  type="text"
-                  value={refCode}
-                  readOnly
-                  className="flex-1 px-3 py-2 bg-gray-700 rounded-l-md text-white font-inter"
-                />
-                <button
-                  onClick={() => { navigator.clipboard.writeText(refCode); setMessage('Код скопирован'); }}
-                  className="px-4 py-2 bg-[#4ECDC4] hover:bg-[#48C9B0] rounded-r-md font-inter"
-                >Copy</button>
-              </div>
-              <span className="font-inter text-sm text-gray-400">Your link:</span>
-              <div className="flex">
-                <input
-                  type="text"
-                  value={shareUrl}
-                  readOnly
-                  className="flex-1 px-3 py-2 bg-gray-700 rounded-l-md text-white text-sm font-inter"
-                />
-                <button
-                  onClick={() => { navigator.clipboard.writeText(shareUrl); setMessage('Ссылка скопирована'); }}
-                  className="px-4 py-2 bg-[#4ECDC4] hover:bg-[#48C9B0] rounded-r-md font-inter"
-                >Copy</button>
-              </div>
-            </div>
+      <h1 style={{ position:'absolute', top:25, left:41, fontSize:36, fontWeight:700, color:'#D6CEBD', zIndex:5 }}>Referral</h1>
 
-            {/* Invited List */}
-            <div>
-              <h3 className="font-inter font-semibold text-gray-200">Invited Friends:</h3>
-              {invited.length === 0 ? (
-                <p className="text-gray-400">No friends invited yet.</p>
-              ) : (
-                <ul className="mt-2 max-h-32 overflow-y-auto space-y-1">
-                  {invited.map((f, idx) => (
-                    <li key={idx} className="flex justify-between bg-gray-700 px-3 py-1 rounded font-inter">
-                      <span>{f.name}</span>
-                      <span className="text-sm text-gray-400">{f.date}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+      <div style={{ position:'absolute', top:120, left:'50%', transform:'translateX(-50%)', width:320, background:'rgba(0,0,0,0.6)', border:'1px solid #9E9191', color:'#fff', borderRadius:16, padding:16, zIndex:5 }}>
+        {error && <div style={{ color:'tomato', marginBottom:8 }}>{error}</div>}
 
-            {/* Bonus & Claim */}
-            <div className="space-y-2">
-              <p className="font-inter">Bonus Burns Available: <span className="font-semibold">{bonusCount}</span></p>
-              <button
-                onClick={handleClaim}
-                disabled={claiming || bonusCount === 0}
-                className={`w-full py-2 rounded-lg font-inter font-semibold transition ${
-                  bonusCount > 0 ? 'bg-[#FF6B6B] hover:bg-[#FF4757]' : 'bg-gray-600 cursor-not-allowed'
-                }`}
-              >
-                {claiming ? 'Claiming…' : 'Claim Bonus'}
-              </button>
-              {message && <p className="text-sm text-center text-yellow-300">{message}</p>}
-            </div>
-          </div>
-        )}
+        <div style={{ marginBottom:12 }}>
+          <div style={{ opacity:0.8, fontSize:12 }}>Your referral code</div>
+          <div style={{ fontFamily:'Tajawal, sans-serif', fontWeight:700, fontSize:18 }}>{refCode || '—'}</div>
+        </div>
+
+        <div style={{ marginBottom:12 }}>
+          <div style={{ opacity:0.8, fontSize:12 }}>Confirmed invites</div>
+          <div style={{ fontFamily:'Tajawal, sans-serif', fontWeight:700, fontSize:18 }}>{count}</div>
+        </div>
+
+        <button
+          onClick={claim}
+          disabled={!eligible || claiming}
+          style={{
+            width:'100%', height:44, marginTop:8,
+            background: eligible && !claiming ? 'linear-gradient(90deg,#D81E3D 0%, #D81E5F 100%)' : '#555',
+            border:'none', borderRadius:10, color:'#fff', fontWeight:700,
+            cursor: eligible && !claiming ? 'pointer' : 'default', opacity: eligible && !claiming ? 1 : 0.6
+          }}
+        >
+          {claiming ? 'Claiming…' : rewardIssued ? 'Already claimed' : 'Claim Fragment #2'}
+        </button>
       </div>
     </div>
   );
