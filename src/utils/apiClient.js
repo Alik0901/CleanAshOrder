@@ -1,4 +1,6 @@
 // src/utils/apiClient.js
+
+// Base URL
 const BASE = (
   import.meta.env.VITE_API_BASE_URL ||
   'https://clean-ash-order.vercel.app'
@@ -10,7 +12,14 @@ function authHeader() {
 }
 
 async function handleResponse(response) {
-  const data = await response.json();
+  let data = null;
+  try {
+    data = await response.json();
+  } catch (_) {
+    // non-JSON (shouldn't happen in our API) — fabricate a minimal error
+    if (!response.ok) throw new Error(response.statusText || 'HTTP error');
+    return {};
+  }
   if (!response.ok) {
     const err = data.error || response.statusText;
     throw new Error(err);
@@ -18,13 +27,16 @@ async function handleResponse(response) {
   return data;
 }
 
-/** ── Дедуп и троттлинг для /api/player/:tg_id ───────────────────────── */
+/**
+ * Get-player throttling & in-flight dedup
+ */
 let _gpInFlight = null;
 let _gpLastTs   = 0;
 let _gpCache    = null;
-const GP_MIN_GAP = 5000; // не чаще 1 запроса в 5с
+const GP_MIN_GAP = 5000; // 1 call / 5s per tg_id
 
 const API = {
+  // Auth / Init
   init: async ({ tg_id, name, initData, referrer_code }) => {
     const res = await fetch(`${BASE}/api/init`, {
       method: 'POST',
@@ -34,45 +46,36 @@ const API = {
     return handleResponse(res);
   },
 
+  // Player (central refresh consumes this)
   getPlayer: async (tgId) => {
     const now = Date.now();
-
-    // Если уже есть выполняющийся — вернём тот же промис
     if (_gpInFlight) return _gpInFlight;
-
-    // Если недавно обновляли и есть кэш — вернём кэш
     if (_gpCache && (now - _gpLastTs) < GP_MIN_GAP) return _gpCache;
 
     const doFetch = async () => {
-      const res = await fetch(`${BASE}/api/player/${tgId}`, {
-        headers: authHeader(),
-      });
+      const res = await fetch(`${BASE}/api/player/${tgId}`, { headers: authHeader() });
       const data = await handleResponse(res);
       _gpCache  = data;
       _gpLastTs = Date.now();
       return data;
     };
 
-    _gpInFlight = doFetch()
-      .finally(() => { _gpInFlight = null; });
-
+    _gpInFlight = doFetch().finally(() => { _gpInFlight = null; });
     return _gpInFlight;
   },
 
+  // Fragments
   getFragments: async (tgId) => {
-    const res = await fetch(`${BASE}/api/fragments/${tgId}`, {
-      headers: authHeader(),
-    });
+    const res = await fetch(`${BASE}/api/fragments/${tgId}`, { headers: authHeader() });
     return handleResponse(res);
   },
 
   getSignedFragmentUrls: async () => {
-    const res = await fetch(`${BASE}/api/fragments/urls`, {
-      headers: authHeader(),
-    });
+    const res = await fetch(`${BASE}/api/fragments/urls`, { headers: authHeader() });
     return handleResponse(res);
   },
 
+  // Burn flow
   createBurn: async (tgId, amount_nano = 500_000_000) => {
     const res = await fetch(`${BASE}/api/burn-invoice`, {
       method: 'POST',
@@ -83,16 +86,13 @@ const API = {
   },
 
   getBurnStatus: async (invoiceId) => {
-    const res = await fetch(`${BASE}/api/burn-status/${invoiceId}`, {
-      headers: authHeader(),
-    });
+    const res = await fetch(`${BASE}/api/burn-status/${invoiceId}`, { headers: authHeader() });
     return handleResponse(res);
   },
 
+  // Referral
   getReferral: async () => {
-    const res = await fetch(`${BASE}/api/referral`, {
-      headers: authHeader(),
-    });
+    const res = await fetch(`${BASE}/api/referral`, { headers: authHeader() });
     return handleResponse(res);
   },
 
@@ -104,6 +104,7 @@ const API = {
     return handleResponse(res);
   },
 
+  // Final phrase
   validateFinal: async (phrase) => {
     const res = await fetch(`${BASE}/api/validate-final`, {
       method: 'POST',
@@ -114,16 +115,28 @@ const API = {
   },
 
   getFinal: async (tgId) => {
-    const res = await fetch(`${BASE}/api/final/${tgId}`, {
-      headers: authHeader(),
+    const res = await fetch(`${BASE}/api/final/${tgId}`, { headers: authHeader() });
+    return handleResponse(res);
+  },
+
+  // Third Fragment Quest (NEW)
+  getThirdQuest: async () => {
+    const res = await fetch(`${BASE}/api/third-quest`, { headers: authHeader() });
+    return handleResponse(res);
+  },
+
+  claimThirdQuest: async (answer) => {
+    const res = await fetch(`${BASE}/api/third-claim`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeader() },
+      body: JSON.stringify({ answer })
     });
     return handleResponse(res);
   },
 
+  // Stats / Misc
   getStats: async () => {
-    const res = await fetch(`${BASE}/api/stats/total_users`, {
-      headers: authHeader(),
-    });
+    const res = await fetch(`${BASE}/api/stats/total_users`, { headers: authHeader() });
     return handleResponse(res);
   },
 
@@ -154,9 +167,7 @@ const API = {
   },
 
   getUserStats: async (tgId) => {
-    const res = await fetch(`${BASE}/api/stats/${tgId}`, {
-      headers: authHeader(),
-    });
+    const res = await fetch(`${BASE}/api/stats/${tgId}`, { headers: authHeader() });
     return handleResponse(res);
   },
 };
