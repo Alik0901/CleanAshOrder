@@ -64,8 +64,14 @@ export default function Gallery() {
 
   const lastUrlsRefresh = useRef(0);
 
+  // + новые стейты вверху компонента
+  const [awardId, setAwardId] = useState(null);      // номер полученного фрагмента
+  const [showAward, setShowAward] = useState(false); // модалка награды
+
+
   // initial load: take fragments from context, fetch signed URLs once
   // initial load: union(API, context) + optimistic add from localStorage
+// initial load: union(API, context) + optimistic add from localStorage
 useEffect(() => {
   let cancelled = false;
   (async () => {
@@ -77,15 +83,15 @@ useEffect(() => {
       ]);
       if (cancelled) return;
 
-      // База — объединение API и контекста (на случай рассинхрона)
       let next = norm([...(frFromApi || []), ...(user?.fragments || [])]);
 
-      // Оптимистически дорисовать только что выданный фрагмент
+      // 🔸 НЕ чистим флаг — запускаем модалку
       const pending = Number(localStorage.getItem('newFragmentNotice'));
-      if (Number.isFinite(pending) && pending >= 1 && pending <= 8 && !next.includes(pending)) {
-        next = norm([...next, pending]);
+      if (Number.isFinite(pending) && pending >= 1 && pending <= 8) {
+        if (!next.includes(pending)) next = norm([...next, pending]);
+        setAwardId(pending);
+        setShowAward(true);
       }
-      try { localStorage.removeItem('newFragmentNotice'); } catch {}
 
       setSignedUrls(signedUrls || {});
       lastUrlsRefresh.current = Date.now();
@@ -103,11 +109,24 @@ useEffect(() => {
   return () => { cancelled = true; };
 }, [user?.tg_id, logout, navigate]);
 
+// (опционально) когда модалка открылась, обновить ссылки (на случай TTL)
+useEffect(() => {
+  if (!showAward) return;
+  (async () => {
+    try {
+      const { signedUrls } = await API.getSignedFragmentUrls();
+      setSignedUrls(signedUrls || {});
+      lastUrlsRefresh.current = Date.now();
+    } catch {}
+  })();
+}, [showAward]);
+
+
 // react to context user.fragments changes (no local polling) + optimistic merge
 useEffect(() => {
   let next = norm(user?.fragments || []);
 
-  // если вдруг модалка уже поставила флаг — учтём и здесь
+  // учитываем возможный pending для согласованности с сеткой
   const pending = Number(localStorage.getItem('newFragmentNotice'));
   if (Number.isFinite(pending) && pending >= 1 && pending <= 8 && !next.includes(pending)) {
     next = norm([...next, pending]);
@@ -115,7 +134,6 @@ useEffect(() => {
 
   if (!same(next, fragments)) {
     setFragments(next);
-    // при изменении набора — освежим подписи URL (TTL/новые картинки)
     (async () => {
       try {
         const { signedUrls } = await API.getSignedFragmentUrls();
@@ -124,10 +142,10 @@ useEffect(() => {
       } catch (_) {}
     })();
   }
-
-  try { localStorage.removeItem('newFragmentNotice'); } catch {}
+  // ❌ не удаляем newFragmentNotice здесь
   // eslint-disable-next-line react-hooks/exhaustive-deps
 }, [user?.fragments]);
+
 
 // refresh signed URLs TTL every ~4 minutes (keeps HMAC links fresh)
 useEffect(() => {
@@ -379,6 +397,40 @@ useEffect(() => {
           </div>
         </Modal>
       )}
+
+      // рендер модалки награды (поставь рядом с уже существующими модалками)
+{showAward && awardId && (
+  <div style={{
+    position:'fixed', inset:0, background:'rgba(0,0,0,0.78)',
+    display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999
+  }}>
+    <div style={{
+      width:320, background:'#2a2a2a', color:'#fff',
+      border:'1px solid #9E9191', borderRadius:16, padding:16, textAlign:'center'
+    }}>
+      <h3 style={{ margin:'0 0 6px' }}>Fragment #{awardId} obtained!</h3>
+      <p style={{ margin:'0 0 12px' }}>A new piece joins your collection.</p>
+      <img
+        alt={`Fragment ${awardId}`}
+        src={signedUrls[FRAGMENT_FILES[awardId]]}
+        style={{ width:150, height:150, objectFit:'cover', borderRadius:8, margin:'0 auto 16px' }}
+      />
+      <button
+        onClick={() => {
+          setShowAward(false);
+          try { localStorage.removeItem('newFragmentNotice'); } catch {}
+        }}
+        style={{
+          width:'100%', height:44,
+          background:'linear-gradient(90deg,#D81E3D 0%, #D81E5F 100%)',
+          border:'none', borderRadius:10, color:'#fff', fontWeight:700, cursor:'pointer'
+        }}
+      >
+        Continue
+      </button>
+    </div>
+  </div>
+)}
 
       {/* First Fragment Modal (kept) */}
       {showFirstFragmentNotice && (
