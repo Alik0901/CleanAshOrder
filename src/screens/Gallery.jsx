@@ -65,64 +65,87 @@ export default function Gallery() {
   const lastUrlsRefresh = useRef(0);
 
   // initial load: take fragments from context, fetch signed URLs once
-  useEffect(() => {
-    let cancelled = false;
+  // initial load: union(API, context) + optimistic add from localStorage
+useEffect(() => {
+  let cancelled = false;
+  (async () => {
+    setLoading(true); setError('');
+    try {
+      const [{ signedUrls }, { fragments: frFromApi }] = await Promise.all([
+        API.getSignedFragmentUrls(),
+        API.getFragments(user.tg_id),
+      ]);
+      if (cancelled) return;
+
+      // База — объединение API и контекста (на случай рассинхрона)
+      let next = norm([...(frFromApi || []), ...(user?.fragments || [])]);
+
+      // Оптимистически дорисовать только что выданный фрагмент
+      const pending = Number(localStorage.getItem('newFragmentNotice'));
+      if (Number.isFinite(pending) && pending >= 1 && pending <= 8 && !next.includes(pending)) {
+        next = norm([...next, pending]);
+      }
+      try { localStorage.removeItem('newFragmentNotice'); } catch {}
+
+      setSignedUrls(signedUrls || {});
+      lastUrlsRefresh.current = Date.now();
+      setFragments(next);
+    } catch (e) {
+      if (String(e?.message || '').toLowerCase().includes('invalid token')) {
+        logout(); navigate('/login');
+      } else {
+        setError(e?.message || 'Failed to load');
+      }
+    } finally {
+      if (!cancelled) setLoading(false);
+    }
+  })();
+  return () => { cancelled = true; };
+}, [user?.tg_id, logout, navigate]);
+
+// react to context user.fragments changes (no local polling) + optimistic merge
+useEffect(() => {
+  let next = norm(user?.fragments || []);
+
+  // если вдруг модалка уже поставила флаг — учтём и здесь
+  const pending = Number(localStorage.getItem('newFragmentNotice'));
+  if (Number.isFinite(pending) && pending >= 1 && pending <= 8 && !next.includes(pending)) {
+    next = norm([...next, pending]);
+  }
+
+  if (!same(next, fragments)) {
+    setFragments(next);
+    // при изменении набора — освежим подписи URL (TTL/новые картинки)
     (async () => {
-      setLoading(true); setError('');
       try {
         const { signedUrls } = await API.getSignedFragmentUrls();
-        if (cancelled) return;
         setSignedUrls(signedUrls || {});
         lastUrlsRefresh.current = Date.now();
-
-        // sync with context on first mount
-        setFragments(norm(user?.fragments || []));
-      } catch (e) {
-        if (String(e?.message || '').toLowerCase().includes('invalid token')) {
-          logout(); navigate('/login');
-        } else {
-          setError(e?.message || 'Failed to load');
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [user?.tg_id, logout, navigate]);
-
-  // react to context user.fragments changes (no local polling)
-  useEffect(() => {
-    const next = norm(user?.fragments || []);
-    if (!same(next, fragments)) {
-      setFragments(next);
-      // refresh signed URLs when collection changes (new images may be needed)
-      (async () => {
-        try {
-          const { signedUrls } = await API.getSignedFragmentUrls();
-          setSignedUrls(signedUrls || {});
-          lastUrlsRefresh.current = Date.now();
-        } catch (_) {}
-      })();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.fragments]);
-
-  // refresh signed URLs TTL every ~4 minutes (keeps HMAC links fresh)
-  useEffect(() => {
-    let cancelled = false;
-    const tick = async () => {
-      if (Date.now() - lastUrlsRefresh.current < 4 * 60 * 1000) return;
-      try {
-        const { signedUrls } = await API.getSignedFragmentUrls();
-        if (!cancelled) {
-          setSignedUrls(signedUrls || {});
-          lastUrlsRefresh.current = Date.now();
-        }
       } catch (_) {}
-    };
-    const id = setInterval(tick, 60 * 1000);
-    return () => { cancelled = true; clearInterval(id); };
-  }, []);
+    })();
+  }
+
+  try { localStorage.removeItem('newFragmentNotice'); } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [user?.fragments]);
+
+// refresh signed URLs TTL every ~4 minutes (keeps HMAC links fresh)
+useEffect(() => {
+  let cancelled = false;
+  const tick = async () => {
+    if (Date.now() - lastUrlsRefresh.current < 4 * 60 * 1000) return;
+    try {
+      const { signedUrls } = await API.getSignedFragmentUrls();
+      if (!cancelled) {
+        setSignedUrls(signedUrls || {});
+        lastUrlsRefresh.current = Date.now();
+      }
+    } catch (_) {}
+  };
+  // раз в минуту проверяем, не пора ли обновить TTL
+  const id = setInterval(tick, 60 * 1000);
+  return () => { cancelled = true; clearInterval(id); };
+}, []);
 
   // NOTICE LOGIC (fixed):
   // - If `newFragmentNotice` exists in localStorage -> show generic modal for that fragment id, then clear it.
