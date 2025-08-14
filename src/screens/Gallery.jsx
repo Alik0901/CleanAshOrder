@@ -77,17 +77,33 @@ const readPendingNotice = () => {
     const raw = localStorage.getItem('newFragmentNotice');
     if (!raw) return null;
 
-    // сначала пробуем JSON { id, rarity, ts }
+    let id = null;
+    let rarity = null;
+
+    // Пытаемся распарсить JSON
     try {
-      const obj = JSON.parse(raw);
-      const id = Number(obj?.id);
-      if (Number.isFinite(id)) return { id, rarity: obj?.rarity || null };
-    } catch (_) {
-      // fallback: legacy строка "2"/"3"
-      const id = parseInt(raw, 10);
-      if (Number.isFinite(id)) return { id, rarity: null };
+      const val = JSON.parse(raw);
+
+      if (typeof val === 'number') {
+        // case: raw === "2"  -> JSON.parse -> 2
+        id = val;
+      } else if (typeof val === 'string') {
+        // case: raw === "\"2\"" -> JSON.parse -> "2"
+        const n = parseInt(val, 10);
+        if (Number.isFinite(n)) id = n;
+      } else if (val && typeof val === 'object') {
+        const n = Number(val.id);
+        if (Number.isFinite(n)) id = n;
+        if (val.rarity) rarity = String(val.rarity);
+      }
+    } catch {
+      // не JSON → пробуем как строку/число
+      const n = parseInt(raw, 10);
+      if (Number.isFinite(n)) id = n;
     }
-  } catch (_) {}
+
+    if (Number.isFinite(id)) return { id, rarity };
+  } catch {}
   return null;
 };
 
@@ -285,31 +301,36 @@ if (error)   return <p style={{ padding: 16, color: 'tomato' }}>{error}</p>;
           const owned = fragments.includes(id);
           const file  = FRAGMENT_FILES[id];
           const url   = signedUrls[file];
-          const bust  = `&ts=${Date.now()}`;
+          const hasQuery = typeof url === 'string' && url.includes('?');
+          const bust = `${hasQuery ? '&' : '?'}ts=${Date.now()}`;
           return (
             <React.Fragment key={id}>
-              <div
-                onClick={() => owned && url && setZoomUrl(`${url}${bust}`)}
-                style={{
-                  position: 'absolute',
-                  left:     pos.left,
-                  top:      pos.top,
-                  width:    80,
-                  height:   80,
-                  border:   '1px solid #808080',
-                  overflow: 'hidden',
-                  cursor:   owned ? 'pointer' : 'default',
-                  zIndex:   5,
-                }}
-              >
-                {owned && url && (
-                  <img
-                    src={`${url}${bust}`}
-                    alt={`Fragment ${id}`}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  />
-                )}
-              </div>
+          <div
+            onClick={() => {
+              if (owned && url) {
+                setZoomUrl(`${url}${bust}`);
+              }
+            }}
+            style={{
+              position: 'absolute',
+              left:     pos.left,
+              top:      pos.top,
+              width:    80,
+              height:   80,
+              border:   '1px solid #808080',
+              overflow: 'hidden',
+              cursor:   owned ? 'pointer' : 'default',
+              zIndex:   5,
+            }}
+          >
+            {owned && url && (
+              <img
+                src={`${url}${bust}`}
+                alt={`Fragment ${id}`}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            )}
+          </div>
               {!owned && (
                 <span style={{
                   position: 'absolute',
@@ -430,23 +451,32 @@ if (error)   return <p style={{ padding: 16, color: 'tomato' }}>{error}</p>;
 
       {/* Zoom Modal */}
       {zoomUrl && (
-        <Modal onClose={() => setZoomUrl(null)}>
-          <div onClick={() => setZoomUrl(null)} style={{
-            width: '100%',
-            height: '100%',
+        <div
+          onClick={() => setZoomUrl(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.88)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            cursor: 'pointer',
-          }}>
-            <img
-              src={zoomUrl}
-              alt="Fragment zoom"
-              style={{ maxWidth: '90%', maxHeight: '90%' }}
-            />
-          </div>
-        </Modal>
+            zIndex: 10000, // выше любых слоёв
+            cursor: 'zoom-out',
+          }}
+        >
+          <img
+            src={zoomUrl}
+            alt="Fragment zoom"
+            style={{
+              maxWidth: '92%',
+              maxHeight: '88%',
+              borderRadius: 12,
+              boxShadow: '0 12px 40px rgba(0,0,0,0.6)',
+            }}
+          />
+        </div>
       )}
+
 
       {/* рендер модалки награды (показываем также редкость) */}
       {showAward && awardId && (
