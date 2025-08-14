@@ -1,15 +1,14 @@
 // src/components/BackButton.jsx
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
 
-export default function BackButton({ label = 'Back' }) {
-  const navigate = useNavigate();
-  return (
-    <button
-      onClick={() => navigate(-1)}
-      className="inline-flex items-center text-sm text-gray-600 hover:text-gray-800 p-2"
-    >
-      ← {label}
-    </button>
-  );
+export default function BackButton() {
+  // на всякий случай прячем и здесь
+  useEffect(() => {
+    try {
+      const tg = window?.Telegram?.WebApp;
+      tg?.BackButton?.hide();
+    } catch {}
+  }, []);
+  return null; // ничего не рисуем
 }
+

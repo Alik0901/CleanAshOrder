@@ -1,5 +1,4 @@
 // src/screens/Home.jsx
-import React, { useEffect, useContext, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import bgWelcome from '../assets/images/converted_minimal.jpg';
 import logo from '../assets/images/logo_trimmed_optimized.png';
@@ -163,7 +162,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* Баннер — собери 1–3 до старта */}
+      {/* Баннер — собери 1–3 до старта (адаптивный) */}
       {!mandatoryDone && (
         <div
           style={{
@@ -171,23 +170,84 @@ export default function Home() {
             top: curse ? 110 : 72,
             left: '50%',
             transform: 'translateX(-50%)',
-            background: 'rgba(0,0,0,0.6)',
-            border: '1px solid #9E9191',
-            color: '#fff',
-            padding: '10px 12px',
-            borderRadius: 12,
             zIndex: 30,
-            whiteSpace: 'nowrap',
+
+            // контейнер
+            width: 'calc(100% - 32px)',
+            maxWidth: 414,
+            padding: '12px 14px',
+            borderRadius: 14,
+            border: '1px solid rgba(157,157,157,0.7)',
+            background:
+              'linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.35) 100%)',
+            boxShadow: '0 6px 18px rgba(0,0,0,0.35)',
           }}
         >
-          Collect fragments #1–#3 to start burning.&nbsp;
-          <Link to="/referral" style={{ color: '#fff', textDecoration: 'underline' }}>
-            Invite friends
-          </Link>
-          &nbsp;·&nbsp;
-          <Link to="/third" style={{ color: '#fff', textDecoration: 'underline' }}>
-            Claim #3
-          </Link>
+          <div
+            style={{
+              color: '#D6CEBD',
+              fontWeight: 700,
+              fontSize: 'clamp(13px, 3.8vw, 16px)',
+              lineHeight: 1.35,
+              wordBreak: 'break-word',
+              overflowWrap: 'anywhere',
+              hyphens: 'auto',
+              textAlign: 'center',
+              marginBottom: 10,
+            }}
+          >
+            Collect fragments #1–#3 to unlock the burn. Invite friends to claim #2,
+            and complete the Third Quest for #3.
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: 10,
+            }}
+          >
+            <Link
+              to="/referral"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: 44,
+                borderRadius: 12,
+                border: '1px solid #9D9D9D',
+                background: 'rgba(0,0,0,0.35)',
+                color: '#fff',
+                fontWeight: 700,
+                fontSize: 14,
+                textDecoration: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              Invite friends
+            </Link>
+
+            <Link
+              to="/third"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: 44,
+                borderRadius: 12,
+                border: 'none',
+                background: 'linear-gradient(90deg, #D81E3D 0%, #D81E5F 100%)',
+                color: '#fff',
+                fontWeight: 700,
+                fontSize: 14,
+                textDecoration: 'none',
+                boxShadow: '0 6px 12px rgba(0,0,0,0.35)',
+                cursor: 'pointer',
+              }}
+            >
+              Claim #3
+            </Link>
+          </div>
         </div>
       )}
 

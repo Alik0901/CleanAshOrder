@@ -13,11 +13,21 @@ import FinalPhrase from './screens/FinalPhrase';
 import Congrats    from './screens/Congrats';
 import Profile     from './screens/Profile';
 import ThirdQuest  from './screens/ThirdQuest';
+import { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 
 import { AuthContext } from './context/AuthContext';
 
 export default function App() {
   const { user } = useContext(AuthContext);
+  const location = useLocation();
+
+  useEffect(() => {
+  try {
+    const tg = window?.Telegram?.WebApp;
+    tg?.BackButton?.hide();
+  } catch {}
+  }, [location.pathname]);
 
   // Пока инициализируем сессию
   if (user === undefined) {
