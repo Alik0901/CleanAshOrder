@@ -1,4 +1,5 @@
 // src/screens/Home.jsx
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import bgWelcome from '../assets/images/converted_minimal.jpg';
 import logo from '../assets/images/logo_trimmed_optimized.png';
