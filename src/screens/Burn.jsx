@@ -147,7 +147,7 @@ export default function Burn() {
       }
 
       if (Number.isFinite(res.newFragment)) {
-        // Store local notice for Gallery (award banner) and open cipher immediately.
+        // Store local notice for Gallery (award banner)
         try {
           localStorage.setItem(
             'newFragmentNotice',
@@ -157,18 +157,22 @@ export default function Burn() {
               ts: Date.now(),
             })
           );
-        } catch {
-          /* ignore */
-        }
+        } catch {}
 
+        // Помечаем авто-показ для этого фрагмента (v4)
+        try {
+          const tg = user?.tg_id || 'anon';
+          localStorage.setItem(`autoCipherShown:v4:${tg}:${res.newFragment}`, '1');
+        } catch {}
+
+        // Синхронизация профиля
         try {
           if (typeof refreshUser === 'function') {
             await refreshUser({ force: true });
           }
-        } catch {
-          /* ignore */
-        }
+        } catch { /* ignore */ }
 
+        // Открыть шифр сразу
         setCipherFragId(res.newFragment);
         setStage('idle');
         return;
