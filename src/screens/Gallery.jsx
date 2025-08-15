@@ -651,26 +651,30 @@ export default function Gallery() {
             <p style={{ margin: '0 0 12px' }}>A new piece joins your collection.</p>
 
             <button
-              onClick={() => {
-                setShowAward(false);
-                setAwardRarity(null);
-                try {
-                  localStorage.removeItem('newFragmentNotice');
-                } catch {}
-              }}
-              style={{
-                width: '100%',
-                height: 44,
-                background: 'linear-gradient(90deg,#D81E3D 0%, #D81E5F 100%)',
-                border: 'none',
-                borderRadius: 10,
-                color: '#fff',
-                fontWeight: 700,
-                cursor: 'pointer',
-              }}
-            >
-              Continue
-            </button>
+            onClick={() => {
+              setShowAward(false);
+              setAwardRarity(null);
+              // сразу открыть шифр для выданного фрагмента (если руна ещё не выбрана)
+              if (awardId && !(runesByFrag[awardId]?.runeId)) {
+                setCipherFragId(awardId);
+              }
+              try {
+                localStorage.removeItem('newFragmentNotice');
+              } catch {}
+            }}
+            style={{
+              width: '100%',
+              height: 44,
+              background: 'linear-gradient(90deg,#D81E3D 0%, #D81E5F 100%)',
+              border: 'none',
+              borderRadius: 10,
+              color: '#fff',
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            Continue
+          </button>
           </div>
         </div>
       )}
@@ -705,21 +709,27 @@ export default function Gallery() {
             </p>
             
             <button
-              onClick={() => setShowFirstFragmentNotice(false)}
-              style={{
-                display: 'block',
-                margin: '16px auto 0',
-                padding: '10px 20px',
-                backgroundColor: '#D81E3D',
-                color: '#fff',
-                border: 'none',
-                borderRadius: 20,
-                cursor: 'pointer',
-                fontSize: 16,
-              }}
-            >
-              Got it!
-            </button>
+            onClick={() => {
+              setShowFirstFragmentNotice(false);
+              // автоматически открыть шифр для фрагмента #1, если руна ещё не выбрана
+              if (!runesByFrag[1]?.runeId && fragments.includes(1)) {
+                setCipherFragId(1);
+              }
+            }}
+            style={{
+              display: 'block',
+              margin: '16px auto 0',
+              padding: '10px 20px',
+              backgroundColor: '#D81E3D',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 20,
+              cursor: 'pointer',
+              fontSize: 16,
+            }}
+          >
+            Got it!
+          </button>
           </div>
         </div>
       )}
