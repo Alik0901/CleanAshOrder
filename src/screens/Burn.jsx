@@ -633,23 +633,21 @@ export default function Burn() {
 
       {/* Cipher modal after awarding a fragment */}
       {cipherFragId && (
-        <CipherModal
-          fragId={cipherFragId}
-          onClose={() => setCipherFragId(null)}
-          onCompleted={async () => {
-            // After solving cipher, refresh user and go to Gallery.
-            try {
-              if (typeof refreshUser === 'function') {
-                await refreshUser({ force: true });
-              }
-            } catch {
-              /* ignore */
+      <CipherModal
+        key={cipherFragId}        // <— ДОБАВИЛИ ключ
+        fragId={cipherFragId}
+        onClose={() => setCipherFragId(null)}
+        onCompleted={async () => {
+          try {
+            if (typeof refreshUser === 'function') {
+              await refreshUser({ force: true });
             }
-            setCipherFragId(null);
-            navigate('/gallery');
-          }}
-        />
-      )}
+          } catch { /* ignore */ }
+          setCipherFragId(null);
+          navigate('/gallery');
+        }}
+      />
+     )}
     </div>
   );
 }

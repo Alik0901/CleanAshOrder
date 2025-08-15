@@ -309,25 +309,40 @@ export default function Gallery() {
   if (loading || showFirstFragmentNotice || showAward || cipherFragId) return;
 
   const tg = user?.tg_id || 'anon';
-  const candidate = fragments.find((id) => {
-  const hasRune = !!runesByFrag[id]?.runeId;
-  const seenKey = localStorage.getItem(autoKey(tg, id));
-    return !hasRune && !seenKey;
-  });
+  let cancelled = false;
 
-  if (Number.isFinite(candidate)) {
-    try { localStorage.setItem(autoKey(tg, candidate), '1'); } catch {}
-    setCipherFragId(candidate);
-  }
-}, [
-  loading,
-  showFirstFragmentNotice,
-  showAward,
-  cipherFragId,
-  fragments,
-  runesByFrag,
-  user?.tg_id,
-]);
+  (async () => {
+    // Перебираем собранные фрагменты по порядку
+    for (const id of fragments) {
+      // если уже помечен как «показанный» — пропускаем
+      if (localStorage.getItem(autoKey(tg, id))) continue;
+
+      try {
+        // сервер — источник истины: answered/ chosenRuneId
+        const data = await API.getCipher(id); // { answered, chosenRuneId, ... }
+        if (cancelled) return;
+
+        const answered = !!(data?.answered || data?.chosenRuneId);
+        if (!answered) {
+          try { localStorage.setItem(autoKey(tg, id), '1'); } catch {}
+          setCipherFragId(id);
+          return; // открываем только один, самый приоритетный
+        }
+      } catch {
+        // если эндпоинт дал ошибку — пробуем следующий фрагмент
+      }
+    }
+  })();
+
+  return () => { cancelled = true; };
+    }, [
+      loading,
+      showFirstFragmentNotice,
+      showAward,
+      cipherFragId,
+      fragments,
+      user?.tg_id,
+    ]);
 
 
   /* ----------------------- Auto-redirect when full set ------------------ */
