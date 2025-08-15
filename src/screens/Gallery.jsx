@@ -8,6 +8,20 @@ import API from '../utils/apiClient';
 import CipherModal from '../components/CipherModal';
 
 /**
+ * Mapping from fragment id -> fragment file name (served via HMAC-signed URLs).
+ */
+const FRAGMENT_FILES = {
+  1: 'fragment_1_the_whisper.jpg',
+  2: 'fragment_2_the_number.jpg',
+  3: 'fragment_3_the_language.jpg',
+  4: 'fragment_4_the_mirror.jpg',
+  5: 'fragment_5_the_chain.jpg',
+  6: 'fragment_6_the_hour.jpg',
+  7: 'fragment_7_the_mark.jpg',
+  8: 'fragment_8_the_gate.jpg',
+};
+
+/**
  * Absolute positions for 8 slots (within the fixed-size central layout).
  */
 const slotPositions = [
@@ -433,84 +447,86 @@ export default function Gallery() {
         </h1>
 
         {/* Fragments grid */}
-        {slotPositions.map((pos, i) => {
-          const id = i + 1;
-          const owned = fragments.includes(id);
-          const file = FRAGMENT_FILES[id];
-          const fragUrl = signedUrls[file];
+        const id = i + 1;
+        const owned = fragments.includes(id);
 
-          // Rune presentation (if the user has answered the cipher).
-          const entry = runesByFrag[id] || null;
-          const runeId = entry?.runeId ?? null;
-          const runeUrl = runeId ? runeUrls[runeId] : null;
+        // Rune presentation (if the user has answered the cipher).
+        const entry = runesByFrag[id] || null;
+        const runeId = entry?.runeId ?? null;
+        const runeUrl = runeId ? runeUrls[runeId] : null;
 
-          return (
-            <React.Fragment key={id}>
-              <div
-                onClick={() => {
-                  if (!owned) return;
+        return (
+          <React.Fragment key={id}>
+            <div
+              onClick={() => {
+                if (!owned) return;
 
-                  // If rune is not chosen yet -> open cipher for this fragment
-                  if (!runeId) {
-                    setCipherFragId(id);
-                    return;
-                  }
+                // If rune not chosen yet -> open cipher for this fragment
+                if (!runeId) {
+                  setCipherFragId(id);
+                  return;
+                }
 
-                  // If rune is chosen -> zoom rune image; else fallback to fragment image
-                  if (runeUrl) {
-                    setZoomUrl(withTs(runeUrl));
-                  } else if (fragUrl) {
-                    setZoomUrl(withTs(fragUrl));
-                  }
-                }}
+                // If rune chosen -> zoom rune image
+                if (runeUrl) {
+                  setZoomUrl(withTs(runeUrl));
+                }
+              }}
+              style={{
+                position: 'absolute',
+                left: pos.left,
+                top: pos.top,
+                width: 80,
+                height: 80,
+                border: '1px solid #808080',
+                overflow: 'hidden',
+                cursor: owned ? 'pointer' : 'default',
+                zIndex: 5,
+              }}
+            >
+              {owned ? (
+                runeUrl ? (
+                  <img
+                    src={withTs(runeUrl)}
+                    alt={`Rune for fragment ${id}`}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: 'rgba(0,0,0,0.35)',
+                      color: '#fff',
+                      fontSize: 12,
+                    }}
+                  >
+                    Solve
+                  </div>
+                )
+              ) : null}
+            </div>
+
+            {!owned && (
+              <span
                 style={{
                   position: 'absolute',
-                  left: pos.left,
-                  top: pos.top,
-                  width: 80,
-                  height: 80,
-                  border: '1px solid #808080',
-                  overflow: 'hidden',
-                  cursor: owned ? 'pointer' : 'default',
-                  zIndex: 5,
+                  left: lockPositions[i].left,
+                  top: lockPositions[i].top,
+                  fontSize: 15,
+                  color: '#FFF',
+                  zIndex: 6,
                 }}
               >
-                {owned ? (
-                  runeUrl ? (
-                    <img
-                      src={withTs(runeUrl)}
-                      alt={`Rune for fragment ${id}`}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    />
-                  ) : (
-                    fragUrl && (
-                      <img
-                        src={withTs(fragUrl)}
-                        alt={`Fragment ${id}`}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                      />
-                    )
-                  )
-                ) : null}
-              </div>
+                🔒
+              </span>
+            )}
+          </React.Fragment>
+        );
 
-              {!owned && (
-                <span
-                  style={{
-                    position: 'absolute',
-                    left: lockPositions[i].left,
-                    top: lockPositions[i].top,
-                    fontSize: 15,
-                    color: '#FFF',
-                    zIndex: 6,
-                  }}
-                >
-                  🔒
-                </span>
-              )}
-            </React.Fragment>
-          );
-        })}
 
         {/* Legendary hint (visual placeholder) */}
         <div
@@ -694,20 +710,6 @@ export default function Gallery() {
 
             <p style={{ margin: '0 0 12px' }}>A new piece joins your collection.</p>
 
-            {signedUrls[FRAGMENT_FILES[awardId]] && (
-              <img
-                alt={`Fragment ${awardId}`}
-                src={withTs(signedUrls[FRAGMENT_FILES[awardId]])}
-                style={{
-                  width: 150,
-                  height: 150,
-                  objectFit: 'cover',
-                  borderRadius: 8,
-                  margin: '0 auto 16px',
-                }}
-              />
-            )}
-
             <button
               onClick={() => {
                 setShowAward(false);
@@ -761,21 +763,7 @@ export default function Gallery() {
             <p style={{ margin: '12px 0' }}>
               You’ve received your first free fragment!
             </p>
-
-            {signedUrls['fragment_1_the_whisper.jpg'] && (
-              <img
-                src={signedUrls['fragment_1_the_whisper.jpg']}
-                alt="Fragment 1"
-                style={{
-                  width: 120,
-                  height: 120,
-                  objectFit: 'cover',
-                  borderRadius: 8,
-                  margin: '0 auto 16px',
-                }}
-              />
-            )}
-
+            
             <button
               onClick={() => setShowFirstFragmentNotice(false)}
               style={{
