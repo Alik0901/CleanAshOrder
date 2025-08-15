@@ -8,20 +8,6 @@ import API from '../utils/apiClient';
 import CipherModal from '../components/CipherModal';
 
 /**
- * Mapping from fragment id -> fragment file name (served via HMAC-signed URLs).
- */
-const FRAGMENT_FILES = {
-  1: 'fragment_1_the_whisper.jpg',
-  2: 'fragment_2_the_number.jpg',
-  3: 'fragment_3_the_language.jpg',
-  4: 'fragment_4_the_mirror.jpg',
-  5: 'fragment_5_the_chain.jpg',
-  6: 'fragment_6_the_hour.jpg',
-  7: 'fragment_7_the_mark.jpg',
-  8: 'fragment_8_the_gate.jpg',
-};
-
-/**
  * Absolute positions for 8 slots (within the fixed-size central layout).
  */
 const slotPositions = [
