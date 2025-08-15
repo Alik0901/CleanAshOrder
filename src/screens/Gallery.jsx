@@ -8,20 +8,6 @@ import API from '../utils/apiClient';
 import CipherModal from '../components/CipherModal';
 
 /**
- * Mapping from fragment id -> fragment file name (served via HMAC-signed URLs).
- */
-const FRAGMENT_FILES = {
-  1: 'fragment_1_the_whisper.jpg',
-  2: 'fragment_2_the_number.jpg',
-  3: 'fragment_3_the_language.jpg',
-  4: 'fragment_4_the_mirror.jpg',
-  5: 'fragment_5_the_chain.jpg',
-  6: 'fragment_6_the_hour.jpg',
-  7: 'fragment_7_the_mark.jpg',
-  8: 'fragment_8_the_gate.jpg',
-};
-
-/**
  * Absolute positions for 8 slots (within the fixed-size central layout).
  */
 const slotPositions = [
@@ -80,8 +66,7 @@ export default function Gallery() {
   const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
 
-  // Signed fragment URLs (HMAC) + owned fragments.
-  const [signedUrls, setSignedUrls] = useState({});
+  // Owned fragments only (runes are fetched via cipher endpoints).
   const [fragments, setFragments] = useState(() => norm(user?.fragments || []));
 
   // Loading & error UI state.
@@ -103,7 +88,6 @@ export default function Gallery() {
   const [showAbout, setShowAbout] = useState(false);
 
   // Refs to throttle periodic re-fetch of signed URLs (frag & runes).
-  const lastUrlsRefresh = useRef(0);
   const lastRuneUrlsRefresh = useRef(0);
 
   // Rune map & asset URLs:
@@ -172,7 +156,7 @@ export default function Gallery() {
   /* ----------------------------- Initial load --------------------------- */
 
   // Initial load:
-  //  1) fetch signed fragment URLs and fragments
+  //  1) fetch fragments
   //  2) apply optimistic "newFragmentNotice"
   //  3) fetch rune map + rune URLs (includeUrls=1)
   useEffect(() => {
@@ -184,10 +168,7 @@ export default function Gallery() {
       setError('');
 
       try {
-        const [{ signedUrls: su }, { fragments: frFromApi }] = await Promise.all([
-          API.getSignedFragmentUrls(),
-          API.getFragments(user.tg_id),
-        ]);
+        const { fragments: frFromApi } = await API.getFragments(user.tg_id);
         if (cancelled) return;
 
         let next = norm([...(frFromApi || []), ...(user?.fragments || [])]);
@@ -200,8 +181,6 @@ export default function Gallery() {
           setShowAward(true);
         }
 
-        setSignedUrls(su || {});
-        lastUrlsRefresh.current = Date.now();
         setFragments(next);
 
         // Fetch rune status for owned fragments and (optionally) their URLs.
@@ -229,44 +208,23 @@ export default function Gallery() {
     return () => { cancelled = true; };
   }, [user?.tg_id, user?.fragments, readPendingNotice, logout, navigate]);
 
-  /* --------------------------- Award TTL refresh ------------------------ */
-
-  // When award modal is shown, refresh fragment signed URLs (in case of TTL).
-  useEffect(() => {
-    if (!showAward) return;
-    (async () => {
-      try {
-        const { signedUrls: su } = await API.getSignedFragmentUrls();
-        setSignedUrls(su || {});
-        lastUrlsRefresh.current = Date.now();
-      } catch {}
-    })();
-  }, [showAward]);
-
   /* ---------------------- React to user.fragments ----------------------- */
 
   // Sync gallery when user.fragments changes + merge optimistic pending notice.
   useEffect(() => {
-    const next = (() => {
-      let arr = norm(user?.fragments || []);
-      const pending = readPendingNotice();
-      if (pending && pending.id >= 1 && pending.id <= 8 && !arr.includes(pending.id)) {
-        arr = norm([...arr, pending.id]);
-      }
-      return arr;
-    })();
-
-    if (!same(next, fragments)) {
-      setFragments(next);
-      (async () => {
-        try {
-          const { signedUrls: su } = await API.getSignedFragmentUrls();
-          setSignedUrls(su || {});
-          lastUrlsRefresh.current = Date.now();
-        } catch {}
-      })();
+  const next = (() => {
+    let arr = norm(user?.fragments || []);
+    const pending = readPendingNotice();
+    if (pending && pending.id >= 1 && pending.id <= 8 && !arr.includes(pending.id)) {
+      arr = norm([...arr, pending.id]);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return arr;
+  })();
+
+  if (!same(next, fragments)) {
+    setFragments(next);
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.fragments, readPendingNotice]);
 
   /* -------------------- Refresh rune map when fragments ----------------- */
@@ -286,25 +244,6 @@ export default function Gallery() {
   }, [fragments]);
 
   /* ------------------------ Periodic URL TTL refresh -------------------- */
-
-  // Refresh fragment signed URLs every ~4 minutes.
-  useEffect(() => {
-    let cancelled = false;
-
-    const tick = async () => {
-      if (Date.now() - lastUrlsRefresh.current < 4 * 60 * 1000) return;
-      try {
-        const { signedUrls: su } = await API.getSignedFragmentUrls();
-        if (!cancelled) {
-          setSignedUrls(su || {});
-          lastUrlsRefresh.current = Date.now();
-        }
-      } catch {}
-    };
-
-    const id = setInterval(tick, 60 * 1000);
-    return () => { cancelled = true; clearInterval(id); };
-  }, []);
 
   // Refresh rune signed URLs every ~4 minutes (for currently known rune ids).
   useEffect(() => {
@@ -447,85 +386,86 @@ export default function Gallery() {
         </h1>
 
         {/* Fragments grid */}
-        const id = i + 1;
-        const owned = fragments.includes(id);
+        {slotPositions.map((pos, i) => {
+          const id = i + 1;
+          const owned = fragments.includes(id);
 
-        // Rune presentation (if the user has answered the cipher).
-        const entry = runesByFrag[id] || null;
-        const runeId = entry?.runeId ?? null;
-        const runeUrl = runeId ? runeUrls[runeId] : null;
+          // Rune presentation (if the user has answered the cipher).
+          const entry = runesByFrag[id] || null;
+          const runeId = entry?.runeId ?? null;
+          const runeUrl = runeId ? runeUrls[runeId] : null;
 
-        return (
-          <React.Fragment key={id}>
-            <div
-              onClick={() => {
-                if (!owned) return;
+          return (
+            <React.Fragment key={id}>
+              <div
+                onClick={() => {
+                  if (!owned) return;
 
-                // If rune not chosen yet -> open cipher for this fragment
-                if (!runeId) {
-                  setCipherFragId(id);
-                  return;
-                }
+                  // If rune not chosen yet -> open cipher for this fragment
+                  if (!runeId) {
+                    setCipherFragId(id);
+                    return;
+                  }
 
-                // If rune chosen -> zoom rune image
-                if (runeUrl) {
-                  setZoomUrl(withTs(runeUrl));
-                }
-              }}
-              style={{
-                position: 'absolute',
-                left: pos.left,
-                top: pos.top,
-                width: 80,
-                height: 80,
-                border: '1px solid #808080',
-                overflow: 'hidden',
-                cursor: owned ? 'pointer' : 'default',
-                zIndex: 5,
-              }}
-            >
-              {owned ? (
-                runeUrl ? (
-                  <img
-                    src={withTs(runeUrl)}
-                    alt={`Rune for fragment ${id}`}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  />
-                ) : (
-                  <div
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      background: 'rgba(0,0,0,0.35)',
-                      color: '#fff',
-                      fontSize: 12,
-                    }}
-                  >
-                    Solve
-                  </div>
-                )
-              ) : null}
-            </div>
-
-            {!owned && (
-              <span
+                  // If rune chosen -> zoom rune image
+                  if (runeUrl) setZoomUrl(withTs(runeUrl));
+                }}
                 style={{
                   position: 'absolute',
-                  left: lockPositions[i].left,
-                  top: lockPositions[i].top,
-                  fontSize: 15,
-                  color: '#FFF',
-                  zIndex: 6,
+                  left: pos.left,
+                  top: pos.top,
+                  width: 80,
+                  height: 80,
+                  border: '1px solid #808080',
+                  overflow: 'hidden',
+                  cursor: owned ? 'pointer' : 'default',
+                  zIndex: 5,
                 }}
               >
-                🔒
-              </span>
-            )}
-          </React.Fragment>
-        );
+                {owned ? (
+                  runeUrl ? (
+                    <img
+                      src={withTs(runeUrl)}
+                      alt={`Rune for fragment ${id}`}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        background: 'rgba(0,0,0,0.35)',
+                        color: '#fff',
+                        fontSize: 12,
+                      }}
+                    >
+                      Solve
+                    </div>
+                  )
+                ) : null}
+              </div>
+
+              {!owned && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    left: lockPositions[i].left,
+                    top: lockPositions[i].top,
+                    fontSize: 15,
+                    color: '#FFF',
+                    zIndex: 6,
+                  }}
+                >
+                  🔒
+                </span>
+              )}
+            </React.Fragment>
+          );
+        })}
+
 
 
         {/* Legendary hint (visual placeholder) */}
