@@ -172,11 +172,23 @@ const API = {
 
   /* ── Final phrase ─────────────────────────────────────────────── */
   async validateFinal(phrase) {
-    return fetchJSON(`${BASE}/api/validate-final`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeader() },
-      body: JSON.stringify({ phrase }),
+  return fetchJSON(`${BASE}/api/validate-final`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeader() },
+    body: JSON.stringify({ phrase }),
+  });
+  },
+
+  async getFinal(tgId) {
+  try {
+    const { fragments } = await fetchJSON(`${BASE}/api/fragments/${tgId}`, {
+      headers: { ...authHeader() },
     });
+    const list = Array.isArray(fragments) ? fragments : [];
+    return { enabled: list.length >= 8, fragments: list };
+  } catch {
+    return { enabled: false, fragments: [] };
+  }
   },
   // If the backend exposes a final info endpoint later, enable this:
   // async getFinal(tgId) {
