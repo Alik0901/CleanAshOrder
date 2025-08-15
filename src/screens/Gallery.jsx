@@ -89,8 +89,7 @@ export default function Gallery() {
 
   // Refs to throttle periodic re-fetch of signed URLs (frag & runes).
   const lastRuneUrlsRefresh = useRef(0);
-  const autoCipherOpenOnce = useRef(false);
-
+  
   // Rune map & asset URLs:
   // runesByFrag: { [fragId]: { runeId: number|null, answered: boolean } }
   // runeUrls:    { [runeId]: string }
@@ -302,25 +301,31 @@ export default function Gallery() {
   }, [loading, fragments, showAward, readPendingNotice]);
 
   useEffect(() => {
-  if (loading || showFirstFragmentNotice || cipherFragId) return;
+    if (loading || showFirstFragmentNotice || cipherFragId) return;
 
-  const tryOpen = (id) => {
-    if (!fragments.includes(id)) return false;
-    if (runesByFrag[id]?.runeId) return false;
+    const tg = user?.tg_id || 'anon';
+    const key1 = `autoCipherShown:v3:${tg}:1`;
+    const key3 = `autoCipherShown:v3:${tg}:3`;
 
-    const key = `autoCipherShown:v2:${user?.tg_id || 'anon'}:${id}`;
-    if (localStorage.getItem(key) === '1') return false;
+    const canOpen1 =
+      fragments.includes(1) &&
+      !runesByFrag[1]?.runeId &&
+      !localStorage.getItem(key1);
 
-    localStorage.setItem(key, '1');
-    setCipherFragId(id);
-    return true;
-  };
+    const canOpen3 =
+      fragments.includes(3) &&
+      !runesByFrag[3]?.runeId &&
+      !localStorage.getItem(key3);
 
-  if (!autoCipherOpenOnce.current) {
-    
-    if (tryOpen(1)) { autoCipherOpenOnce.current = true; return; }
-    if (tryOpen(3)) { autoCipherOpenOnce.current = true; return; }
-  }
+    if (canOpen1) {
+      localStorage.setItem(key1, '1');
+      setCipherFragId(1);
+      return;
+    }
+    if (canOpen3) {
+      localStorage.setItem(key3, '1');
+      setCipherFragId(3);
+    }
   }, [
     loading,
     showFirstFragmentNotice,
@@ -833,6 +838,7 @@ export default function Gallery() {
       {/* Cipher dialog for picking a rune (when user clicks a fragment without a rune yet) */}
       {cipherFragId && (
         <CipherModal
+          key={cipherFragId}
           fragId={cipherFragId}
           onClose={async () => {
             setCipherFragId(null);
