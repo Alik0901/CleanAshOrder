@@ -89,6 +89,7 @@ export default function Gallery() {
 
   // Refs to throttle periodic re-fetch of signed URLs (frag & runes).
   const lastRuneUrlsRefresh = useRef(0);
+  const autoCipherOpenOnce = useRef(false);
 
   // Rune map & asset URLs:
   // runesByFrag: { [fragId]: { runeId: number|null, answered: boolean } }
@@ -299,6 +300,35 @@ export default function Gallery() {
       try { localStorage.setItem('firstFragmentShown', 'true'); } catch {}
     }
   }, [loading, fragments, showAward, readPendingNotice]);
+
+  useEffect(() => {
+  if (loading || showFirstFragmentNotice || cipherFragId) return;
+
+  const tryOpen = (id) => {
+    if (!fragments.includes(id)) return false;
+    if (runesByFrag[id]?.runeId) return false;
+
+    const key = `autoCipherShown:v2:${user?.tg_id || 'anon'}:${id}`;
+    if (localStorage.getItem(key) === '1') return false;
+
+    localStorage.setItem(key, '1');
+    setCipherFragId(id);
+    return true;
+  };
+
+  if (!autoCipherOpenOnce.current) {
+    
+    if (tryOpen(1)) { autoCipherOpenOnce.current = true; return; }
+    if (tryOpen(3)) { autoCipherOpenOnce.current = true; return; }
+  }
+  }, [
+    loading,
+    showFirstFragmentNotice,
+    cipherFragId,
+    fragments,
+    runesByFrag,
+    user?.tg_id,
+  ]);
 
   /* ----------------------- Auto-redirect when full set ------------------ */
 

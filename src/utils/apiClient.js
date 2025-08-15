@@ -247,8 +247,9 @@ const API = {
 
   /* ── Cipher / Runes ───────────────────────────────────────────── */
   async getCipherAll(includeUrls = false) {
-  const q = includeUrls ? `?includeUrls=1&_=${Date.now()}` : `?_=${Date.now()}`;
-  return fetchJSON(`${BASE}/api/cipher/all${q}`, {
+    const q = includeUrls ? '?includeUrls=1' : '';
+    const bust = `${q ? '&' : '?'}_=${Date.now()}`;
+    return fetchJSON(`${BASE}/api/cipher/all${q}${bust}`, {
     headers: { ...authHeader() },
   });
   },
