@@ -32,6 +32,7 @@ export default function CipherModal({ fragId, onClose, onCompleted }) {
     setSubmitting(true); setErr('');
     try {
       const resp = await API.answerCipher(fragId, Number(selected));
+      props.onCompleted?.();
       // resp: { ok: true, symbolId }
       if (resp?.ok && resp.symbolId) {
         onCompleted?.(resp.symbolId);

@@ -829,23 +829,33 @@ export default function Gallery() {
 
       {/* Cipher dialog for picking a rune (when user clicks a fragment without a rune yet) */}
       {cipherFragId && (
-        <CipherModal
-          key={cipherFragId}
-          fragId={cipherFragId}
-          onClose={async () => {
-            setCipherFragId(null);
-            // After closing, refresh rune map (user might have answered the cipher).
-            try {
-              const data = await API.getCipherAll(true);
-              if (data?.byFragment) setRunesByFrag(data.byFragment);
-              if (data?.urls) {
-                setRuneUrls((prev) => ({ ...prev, ...data.urls }));
-                lastRuneUrlsRefresh.current = Date.now();
-              }
-            } catch {}
-          }}
-        />
-      )}
+      <CipherModal
+        key={cipherFragId}
+        fragId={cipherFragId}
+        onClose={async () => {
+          setCipherFragId(null);
+          try {
+            const data = await API.getCipherAll(true);
+            if (data?.byFragment) setRunesByFrag(data.byFragment);
+            if (data?.urls) {
+              setRuneUrls((prev) => ({ ...prev, ...data.urls }));
+              lastRuneUrlsRefresh.current = Date.now();
+            }
+          } catch {}
+        }}
+        onCompleted={async () => {          // ← добавили
+          setCipherFragId(null);
+          try {
+            const data = await API.getCipherAll(true);
+            if (data?.byFragment) setRunesByFrag(data.byFragment);
+            if (data?.urls) {
+              setRuneUrls((prev) => ({ ...prev, ...data.urls }));
+              lastRuneUrlsRefresh.current = Date.now();
+            }
+          } catch {}
+        }}
+      />
+    )}
     </div>
   );
 }
