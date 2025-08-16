@@ -12,10 +12,20 @@ export default function CipherModal({ fragId, onClose, onCompleted }) {
   useEffect(() => {
     let dead = false;
     (async () => {
-      setLoading(true); setErr('');
+      setLoading(true);
+      setErr('');
+      setSelected(null);
       try {
         const data = await API.getCipher(fragId);
         if (dead) return;
+
+        // если уже решено — сразу закрываем модалку и дергаем onCompleted
+        if (data?.answered && data?.chosenRuneId) {
+          onCompleted?.(data.chosenRuneId);
+          onClose?.();
+          return;
+        }
+
         setRiddleUrl(data?.riddle?.url || '');
         setGrid(Array.isArray(data?.gridNumbers) ? data.gridNumbers : []);
       } catch (e) {
@@ -24,18 +34,23 @@ export default function CipherModal({ fragId, onClose, onCompleted }) {
         if (!dead) setLoading(false);
       }
     })();
-    return () => { dead = true; };
-  }, [fragId]);
+
+    return () => {
+      dead = true;
+    };
+  }, [fragId, onClose, onCompleted]);
 
   const submit = async () => {
     if (selected === null) return;
-    setSubmitting(true); setErr('');
+    setSubmitting(true);
+    setErr('');
     try {
       const resp = await API.answerCipher(fragId, Number(selected));
-      props.onCompleted?.();
       // resp: { ok: true, symbolId }
       if (resp?.ok && resp.symbolId) {
+        // сначала сообщаем наверх, затем закрываемся
         onCompleted?.(resp.symbolId);
+        onClose?.();
       } else {
         setErr(resp?.error || 'Failed to submit');
       }
@@ -47,55 +62,111 @@ export default function CipherModal({ fragId, onClose, onCompleted }) {
   };
 
   return (
-    <div style={{
-      position:'fixed', inset:0, zIndex:9999,
-      background:'rgba(0,0,0,0.78)',
-      display:'flex', alignItems:'center', justifyContent:'center'
-    }}>
-      <div style={{
-        width: 340, maxWidth:'92%',
-        background:'rgba(0,0,0,0.6)',
-        border:'1px solid #9E9191',
-        borderRadius:16, padding:16, color:'#fff'
-      }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
-          <h3 style={{ margin:0, fontFamily:'Tajawal, sans-serif' }}>Fragment #{fragId} — Cipher</h3>
-          <button onClick={onClose}
-                  style={{ background:'transparent', border:'none', color:'#fff', fontSize:20, cursor:'pointer' }}>✕</button>
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 9999,
+        background: 'rgba(0,0,0,0.78)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Cipher for fragment ${fragId}`}
+    >
+      <div
+        style={{
+          width: 340,
+          maxWidth: '92%',
+          background: 'rgba(0,0,0,0.6)',
+          border: '1px solid #9E9191',
+          borderRadius: 16,
+          padding: 16,
+          color: '#fff',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 8,
+          }}
+        >
+          <h3 style={{ margin: 0, fontFamily: 'Tajawal, sans-serif' }}>
+            Fragment #{fragId} — Cipher
+          </h3>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#fff',
+              fontSize: 20,
+              cursor: 'pointer',
+            }}
+            aria-label="Close"
+          >
+            ✕
+          </button>
         </div>
 
         {loading ? (
-          <p style={{ opacity:0.8 }}>Loading…</p>
+          <p style={{ opacity: 0.8 }}>Loading…</p>
         ) : err ? (
-          <p style={{ color:'tomato' }}>{err}</p>
+          <p style={{ color: 'tomato' }}>{err}</p>
         ) : (
           <>
             {/* Картинка-загадка */}
             {riddleUrl && (
-              <div style={{
-                width:'100%', height:180, marginBottom:12,
-                borderRadius:10, overflow:'hidden', border:'1px solid #9E9191',
-                background:'#111'
-              }}>
-                <img src={riddleUrl} alt="Riddle"
-                     style={{ width:'100%', height:'100%', objectFit:'contain' }} />
+              <div
+                style={{
+                  width: '100%',
+                  height: 180,
+                  marginBottom: 12,
+                  borderRadius: 10,
+                  overflow: 'hidden',
+                  border: '1px solid #9E9191',
+                  background: '#111',
+                }}
+              >
+                <img
+                  src={riddleUrl}
+                  alt="Riddle"
+                  style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                />
               </div>
             )}
 
             {/* Сетка 4x4 */}
-            <div style={{
-              display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:8, marginBottom:12
-            }}>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(4, 1fr)',
+                gap: 8,
+                marginBottom: 12,
+              }}
+            >
               {grid.map((n, idx) => {
                 const active = selected === n;
                 return (
                   <button
                     key={`${n}-${idx}`}
-                    onClick={() => setSelected(n)}
+                    onClick={() => !submitting && setSelected(n)}
+                    disabled={submitting}
                     style={{
-                      height:44, borderRadius:10, border:'1px solid #9E9191',
-                      background: active ? 'linear-gradient(90deg,#D81E3D 0%, #D81E5F 100%)' : '#161616',
-                      color:'#fff', fontWeight:700, cursor:'pointer'
+                      height: 44,
+                      borderRadius: 10,
+                      border: '1px solid #9E9191',
+                      background: active
+                        ? 'linear-gradient(90deg,#D81E3D 0%, #D81E5F 100%)'
+                        : '#161616',
+                      color: '#fff',
+                      fontWeight: 700,
+                      cursor: submitting ? 'default' : 'pointer',
                     }}
                   >
                     {n}
@@ -108,10 +179,15 @@ export default function CipherModal({ fragId, onClose, onCompleted }) {
               onClick={submit}
               disabled={selected === null || submitting}
               style={{
-                width:'100%', height:44,
-                background:'linear-gradient(90deg,#D81E3D 0%, #D81E5F 100%)',
-                border:'none', borderRadius:10, color:'#fff', fontWeight:700,
-                opacity: (selected===null||submitting)?0.6:1, cursor:(selected===null||submitting)?'default':'pointer'
+                width: '100%',
+                height: 44,
+                background: 'linear-gradient(90deg,#D81E3D 0%, #D81E5F 100%)',
+                border: 'none',
+                borderRadius: 10,
+                color: '#fff',
+                fontWeight: 700,
+                opacity: selected === null || submitting ? 0.6 : 1,
+                cursor: selected === null || submitting ? 'default' : 'pointer',
               }}
             >
               {submitting ? 'Submitting…' : 'Confirm choice'}

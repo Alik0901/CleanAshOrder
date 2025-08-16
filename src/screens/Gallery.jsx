@@ -102,6 +102,26 @@ export default function Gallery() {
   const [runeUrls, setRuneUrls] = useState({});
   const [cipherFragId, setCipherFragId] = useState(null); // open cipher from gallery
   const autoOpened = useRef(new Set());
+  // RESET per-user local flags when tg_id changes (prevents stale blocks)
+  const prevTgRef = useRef(null);
+  useEffect(() => {
+    const tg = user?.tg_id;
+    if (!tg) return;
+
+    if (prevTgRef.current !== tg) {
+      // новый/другой аккаунт → убираем локальные флаги, чтобы модалки не блокировались
+      try {
+        localStorage.removeItem('firstFragmentShown');
+        localStorage.removeItem('newFragmentNotice');
+        // зачистка всех версий автопоказа шифра
+        Object.keys(localStorage).forEach((k) => {
+          if (k.startsWith('autoCipherShown:')) localStorage.removeItem(k);
+        });
+      } catch {}
+      autoOpened.current = new Set(); // чистим пометки текущей сессии
+      prevTgRef.current = tg;
+    }
+  }, [user?.tg_id]);
 
   /* --------------------- Local storage notice parser --------------------- */
 
