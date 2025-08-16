@@ -326,19 +326,28 @@ export default function Gallery() {
     }
   }, [loading, fragments, showAward, readPendingNotice]);
 
+  // Auto-open the first owned fragment without a chosen rune.
+  // Works even if /cipher/all hasn't returned the row yet — we ping /cipher/:id to ensure it exists.
   useEffect(() => {
-  if (loading || showFirstFragmentNotice || showAward || cipherFragId) return;
+    if (loading || showFirstFragmentNotice || showAward || cipherFragId) return;
 
-  // идём по фрагментам по порядку и ищем первый «без руны»
-  for (const id of fragments) {
-    const hasRune = !!runesByFrag[id]?.runeId;
-    const openedInThisSession = autoOpened.current.has(id);
-    if (!hasRune && !openedInThisSession) {
-      autoOpened.current.add(id);
-      setCipherFragId(id);
-      break; // открываем только один
-    }
-    }
+    (async () => {
+      for (const id of fragments) {
+        if (autoOpened.current.has(id)) continue;
+
+        const entry = runesByFrag[id];          // { runeId, answered } | undefined
+        const hasRune = !!entry?.runeId;
+
+        if (!hasRune) {
+          // Ensure cipher row exists and riddle link is fresh
+          try { await API.getCipher(id); } catch { /* ignore */ }
+
+          autoOpened.current.add(id);
+          setCipherFragId(id);
+          break; // open only one at a time
+        }
+      }
+    })();
   }, [
     loading,
     showFirstFragmentNotice,
@@ -347,6 +356,7 @@ export default function Gallery() {
     fragments,
     runesByFrag,
   ]);
+
 
 
   /* ----------------------- Auto-redirect when full set ------------------ */
@@ -758,10 +768,12 @@ export default function Gallery() {
             <button
             onClick={() => {
               setShowFirstFragmentNotice(false);
-              autoOpened.current.add(1); // помечаем в сессии
-              if (!runesByFrag[1]?.runeId && fragments.includes(1)) {
-                setCipherFragId(1);
-              }
+              // Открываем в следующий тик, чтобы первый оверлей точно размонтировался
+              setTimeout(() => {
+                if (!runesByFrag[1]?.runeId && fragments.includes(1)) {
+                  setCipherFragId(1);
+                }
+              }, 0);
             }}
             style={{
               display: 'block',
@@ -863,17 +875,18 @@ export default function Gallery() {
             }
           } catch {}
         }}
-        onCompleted={async () => {          // ← добавили
-          setCipherFragId(null);
-          try {
-            const data = await API.getCipherAll(true);
-            if (data?.byFragment) setRunesByFrag(data.byFragment);
-            if (data?.urls) {
-              setRuneUrls((prev) => ({ ...prev, ...data.urls }));
-              lastRuneUrlsRefresh.current = Date.now();
-            }
-          } catch {}
-        }}
+        onCompleted={async () => {
+        autoOpened.current.add(cipherFragId); // теперь у фрагмента есть руна
+        setCipherFragId(null);
+        try {
+          const data = await API.getCipherAll(true);
+          if (data?.byFragment) setRunesByFrag(data.byFragment);
+          if (data?.urls) {
+            setRuneUrls((prev) => ({ ...prev, ...data.urls }));
+            lastRuneUrlsRefresh.current = Date.now();
+          }
+        } catch {}
+      }}
       />
     )}
     </div>

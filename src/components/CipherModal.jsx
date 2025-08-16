@@ -18,7 +18,6 @@ export default function CipherModal({ fragId, onClose, onCompleted }) {
       try {
         const data = await API.getCipher(fragId);
         if (dead) return;
-
         // НЕ автозакрываем даже если answered === true
         setRiddleUrl(data?.riddle?.url || '');
         setGrid(Array.isArray(data?.gridNumbers) ? data.gridNumbers : []);
@@ -37,7 +36,6 @@ export default function CipherModal({ fragId, onClose, onCompleted }) {
     setErr('');
     try {
       const resp = await API.answerCipher(fragId, Number(selected));
-      // resp: { ok: true, symbolId }
       if (resp?.ok && resp.symbolId) {
         onCompleted?.(resp.symbolId);
         onClose?.(); // закрываем ТОЛЬКО после успешной отправки
@@ -56,17 +54,18 @@ export default function CipherModal({ fragId, onClose, onCompleted }) {
       role="dialog"
       aria-modal="true"
       aria-label={`Cipher for fragment ${fragId}`}
-      onClick={onClose}
+      /* ВАЖНО: больше НЕ закрываем по клику на фон, чтобы не ловить «пролетающий» клик */
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 9999,
+        zIndex: 10001,                 // выше всех других оверлеев
         background: 'rgba(0,0,0,0.78)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
       }}
     >
+      {/* фоновая зона без обработчика onClick */}
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
