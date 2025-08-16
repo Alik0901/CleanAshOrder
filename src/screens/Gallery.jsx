@@ -101,6 +101,7 @@ export default function Gallery() {
   const [runesByFrag, setRunesByFrag] = useState({});
   const [runeUrls, setRuneUrls] = useState({});
   const [cipherFragId, setCipherFragId] = useState(null); // open cipher from gallery
+  const autoOpened = useRef(new Set());
 
   /* --------------------- Local storage notice parser --------------------- */
 
@@ -308,41 +309,24 @@ export default function Gallery() {
   useEffect(() => {
   if (loading || showFirstFragmentNotice || showAward || cipherFragId) return;
 
-  const tg = user?.tg_id || 'anon';
-  let cancelled = false;
-
-  (async () => {
-    // Перебираем собранные фрагменты по порядку
-    for (const id of fragments) {
-      // если уже помечен как «показанный» — пропускаем
-      if (localStorage.getItem(autoKey(tg, id))) continue;
-
-      try {
-        // сервер — источник истины: answered/ chosenRuneId
-        const data = await API.getCipher(id); // { answered, chosenRuneId, ... }
-        if (cancelled) return;
-
-        const answered = !!(data?.answered || data?.chosenRuneId);
-        if (!answered) {
-          try { localStorage.setItem(autoKey(tg, id), '1'); } catch {}
-          setCipherFragId(id);
-          return; // открываем только один, самый приоритетный
-        }
-      } catch {
-        // если эндпоинт дал ошибку — пробуем следующий фрагмент
-      }
+  // идём по фрагментам по порядку и ищем первый «без руны»
+  for (const id of fragments) {
+    const hasRune = !!runesByFrag[id]?.runeId;
+    const openedInThisSession = autoOpened.current.has(id);
+    if (!hasRune && !openedInThisSession) {
+      autoOpened.current.add(id);
+      setCipherFragId(id);
+      break; // открываем только один
     }
-  })();
-
-  return () => { cancelled = true; };
-    }, [
-      loading,
-      showFirstFragmentNotice,
-      showAward,
-      cipherFragId,
-      fragments,
-      user?.tg_id,
-    ]);
+    }
+  }, [
+    loading,
+    showFirstFragmentNotice,
+    showAward,
+    cipherFragId,
+    fragments,
+    runesByFrag,
+  ]);
 
 
   /* ----------------------- Auto-redirect when full set ------------------ */
@@ -697,18 +681,13 @@ export default function Gallery() {
 
             <button
             onClick={() => {
-            setShowAward(false);
-            setAwardRarity(null);
-            // пометим, что авто-показ сделан для этого фрагмента
-            try { localStorage.setItem(autoKey(user?.tg_id, awardId), '1'); } catch {}
-
-            // открыть шифр для выданного фрагмента (если руна ещё не выбрана)
-            if (awardId && !(runesByFrag[awardId]?.runeId)) {
-              setCipherFragId(awardId);
-            }
-            try {
-              localStorage.removeItem('newFragmentNotice');
-            } catch {}
+              setShowAward(false);
+              setAwardRarity(null);
+              if (awardId) autoOpened.current.add(awardId); // помечаем в сессии
+              if (awardId && !(runesByFrag[awardId]?.runeId)) {
+                setCipherFragId(awardId);
+              }
+              try { localStorage.removeItem('newFragmentNotice'); } catch {}
             }}
             style={{
               width: '100%',
@@ -758,12 +737,11 @@ export default function Gallery() {
             
             <button
             onClick={() => {
-            setShowFirstFragmentNotice(false);
-            
-            try { localStorage.setItem(autoKey(user?.tg_id, 1), '1'); } catch {}
-            if (!runesByFrag[1]?.runeId && fragments.includes(1)) {
-              setCipherFragId(1);
-            }
+              setShowFirstFragmentNotice(false);
+              autoOpened.current.add(1); // помечаем в сессии
+              if (!runesByFrag[1]?.runeId && fragments.includes(1)) {
+                setCipherFragId(1);
+              }
             }}
             style={{
               display: 'block',
