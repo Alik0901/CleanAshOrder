@@ -377,7 +377,8 @@ export default function Gallery() {
         <h1
           style={{
             position: 'absolute',
-            left: 41,
+            left: '50%',
+            transform: 'translateX(-50%)',
             top: 24,
             fontSize: 'clamp(28px, 8vw, 36px)',
             color: '#9D9D9D',
