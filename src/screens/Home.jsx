@@ -112,21 +112,24 @@ export default function Home() {
           position: 'absolute',
           top: 0,
           left: 0,
-          width: '100%',
-          padding: '0.5rem 1rem',
+          right: 0,
+          height: '64px',                // фиксируем высоту хедера
           backgroundColor: 'rgba(10,10,10,0.7)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
           zIndex: 20,
         }}
       >
         <img
           src={logo}
           alt="Order of Ash logo"
-          style={{ height: '3rem', objectFit: 'contain' }}
+          style={{
+            position: 'absolute',
+            left: '50%',
+            top: '50%',
+            transform: 'translate(-50%, -50%)', // ровно по центру
+            height: '3rem',
+            objectFit: 'contain',
+          }}
         />
-        <div style={{ position: 'absolute', right: '1rem', width: '1.5rem', height: 0 }} />
       </header>
 
       {/* Баннер проклятия */}
@@ -309,7 +312,7 @@ export default function Home() {
       <div
         style={{
           position: 'absolute',
-          bottom: '6rem',
+          bottom: '4rem',
           left: '50%',
           transform: 'translateX(-50%)',
           display: 'flex',
