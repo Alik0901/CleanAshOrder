@@ -121,19 +121,6 @@ export default function Home() {
           zIndex: 20,
         }}
       >
-        <button
-          style={{
-            position: 'absolute',
-            left: '1rem',
-            background: 'none',
-            border: 'none',
-            color: 'white',
-            fontSize: '1.5rem',
-            cursor: 'pointer',
-          }}
-        >
-          ☰
-        </button>
         <img
           src={logo}
           alt="Order of Ash logo"
@@ -322,7 +309,7 @@ export default function Home() {
       <div
         style={{
           position: 'absolute',
-          bottom: '2rem',
+          bottom: '6rem',
           left: '50%',
           transform: 'translateX(-50%)',
           display: 'flex',

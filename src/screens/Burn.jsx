@@ -420,7 +420,7 @@ export default function Burn() {
         <button
           onClick={() => navigate('/gallery')}
           style={{
-            marginTop: 20,
+            marginTop: 40,
             width: 280,
             height: 50,
             background: 'linear-gradient(90deg, #777 0%, #555 100%)',
