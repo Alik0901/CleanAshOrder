@@ -317,6 +317,68 @@ export default function Burn() {
     }
   }, [answer, handleServerResult, invoiceId, task]);
 
+  // Строка с названием редкости и процентом — оба блока центрируются по X и Y
+    const RarityRow = ({ top, label, percent }) => (
+      <>
+        <div
+          style={{
+            position: 'absolute',
+            left: 102,
+            top,
+            width: 193,
+            height: 54,
+            border: '1px solid #979696',
+            borderRadius: 16,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <span
+            style={{
+              fontFamily: 'Tajawal, sans-serif',
+              fontWeight: 700,
+              fontSize: 18,
+              color: '#9E9191',
+              whiteSpace: 'nowrap',
+              textAlign: 'center',
+            }}
+          >
+            {label}
+          </span>
+        </div>
+
+        <div
+          style={{
+            position: 'absolute',
+            left: 306,
+            top,
+            width: 58,
+            height: 54,
+            border: '1px solid #979696',
+            borderRadius: 16,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <span
+            style={{
+              fontFamily: 'Tajawal, sans-serif',
+              fontWeight: 700,
+              fontSize: 18,
+              color: '#9E9191',
+              whiteSpace: 'nowrap',
+              textAlign: 'center',
+            }}
+          >
+            {percent}
+          </span>
+        </div>
+      </>
+    );
+
+
 /* ── Render ─────────────────────────────────────────────────────────── */
 return (
   <div style={{ position: 'relative', width: '100%', minHeight: '100dvh', overflow: 'hidden' }}>
@@ -384,45 +446,10 @@ return (
       <img src="/images/icons/common.png" alt="Common" draggable={false}
           style={{ position: 'absolute', left: 18, top: 353, width: 74, height: 74, objectFit: 'contain', pointerEvents: 'none', zIndex: 2 }} />
 
-      {/* Строка 1 — Legendary / 5% (сжали высоту и поправили выравнивание текста) */}
-      <div style={{ position: 'absolute', left: 102, top: 149, width: 193, height: 54, border: '1px solid #979696', borderRadius: 16 }} />
-      <div style={{ position: 'absolute', left: 306, top: 149, width: 58, height: 54, border: '1px solid #979696', borderRadius: 16 }} />
-      <div style={{ position: 'absolute', left: 151, top: 164, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 18, color: '#9E9191', whiteSpace: 'nowrap' }}>
-        Legendary
-      </div>
-      <div style={{ position: 'absolute', left: 322, top: 164, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 18, color: '#9E9191', whiteSpace: 'nowrap' }}>
-        5%
-      </div>
-
-      {/* Строка 2 — Rare / 15% */}
-      <div style={{ position: 'absolute', left: 102, top: 214, width: 193, height: 54, border: '1px solid #979696', borderRadius: 16 }} />
-      <div style={{ position: 'absolute', left: 306, top: 214, width: 58, height: 54, border: '1px solid #979696', borderRadius: 16 }} />
-      <div style={{ position: 'absolute', left: 152, top: 233, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 18, color: '#9E9191', whiteSpace: 'nowrap' }}>
-        Rare
-      </div>
-      <div style={{ position: 'absolute', left: 318, top: 233, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 18, color: '#9E9191', whiteSpace: 'nowrap' }}>
-        15%
-      </div>
-
-      {/* Строка 3 — Uncommon / 30% */}
-      <div style={{ position: 'absolute', left: 102, top: 280, width: 193, height: 54, border: '1px solid #979696', borderRadius: 16 }} />
-      <div style={{ position: 'absolute', left: 306, top: 280, width: 58, height: 54, border: '1px solid #979696', borderRadius: 16 }} />
-      <div style={{ position: 'absolute', left: 152, top: 302, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 18, color: '#9E9191', whiteSpace: 'nowrap' }}>
-        Uncommon
-      </div>
-      <div style={{ position: 'absolute', left: 316, top: 302, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 18, color: '#9E9191', whiteSpace: 'nowrap' }}>
-        30%
-      </div>
-
-      {/* Строка 4 — Common / 50% */}
-      <div style={{ position: 'absolute', left: 102, top: 346, width: 193, height: 54, border: '1px solid #979696', borderRadius: 16 }} />
-      <div style={{ position: 'absolute', left: 306, top: 346, width: 58, height: 54, border: '1px solid #979696', borderRadius: 16 }} />
-      <div style={{ position: 'absolute', left: 151, top: 371, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 18, color: '#9E9191', whiteSpace: 'nowrap' }}>
-        Common
-      </div>
-      <div style={{ position: 'absolute', left: 316, top: 371, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 18, color: '#9E9191', whiteSpace: 'nowrap' }}>
-        50%
-      </div>
+      <RarityRow top={149} label="Legendary" percent="5%" />
+      <RarityRow top={214} label="Rare"      percent="15%" />
+      <RarityRow top={280} label="Uncommon"  percent="30%" />
+      <RarityRow top={346} label="Common"    percent="50%" />
 
       {/* CTA: Burn — чуть выше, чтобы убрать прокрутку */}
       <button
