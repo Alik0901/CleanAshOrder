@@ -8,7 +8,6 @@ import React, {
   useCallback,
 } from 'react';
 import { useNavigate } from 'react-router-dom';
-import BackButton from '../components/BackButton';
 import API from '../utils/apiClient';
 import { AuthContext } from '../context/AuthContext';
 import CipherModal from '../components/CipherModal';
@@ -328,12 +327,7 @@ export default function Burn() {
         aria-hidden="true"
         style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)' }}
       />
-
-      {/* Back */}
-      <BackButton
-        style={{ position: 'absolute', top: 16, left: 16, zIndex: 5, color: '#fff' }}
-      />
-
+      
       {/* Title */}
       <h1
         style={{
@@ -381,7 +375,7 @@ export default function Burn() {
       <div
         style={{
           position: 'absolute',
-          top: 120,
+          top: 100,
           left: '50%',
           transform: 'translateX(-50%)',
           zIndex: 5,
@@ -426,7 +420,7 @@ export default function Burn() {
         <button
           onClick={() => navigate('/gallery')}
           style={{
-            marginTop: 40,
+            marginTop: 20,
             width: 280,
             height: 50,
             background: 'linear-gradient(90deg, #777 0%, #555 100%)',
