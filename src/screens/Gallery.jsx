@@ -376,23 +376,21 @@ export default function Gallery() {
           zIndex: 1,
           maxWidth: 414,
           margin: '0 auto',
-          minHeight: '100vh',
+          minHeight: '100dvh',            // было 100vh
+          padding: '0 0 24px',            // нижний отступ, чтобы кнопки не липли к индика́тору
+          boxSizing: 'border-box',
+          overflowX: 'hidden',
         }}
       >
         {/* Title */}
         <h1
           style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
+            margin: '20px 0 8px',
             textAlign: 'center',
-            whiteSpace: 'nowrap',   
-            lineHeight: 1.1, 
-            top: 24,
-            fontSize: 'clamp(28px, 8vw, 36px)',
+            whiteSpace: 'nowrap',            // не переносить в две строки
+            fontSize: 'clamp(22px, 6.5vw, 30px)',
             color: '#9D9D9D',
             textShadow: '2px 5px 8px rgba(131,129,129,0.52)',
-            zIndex: 5,
           }}
         >
           Artifact repository
@@ -401,7 +399,7 @@ export default function Gallery() {
         {/* MAIN CENTER COLUMN — всё по центру */}
         <div
           style={{
-            marginTop: 88, // отступ от заголовка
+            marginTop: 0, // отступ от заголовка
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
