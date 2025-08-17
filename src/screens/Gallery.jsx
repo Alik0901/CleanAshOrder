@@ -81,13 +81,6 @@ export default function Gallery() {
   // Zoomed image URL (fragment or rune).
   const [zoomUrl, setZoomUrl] = useState(null);
 
-  // First-fragment welcome modal.
-  const [showFirstFragmentNotice, setShowFirstFragmentNotice] = useState(false);
-  const [welcomeAck, setWelcomeAck] = useState(() => {
-    try { return localStorage.getItem('firstFragmentShown') === 'true'; }
-    catch { return false; }
-  });
-
   // Award modal state (new fragment after burn).
   const [awardId, setAwardId] = useState(null);
   const [showAward, setShowAward] = useState(false);
@@ -115,12 +108,6 @@ export default function Gallery() {
     if (prevTgRef.current !== tg) {
       // новый/другой аккаунт → убираем локальные флаги, чтобы модалки не блокировались
       try {
-        localStorage.removeItem('firstFragmentShown');
-        localStorage.removeItem('newFragmentNotice');
-        // зачистка всех версий автопоказа шифра
-        Object.keys(localStorage).forEach((k) => {
-          if (k.startsWith('autoCipherShown:')) localStorage.removeItem(k);
-        });
       } catch {}
       autoOpened.current = new Set(); // чистим пометки текущей сессии
       prevTgRef.current = tg;
@@ -312,27 +299,19 @@ export default function Gallery() {
 
   // Show award modal if there is a pending notice; otherwise show first-fragment welcome (once).
   useEffect(() => {
-    if (loading) return;
-
-    const pending = readPendingNotice();
-    if (pending && Number.isFinite(pending.id)) {
-      if (!showAward) {
+      if (loading) return;
+      const pending = readPendingNotice();
+      if (pending && Number.isFinite(pending.id) && !showAward) {
         setAwardId(pending.id);
         setAwardRarity(pending.rarity || null);
         setShowAward(true);
       }
-      return; // don't show welcome simultaneously
-    }
-
-    if (fragments.includes(1) && !welcomeAck) {
-      setShowFirstFragmentNotice(true);
-    }
-  }, [loading, fragments, showAward, readPendingNotice]);
+    }, [loading, showAward, readPendingNotice]);
 
   // Auto-open the first owned fragment without a chosen rune.
   // Works even if /cipher/all hasn't returned the row yet — we ping /cipher/:id to ensure it exists.
   useEffect(() => {
-    if (loading || showFirstFragmentNotice || showAward || cipherFragId) return;
+    if (loading || showAward || cipherFragId) return;
 
     (async () => {
       for (const id of fragments) {
@@ -343,7 +322,7 @@ export default function Gallery() {
 
         if (!hasRune) {
           // Ensure cipher row exists and riddle link is fresh
-          try { await API.getCipher(id); } catch { /* ignore */ }
+          try { await API.getCipher(id); } catch {}
 
           autoOpened.current.add(id);
           setCipherFragId(id);
@@ -351,18 +330,8 @@ export default function Gallery() {
         }
       }
     })();
-  }, [
-    loading,
-    showFirstFragmentNotice,
-    showAward,
-    cipherFragId,
-    fragments,
-    runesByFrag,
-    welcomeAck, 
-  ]);
-
-
-
+  }, [loading, showAward, cipherFragId, fragments, runesByFrag]);
+  
   /* ----------------------- Auto-redirect when full set ------------------ */
 
   useEffect(() => {
@@ -735,66 +704,6 @@ export default function Gallery() {
             }}
           >
             Continue
-          </button>
-          </div>
-        </div>
-      )}
-
-      {/* First-fragment welcome modal */}
-      {showFirstFragmentNotice && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0,0,0,0.8)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 9999,
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: '#2a2a2a',
-              borderRadius: 16,
-              padding: 24,
-              maxWidth: '90%',
-              width: 320,
-              textAlign: 'center',
-              color: '#fff',
-            }}
-          >
-            <h2 style={{ margin: 0, fontSize: 20 }}>Congratulations!</h2>
-            <p style={{ margin: '12px 0' }}>
-              You’ve received your first free fragment!
-            </p>
-            
-            <button
-            onClick={() => {
-              // фиксируем явное подтверждение
-              try { localStorage.setItem('firstFragmentShown', 'true'); } catch {}
-              setWelcomeAck(true);
-
-              // закрываем приветствие и открываем шифр
-              setShowFirstFragmentNotice(false);
-              autoOpened.current.add(1);
-              if (!runesByFrag[1]?.runeId && fragments.includes(1)) {
-                setCipherFragId(1);
-              }
-            }}
-            style={{
-              display: 'block',
-              margin: '16px auto 0',
-              padding: '10px 20px',
-              backgroundColor: '#D81E3D',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 20,
-              cursor: 'pointer',
-              fontSize: 16,
-            }}
-          >
-            Got it!
           </button>
           </div>
         </div>
