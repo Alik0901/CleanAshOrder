@@ -19,7 +19,7 @@ export default function CipherModal({ fragId, onClose, onCompleted }) {
   const [submitting, setSubmitting] = useState(false);
 
   // Компактная сетка цифр (умещается без скролла)
-  const GRID_BOX = 'min(72vw, 260px)';
+  const GRID_BOX = 'min(68vw, 248px)';
 
   useEffect(() => {
     let dead = false;
