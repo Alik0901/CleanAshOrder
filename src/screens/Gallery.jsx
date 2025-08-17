@@ -197,12 +197,17 @@ export default function Gallery() {
 
         const pending = readPendingNotice();
         if (pending && pending.id >= 1 && pending.id <= 8) {
-          if (!next.includes(pending.id)) next = norm([...next, pending.id]);
-          setAwardId(pending.id);
-          setAwardRarity(pending.rarity || null);
-          setShowAward(true);
+          const alreadyOwned = next.includes(Number(pending.id));
+          if (!alreadyOwned) {
+            next = norm([...next, Number(pending.id)]);
+            setAwardId(Number(pending.id));
+            setAwardRarity(pending.rarity || null);
+            setShowAward(true);
+          } else {
+            // ключ устарел — сразу удаляем, чтобы не всплывал снова
+            try { localStorage.removeItem('newFragmentNotice'); } catch {}
+          }
         }
-
         setFragments(next);
 
         // Fetch rune status for owned fragments and (optionally) their URLs.
@@ -304,14 +309,22 @@ export default function Gallery() {
 
   // Show award modal if there is a pending notice; otherwise show first-fragment welcome (once).
   useEffect(() => {
-      if (loading) return;
-      const pending = readPendingNotice();
-      if (pending && Number.isFinite(pending.id) && !showAward) {
-        setAwardId(pending.id);
-        setAwardRarity(pending.rarity || null);
-        setShowAward(true);
-      }
-    }, [loading, showAward, readPendingNotice]);
+    if (loading) return;
+    const pending = readPendingNotice();
+    if (!pending || !Number.isFinite(pending.id)) return;
+
+    const owned = fragments.includes(Number(pending.id));
+    if (owned) {
+      // если фрагмент уже в коллекции — не показываем и чистим «хвост»
+      try { localStorage.removeItem('newFragmentNotice'); } catch {}
+      return;
+    }
+    if (!showAward) {
+      setAwardId(Number(pending.id));
+      setAwardRarity(pending.rarity || null);
+      setShowAward(true);
+    }
+  }, [loading, fragments, showAward, readPendingNotice]);
 
   // Auto-open the first owned fragment without a chosen rune.
   // Works even if /cipher/all hasn't returned the row yet — we ping /cipher/:id to ensure it exists.

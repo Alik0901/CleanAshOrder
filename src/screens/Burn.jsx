@@ -131,64 +131,72 @@ export default function Burn() {
       // res: { ok, newFragment|null, cursed, pity_counter, curse_expires?, awarded_rarity? }
       if (!res) return;
 
+      // 1) Проклятие → показываем модалку и выходим
       if (res.cursed) {
-        // Show curse modal; refresh user to sync timers and flags.
         setCurseModalUntil(res.curse_expires || activeCurseUntil || null);
         try {
           if (typeof refreshUser === 'function') {
             await refreshUser({ force: true });
           }
-        } catch {
-          /* ignore */
-        }
+        } catch { /* ignore */ }
         setStage('idle');
         return;
       }
 
-      if (Number.isFinite(res.newFragment)) {
-        // Store local notice for Gallery (award banner)
-        try {
-          localStorage.setItem(
-            'newFragmentNotice',
-            JSON.stringify({
-              id: res.newFragment,
-              rarity: res.awarded_rarity || null,
-              ts: Date.now(),
-            })
-          );
-        } catch {}
+      // 2) Есть новый фрагмент?
+      const nf = Number(res.newFragment);
+      if (Number.isFinite(nf)) {
+        const owned =
+          Array.isArray(user?.fragments) &&
+          user.fragments.map(Number).includes(nf);
 
-        // Помечаем авто-показ для этого фрагмента (v4)
-        try {
-          const tg = user?.tg_id || 'anon';
-          localStorage.setItem(`autoCipherShown:v4:${tg}:${res.newFragment}`, '1');
-        } catch {}
+        // Пишем уведомление и авто-открытие ШИФРА только если фрагмент реально новый
+        if (!owned) {
+          try {
+            localStorage.setItem(
+              'newFragmentNotice',
+              JSON.stringify({
+                id: nf,
+                rarity: res.awarded_rarity || null,
+                ts: Date.now(),
+              })
+            );
+          } catch { /* ignore */ }
 
-        // Синхронизация профиля
+          try {
+            const tg = user?.tg_id || 'anon';
+            localStorage.setItem(`autoCipherShown:v4:${tg}:${nf}`, '1');
+          } catch { /* ignore */ }
+        } else {
+          // На всякий случай почистим возможный "залипший" ключ
+          try { localStorage.removeItem('newFragmentNotice'); } catch { /* ignore */ }
+        }
+
+        // Обновляем профиль
         try {
           if (typeof refreshUser === 'function') {
             await refreshUser({ force: true });
           }
         } catch { /* ignore */ }
 
-        // Открыть шифр сразу
-        setCipherFragId(res.newFragment);
+        // И сразу открываем шифр, если фрагмент новый
+        if (!owned) setCipherFragId(nf);
+
         setStage('idle');
         return;
       }
 
-      // Fallback: nothing awarded (rare edge). Refresh and return to idle.
+      // 3) Ничего не выдано (редкий кейс) → просто рефреш и в idle
       try {
         if (typeof refreshUser === 'function') {
           await refreshUser({ force: true });
         }
-      } catch {
-        /* ignore */
-      }
+      } catch { /* ignore */ }
       setStage('idle');
     },
-    [activeCurseUntil, refreshUser]
+    [activeCurseUntil, refreshUser, user?.fragments, user?.tg_id]
   );
+
 
   /* ── Start burn flow ─────────────────────────────────────────────── */
   const startBurn = useCallback(async () => {
