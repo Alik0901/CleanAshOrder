@@ -34,6 +34,12 @@ const lockPositions = [
   { left: 310, top: 221 },
 ];
 
+const ORIGIN_LEFT = 37;
+const ORIGIN_TOP  = 107;
+const TILE = 80;
+const BOARD_W = 4 * TILE; // 320
+const BOARD_H = 2 * TILE; // 160
+
 /* ----------------------------- Utilities ------------------------------ */
 
 /**
@@ -392,231 +398,208 @@ export default function Gallery() {
           Artifact repository
         </h1>
 
-        {/* Fragments grid */}
-        {slotPositions.map((pos, i) => {
-          const id = i + 1;
-          const owned = fragments.includes(id);
-
-          // Rune presentation (if the user has answered the cipher).
-          const entry = runesByFrag[id] || null;
-          const runeId = entry?.runeId ?? null;
-          const runeUrl = runeId ? runeUrls[runeId] : null;
-
-          return (
-            <React.Fragment key={id}>
-              <div
-                onClick={() => {
-                  if (!owned) return;
-
-                  // If rune not chosen yet -> open cipher for this fragment
-                  if (!runeId) {
-                    setCipherFragId(id);
-                    return;
-                  }
-
-                  // If rune chosen -> zoom rune image
-                  if (runeUrl) setZoomUrl(withTs(runeUrl));
-                }}
-                style={{
-                  position: 'absolute',
-                  left: pos.left,
-                  top: pos.top,
-                  width: 80,
-                  height: 80,
-                  border: '1px solid #808080',
-                  overflow: 'hidden',
-                  cursor: owned ? 'pointer' : 'default',
-                  zIndex: 5,
-                }}
-              >
-                {owned ? (
-                  runeUrl ? (
-                    <img
-                      src={withTs(runeUrl)}
-                      alt={`Rune for fragment ${id}`}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    />
-                  ) : (
-                    <div
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        background: 'rgba(0,0,0,0.35)',
-                        color: '#fff',
-                        fontSize: 12,
-                      }}
-                    >
-                      Solve
-                    </div>
-                  )
-                ) : null}
-              </div>
-
-              {!owned && (
-                <span
-                  style={{
-                    position: 'absolute',
-                    left: lockPositions[i].left,
-                    top: lockPositions[i].top,
-                    fontSize: 15,
-                    color: '#FFF',
-                    zIndex: 6,
-                  }}
-                >
-                  🔒
-                </span>
-              )}
-            </React.Fragment>
-          );
-        })}
-
-
-
-        {/* Legendary hint (visual placeholder) */}
+        {/* MAIN CENTER COLUMN — всё по центру */}
         <div
           style={{
-            position: 'absolute',
-            left: 37,
-            top: 289,
-            width: 320,
-            height: 21,
-            border: '1px solid #808080',
-            zIndex: 5,
-          }}
-        />
-        <span
-          style={{
-            position: 'absolute',
-            left: 142,
-            top: 291,
-            fontSize: 10,
-            color: '#FFF',
-            zIndex: 6,
-          }}
-        >
-          Legendary Hint — 5 TON
-        </span>
-
-        {/* Referral & Leaders */}
-        <div
-          onClick={() => navigate('/referral')}
-          style={{
-            position: 'absolute',
-            left: 37,
-            top: 355,
-            width: 151,
-            height: 43,
-            border: '2px solid #9D9D9D',
-            borderRadius: 30,
+            marginTop: 88, // отступ от заголовка
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            zIndex: 5,
+            gap: 18,
           }}
         >
-          <span style={{ fontSize: 20, color: '#FFF' }}>Referral</span>
-        </div>
-        <div
-          onClick={() => navigate('/leaderboard')}
-          style={{
-            position: 'absolute',
-            left: 206,
-            top: 355,
-            width: 151,
-            height: 43,
-            border: '2px solid #9D9D9D',
-            borderRadius: 30,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            zIndex: 5,
-          }}
-        >
-          <span style={{ fontSize: 20, color: '#FFF' }}>Leaders</span>
-        </div>
-
-        {/* Burn Again CTA */}
-        <div
-          onClick={() => navigate('/burn')}
-          style={{
-            position: 'absolute',
-            left: 64,
-            top: 436,
-            width: 265,
-            height: 76,
-            backgroundImage: 'linear-gradient(90deg, #D81E3D 0%, #D81E5F 100%)',
-            boxShadow: '0px 6px 6px rgba(0,0,0,0.87)',
-            borderRadius: 40,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            zIndex: 5,
-          }}
-        >
-          <span
+          {/* БОРД 320×160 с абсолютными клетками внутри */}
+          <div
             style={{
-              fontFamily: 'Tajawal, sans-serif',
-              fontWeight: 700,
-              fontSize: 24,
-              color: '#FFF',
+              position: 'relative',
+              width: BOARD_W,
+              height: BOARD_H,
+              border: '1px solid #808080',
+              zIndex: 5,
             }}
           >
-            BURN AGAIN
-          </span>
+            {slotPositions.map((pos, i) => {
+              const id = i + 1;
+              const owned = fragments.includes(id);
+
+              const entry = runesByFrag[id] || null;
+              const runeId = entry?.runeId ?? null;
+              const runeUrl = runeId ? runeUrls[runeId] : null;
+
+              // переводим глобальные координаты в локальные внутри борда
+              const left = pos.left - ORIGIN_LEFT;
+              const top  = pos.top  - ORIGIN_TOP;
+              const lockLeft = lockPositions[i].left - ORIGIN_LEFT;
+              const lockTop  = lockPositions[i].top  - ORIGIN_TOP;
+
+              return (
+                <React.Fragment key={id}>
+                  <div
+                    onClick={() => {
+                      if (!owned) return;
+                      if (!runeId) { setCipherFragId(id); return; }
+                      if (runeUrl) setZoomUrl(withTs(runeUrl));
+                    }}
+                    style={{
+                      position: 'absolute',
+                      left, top,
+                      width: TILE,
+                      height: TILE,
+                      border: '1px solid #808080',
+                      overflow: 'hidden',
+                      cursor: owned ? 'pointer' : 'default',
+                      background: owned ? 'transparent' : 'rgba(0,0,0,0.15)',
+                    }}
+                  >
+                    {owned ? (
+                      runeUrl ? (
+                        <img
+                          src={withTs(runeUrl)}
+                          alt={`Rune for fragment ${id}`}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: '100%', height: '100%',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            background: 'rgba(0,0,0,0.35)', color: '#fff', fontSize: 12
+                          }}
+                        >
+                          Solve
+                        </div>
+                      )
+                    ) : null}
+                  </div>
+
+                  {!owned && (
+                    <span
+                      style={{
+                        position: 'absolute',
+                        left: lockLeft,
+                        top: lockTop,
+                        fontSize: 15,
+                        color: '#FFF',
+                        zIndex: 6,
+                      }}
+                    >
+                      🔒
+                    </span>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </div>
+
+          {/* LEGENDARY HINT — по центру и той же ширины, что борд */}
+          <div
+            style={{
+              width: BOARD_W,
+              height: 24,
+              border: '1px solid #808080',
+              borderRadius: 10,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <span style={{ fontSize: 12, color: '#FFF' }}>Legendary Hint — 5 TON</span>
+          </div>
+
+          {/* Referral & Leaders — в строку, по центру (на ширину борда) */}
+          <div style={{ width: BOARD_W, display: 'flex', gap: 18 }}>
+            <div
+              onClick={() => navigate('/referral')}
+              style={{
+                flex: 1,
+                height: 43,
+                border: '2px solid #9D9D9D',
+                borderRadius: 30,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer',
+              }}
+            >
+              <span style={{ fontSize: 20, color: '#FFF' }}>Referral</span>
+            </div>
+            <div
+              onClick={() => navigate('/leaderboard')}
+              style={{
+                flex: 1,
+                height: 43,
+                border: '2px solid #9D9D9D',
+                borderRadius: 30,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer',
+              }}
+            >
+              <span style={{ fontSize: 20, color: '#FFF' }}>Leaders</span>
+            </div>
+          </div>
+
+          {/* BURN — по центру */}
+          <div
+            onClick={() => navigate('/burn')}
+            style={{
+              width: 265,
+              height: 76,
+              backgroundImage: 'linear-gradient(90deg, #D81E3D 0%, #D81E5F 100%)',
+              boxShadow: '0px 6px 6px rgba(0,0,0,0.87)',
+              borderRadius: 40,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer',
+            }}
+          >
+            <span
+              style={{
+                fontFamily: 'Tajawal, sans-serif',
+                fontWeight: 700,
+                fontSize: 24,
+                color: '#FFF',
+              }}
+            >
+              BURN AGAIN
+            </span>
+          </div>
+
+          {/* HOME — та же ширина, половина высоты от Burn */}
+          <button
+            onClick={() => navigate('/')}
+            title="Home"
+            style={{
+              width: 265,
+              height: 38, // половина от 76
+              border: 'none',
+              borderRadius: 20,
+              background: 'linear-gradient(90deg, #D81E3D 0%, #D81E5F 100%)',
+              color: '#fff',
+              fontWeight: 700,
+              fontSize: 16,
+              cursor: 'pointer',
+              boxShadow: '0 4px 10px rgba(0,0,0,0.35)',
+            }}
+          >
+            Home
+          </button>
+
+          {/* ABOUT — на ширину борда */}
+          <button
+            onClick={() => setShowAbout(true)}
+            style={{
+              width: BOARD_W,
+              height: 44,
+              borderRadius: 22,
+              border: '1px solid #9D9D9D',
+              background: 'rgba(0,0,0,0.35)',
+              color: '#FFF',
+              fontWeight: 700,
+              fontSize: 14,
+              cursor: 'pointer',
+            }}
+          >
+            About the Order
+          </button>
         </div>
 
-        {/* Home (under Burn) */}
-        <button
-          onClick={() => navigate('/')}
-          title="Home"
-          style={{
-            position: 'absolute',
-            left: 64,
-            top: 524,              // 436 + 76 + 12
-            width: 265,
-            height: 38,            // половина от Burn
-            border: 'none',
-           borderRadius: 20,
-            background: 'linear-gradient(90deg, #D81E3D 0%, #D81E5F 100%)',
-            color: '#fff',
-            fontWeight: 700,
-            fontSize: 16,
-            cursor: 'pointer',
-            zIndex: 5,
-            boxShadow: '0 4px 10px rgba(0,0,0,0.35)',
-          }}
-        >
-          Home
-        </button>
-
-        {/* About modal trigger */}
-        <button
-          onClick={() => setShowAbout(true)}
-          style={{
-            position: 'absolute',
-            left: 22,
-            top: 582,
-            width: 349,
-            height: 44,
-            borderRadius: 22,
-            border: '1px solid #9D9D9D',
-            background: 'rgba(0,0,0,0.35)',
-            color: '#FFF',
-            fontWeight: 700,
-            fontSize: 14,
-            zIndex: 5,
-            cursor: 'pointer',
-          }}
-        >
-          About the Order
-        </button>
-      </div>
 
       {/* Zoom Modal (fragment or rune) */}
       {zoomUrl && (
