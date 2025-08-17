@@ -317,339 +317,349 @@ export default function Burn() {
     }
   }, [answer, handleServerResult, invoiceId, task]);
 
-  /* ── Render ──────────────────────────────────────────────────────── */
-  return (
-    <div style={{ position: 'relative', width: '100%', height: '100vh' }}>
-      {/* Background Layer */}
-      <div
-        aria-hidden="true"
-        style={{
-          position: 'absolute',
-          inset: 0,
-          backgroundImage: "url('/images/bg-burn.webp')",
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        }}
-      />
-      <div
-        aria-hidden="true"
-        style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)' }}
-      />
-      
-      {/* Title */}
+/* ── Render ─────────────────────────────────────────────────────────── */
+return (
+  <div style={{ position: 'relative', width: '100%', minHeight: '100dvh', overflow: 'hidden' }}>
+    {/* Фон */}
+    <div
+      aria-hidden="true"
+      style={{
+        position: 'absolute',
+        inset: 0,
+        backgroundImage: "url('/images/bg-burn.webp')",
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }}
+    />
+    <div aria-hidden="true" style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.56)' }} />
+
+    {/* Канва под iPhone 14/15 Pro: 393×800, все элементы в абсолюте */}
+    <div style={{ position: 'relative', width: 393, height: 800, margin: '0 auto' }}>
+      {/* Заголовок */}
       <h1
         style={{
-          position: 'absolute',
-          top: 25,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          fontFamily: 'Tajawal, sans-serif',
-          fontWeight: 700,
-          fontSize: 40,
-          lineHeight: '48px',
-          color: '#D6CEBD',
-          zIndex: 5,
-          whiteSpace: 'nowrap',
+          position: 'absolute', left: 79, top: 45, width: 235, height: 48,
           margin: 0,
+          fontFamily: 'Tajawal, sans-serif',
+          fontWeight: 700, fontSize: 40, lineHeight: '48px',
+          color: '#9E9191',
+          textAlign: 'center',
         }}
       >
         Burn Yourself
       </h1>
 
-      {/* Active curse banner */}
-      {activeCurseUntil && (
-        <div
-          role="status"
-          aria-live="polite"
-          style={{
-            position: 'absolute',
-            top: 80,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            background: 'rgba(0,0,0,0.6)',
-            color: '#fff',
-            border: '1px solid #9E9191',
-            padding: '8px 12px',
-            borderRadius: 12,
-            zIndex: 6,
-            whiteSpace: 'nowrap',
-          }}
-        >
-          You are cursed. Time left: <Countdown to={activeCurseUntil} />
-        </div>
-      )}
-
-      {/* Primary CTAs */}
+      {/* --- Блок редкостей как в макете --- */}
+      {/* Подпись "Element rarity" */}
       <div
         style={{
-          position: 'absolute',
-          top: 100,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          zIndex: 5,
-          width: 320,
-          textAlign: 'center',
+          position: 'absolute', left: 46, top: 115, width: 127, height: 24,
+          fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, lineHeight: '24px',
+          color: '#9E9191',
         }}
       >
-        {error && (
-          <div role="alert" style={{ color: 'tomato', marginBottom: 12 }}>
-            {error}
-          </div>
-        )}
+        Element rarity
+      </div>
+      {/* Иконки редкостей (левая колонка) */}
+      <img
+        src="/images/icons/legendary.png"
+        alt="Legendary"
+        draggable={false}
+        style={{
+          position: 'absolute',
+          left: 34, top: 149,  // рядом со строкой Legendary
+          width: 44, height: 56,
+          objectFit: 'contain',
+          pointerEvents: 'none',
+          zIndex: 2,
+        }}
+      />
 
-        <button
-          onClick={startBurn}
-          disabled={burnDisabled}
-          style={{
-            width: 280,
-            height: 50,
-            background: burnDisabled
-              ? 'linear-gradient(90deg,#777,#555)'
-              : 'linear-gradient(90deg,#D81E3D 0%, #D81E5F 100%)',
-            border: 'none',
-            borderRadius: 30,
-            color: '#fff',
-            fontWeight: 700,
-            fontSize: 18,
-            cursor: burnDisabled ? 'not-allowed' : 'pointer',
-            opacity: burnDisabled ? 0.7 : 1,
-          }}
-          title={
-            !hasTutorial
-              ? 'Collect fragments #1–#3 to unlock burns'
-              : isCursed
-              ? 'You are cursed right now'
-              : ''
-          }
-        >
-          {loading || stage === 'awaiting' ? 'Processing…' : 'Start Burn'}
-        </button>
+      <img
+        src="/images/icons/rare.png"
+        alt="Rare"
+        draggable={false}
+        style={{
+          position: 'absolute',
+          left: 26, top: 215,  // рядом со строкой Rare
+          width: 60, height: 60,
+          objectFit: 'contain',
+          pointerEvents: 'none',
+          zIndex: 2,
+        }}
+      />
 
-        <button
-          onClick={() => navigate('/gallery')}
-          style={{
-            marginTop: 40,
-            width: 280,
-            height: 50,
-            background: 'linear-gradient(90deg, #777 0%, #555 100%)',
-            border: 'none',
-            borderRadius: 30,
-            color: '#fff',
-            fontWeight: 700,
-            fontSize: 18,
-            cursor: 'pointer',
-          }}
-        >
-          Back to Gallery
-        </button>
+      <img
+        src="/images/icons/uncommon.png"
+        alt="Uncommon"
+        draggable={false}
+        style={{
+          position: 'absolute',
+          left: 26, top: 285,  // рядом со строкой Uncommon
+          width: 59, height: 59,
+          objectFit: 'contain',
+          pointerEvents: 'none',
+          zIndex: 2,
+        }}
+      />
+
+      <img
+        src="/images/icons/common.png"
+        alt="Common"
+        draggable={false}
+        style={{
+          position: 'absolute',
+          left: 18, top: 353,  // рядом со строкой Common
+          width: 74, height: 74,
+          objectFit: 'contain',
+          pointerEvents: 'none',
+          zIndex: 2,
+        }}
+      />
+
+      {/* Строка 1 — Legendary / 5% */}
+      <div style={{ position: 'absolute', left: 102, top: 149, width: 193, height: 58, border: '1px solid #979696', borderRadius: 16 }} />
+      <div style={{ position: 'absolute', left: 306, top: 149, width: 58, height: 58, border: '1px solid #979696', borderRadius: 16 }} />
+      <div style={{ position: 'absolute', left: 151, top: 170, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, color: '#9E9191' }}>
+        Legendary
+      </div>
+      <div style={{ position: 'absolute', left: 322, top: 170, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, color: '#9E9191' }}>
+        5%
       </div>
 
-      {/* Awaiting payment overlay */}
-      {stage === 'awaiting' && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Waiting for payment"
-          style={{
-            position: 'absolute',
-            inset: 0,
-            backgroundColor: 'rgba(0,0,0,0.6)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 10,
-          }}
-        >
-          <span style={{ color: '#fff', fontSize: 18 }}>Waiting for payment…</span>
-        </div>
-      )}
+      {/* Строка 2 — Rare / 15% */}
+      <div style={{ position: 'absolute', left: 102, top: 218, width: 193, height: 58, border: '1px solid #979696', borderRadius: 16 }} />
+      <div style={{ position: 'absolute', left: 306, top: 218, width: 58, height: 58, border: '1px solid #979696', borderRadius: 16 }} />
+      <div style={{ position: 'absolute', left: 152, top: 239, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, color: '#9E9191' }}>
+        Rare
+      </div>
+      <div style={{ position: 'absolute', left: 318, top: 239, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, color: '#9E9191' }}>
+        15%
+      </div>
 
-      {/* Task (mini-quest) overlay */}
-      {stage === 'task' && task && (
+      {/* Строка 3 — Uncommon / 30% */}
+      <div style={{ position: 'absolute', left: 102, top: 287, width: 193, height: 58, border: '1px solid #979696', borderRadius: 16 }} />
+      <div style={{ position: 'absolute', left: 306, top: 287, width: 58, height: 58, border: '1px solid #979696', borderRadius: 16 }} />
+      <div style={{ position: 'absolute', left: 152, top: 305, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, color: '#9E9191' }}>
+        Uncommon
+      </div>
+      <div style={{ position: 'absolute', left: 316, top: 308, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, color: '#9E9191' }}>
+        30%
+      </div>
+
+      {/* Строка 4 — Common / 50% */}
+      <div style={{ position: 'absolute', left: 102, top: 356, width: 193, height: 58, border: '1px solid #979696', borderRadius: 16 }} />
+      <div style={{ position: 'absolute', left: 306, top: 356, width: 58, height: 58, border: '1px solid #979696', borderRadius: 16 }} />
+      <div style={{ position: 'absolute', left: 151, top: 377, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, color: '#9E9191' }}>
+        Common
+      </div>
+      <div style={{ position: 'absolute', left: 316, top: 374, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, color: '#9E9191' }}>
+        50%
+      </div>
+
+      {/* CTA: Burn */}
+      <button
+        onClick={startBurn}
+        disabled={burnDisabled}
+        style={{
+          position: 'absolute', left: 70, top: 480, width: 265, height: 76,
+          border: 'none',
+          background: burnDisabled
+            ? 'linear-gradient(90deg, #777, #555)'
+            : 'linear-gradient(90deg, #D81E3D 0%, #D81E5F 100%)',
+          boxShadow: '0px 6px 6px rgba(0,0,0,0.87)',
+          borderRadius: 40,
+          color: '#fff',
+          fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 24,
+          cursor: burnDisabled ? 'default' : 'pointer',
+          opacity: burnDisabled ? 0.7 : 1,
+        }}
+        title={
+          !hasTutorial
+            ? 'Collect fragments #1–#3 to unlock burns'
+            : isCursed
+            ? 'You are cursed right now'
+            : ''
+        }
+      >
+        {loading || stage === 'awaiting' ? 'Processing…' : 'BURN 0,5 TON'}
+      </button>
+
+      {/* Secondary: To Gallery */}
+      <button
+        onClick={() => navigate('/gallery')}
+        style={{
+          position: 'absolute', left: 70, top: 572, width: 265, height: 37,
+          border: '1px solid #C2C2C2',
+          borderRadius: 40,
+          background: 'transparent',
+          color: '#fff',
+          fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 14,
+          filter: 'drop-shadow(0px 6px 6px rgba(0, 0, 0, 0.87))',
+          cursor: 'pointer',
+        }}
+      >
+        To Gallery
+      </button>
+
+      {/* Предупреждение */}
+      <div
+        style={{
+          position: 'absolute', left: 46, top: 682, width: 318, height: 53,
+          fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 15, lineHeight: '18px',
+          color: '#9E9191', textAlign: 'center',
+        }}
+      >
+        Please ensure you send exactly 0.5 TON when making your payment.
+        Transactions for any other amount may be lost.
+      </div>
+
+      {/* Можно подключить маленькие картинки-иконки в левой колонке (из макета),
+          если они у тебя лежат в /images — просто добавь <img> в нужные координаты. */}
+    </div>
+
+    {/* Оверлеи логики — как было в твоей версии */}
+    {stage === 'awaiting' && (
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Waiting for payment"
+        style={{
+          position: 'absolute', inset: 0,
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 10,
+        }}
+      >
+        <span style={{ color: '#fff', fontSize: 18 }}>Waiting for payment…</span>
+      </div>
+    )}
+
+    {stage === 'task' && task && (
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Complete the quest to finish the burn"
+        style={{
+          position: 'absolute', inset: 0,
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 20,
+        }}
+      >
         <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Complete the quest to finish the burn"
           style={{
-            position: 'absolute',
-            inset: 0,
-            backgroundColor: 'rgba(0,0,0,0.6)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 20,
+            width: 320, background: 'rgba(0,0,0,0.6)',
+            border: '1px solid #9E9191', color: '#fff',
+            borderRadius: 16, padding: 16,
           }}
         >
-          <div
+          <p style={{ margin: '0 0 12px', fontFamily: 'Tajawal, sans-serif', fontWeight: 700 }}>
+            {task.params?.question || 'Solve the quest to complete the burn:'}
+          </p>
+
+          {getOptions(task).length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {getOptions(task).map((opt) => (
+                <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    name="burn-quiz"
+                    value={opt}
+                    onChange={(e) => setAnswer(e.target.value)}
+                  />
+                  <span>{opt}</span>
+                </label>
+              ))}
+            </div>
+          ) : (
+            <input
+              type="text"
+              placeholder="Enter your answer"
+              value={answer}
+              onChange={(e) => setAnswer(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') submitQuest(); }}
+              autoFocus
+              style={{
+                width: '100%', height: 40, padding: '0 12px',
+                borderRadius: 10, border: '1px solid #9E9191',
+                background: '#161616', color: '#fff',
+              }}
+            />
+          )}
+
+          {error && <div style={{ color: 'tomato', marginTop: 10 }}>{error}</div>}
+
+          <button
+            onClick={submitQuest}
+            disabled={!answer || submitting}
             style={{
-              width: 320,
-              background: 'rgba(0,0,0,0.6)',
-              border: '1px solid #9E9191',
-              color: '#fff',
-              borderRadius: 16,
-              padding: 16,
+              marginTop: 16, width: '100%', height: 44,
+              background: 'linear-gradient(90deg,#D81E3D 0%, #D81E5F 100%)',
+              border: 'none', borderRadius: 10, color: '#fff',
+              fontWeight: 700, cursor: !answer || submitting ? 'default' : 'pointer',
+              opacity: !answer || submitting ? 0.6 : 1,
             }}
           >
-            <p
-              style={{
-                margin: '0 0 12px',
-                fontFamily: 'Tajawal, sans-serif',
-                fontWeight: 700,
-              }}
-            >
-              {task.params?.question || 'Solve the quest to complete the burn:'}
-            </p>
-
-            {getOptions(task).length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {getOptions(task).map((opt) => (
-                  <label
-                    key={opt}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <input
-                      type="radio"
-                      name="burn-quiz"
-                      value={opt}
-                      onChange={(e) => setAnswer(e.target.value)}
-                    />
-                    <span>{opt}</span>
-                  </label>
-                ))}
-              </div>
-            ) : (
-              <input
-                type="text"
-                placeholder="Enter your answer"
-                value={answer}
-                onChange={(e) => setAnswer(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') submitQuest();
-                }}
-                autoFocus
-                style={{
-                  width: '100%',
-                  height: 40,
-                  padding: '0 12px',
-                  borderRadius: 10,
-                  border: '1px solid #9E9191',
-                  background: '#161616',
-                  color: '#fff',
-                }}
-              />
-            )}
-
-            {error && <div style={{ color: 'tomato', marginTop: 10 }}>{error}</div>}
-
-            <button
-              onClick={submitQuest}
-              disabled={!answer || submitting}
-              style={{
-                marginTop: 16,
-                width: '100%',
-                height: 44,
-                background: 'linear-gradient(90deg,#D81E3D 0%, #D81E5F 100%)',
-                border: 'none',
-                borderRadius: 10,
-                color: '#fff',
-                fontWeight: 700,
-                cursor: !answer || submitting ? 'default' : 'pointer',
-                opacity: !answer || submitting ? 0.6 : 1,
-              }}
-            >
-              {submitting ? 'Submitting…' : 'Complete Burn'}
-            </button>
-          </div>
+            {submitting ? 'Submitting…' : 'Complete Burn'}
+          </button>
         </div>
-      )}
+      </div>
+    )}
 
-      {/* Fresh-curse modal */}
-      {curseModalUntil && (
+    {curseModalUntil && (
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="You are cursed"
+        style={{
+          position: 'absolute', inset: 0,
+          background: 'rgba(0,0,0,0.78)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 30,
+        }}
+      >
         <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="You are cursed"
           style={{
-            position: 'absolute',
-            inset: 0,
-            background: 'rgba(0,0,0,0.78)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 30,
+            width: 320, background: '#2a2a2a', color: '#fff',
+            border: '1px solid #9E9191', borderRadius: 16, padding: 16, textAlign: 'center',
           }}
         >
-          <div
+          <h3 style={{ margin: '0 0 10px' }}>You are cursed</h3>
+          <p style={{ margin: '0 0 6px' }}>The ritual failed. No fragment was granted.</p>
+          <p style={{ margin: '0 0 12px' }}>
+            Time left:{' '}
+            <strong><Countdown to={curseModalUntil} /></strong>
+          </p>
+          <button
+            onClick={async () => {
+              setCurseModalUntil(null);
+              try { if (typeof refreshUser === 'function') await refreshUser({ force: true }); } catch {}
+            }}
             style={{
-              width: 320,
-              background: '#2a2a2a',
-              color: '#fff',
-              border: '1px solid #9E9191',
-              borderRadius: 16,
-              padding: 16,
-              textAlign: 'center',
+              width: '100%', height: 44,
+              background: 'linear-gradient(90deg,#D81E3D 0%, #D81E5F 100%)',
+              border: 'none', borderRadius: 10, color: '#fff', fontWeight: 700, cursor: 'pointer',
             }}
           >
-            <h3 style={{ margin: '0 0 10px' }}>You are cursed</h3>
-            <p style={{ margin: '0 0 6px' }}>
-              The ritual failed. No fragment was granted.
-            </p>
-            <p style={{ margin: '0 0 12px' }}>
-              Time left:{' '}
-              <strong>
-                <Countdown to={curseModalUntil} />
-              </strong>
-            </p>
-            <button
-              onClick={async () => {
-                setCurseModalUntil(null);
-                try {
-                  if (typeof refreshUser === 'function') {
-                    await refreshUser({ force: true });
-                  }
-                } catch {
-                  /* ignore */
-                }
-              }}
-              style={{
-                width: '100%',
-                height: 44,
-                background: 'linear-gradient(90deg,#D81E3D 0%, #D81E5F 100%)',
-                border: 'none',
-                borderRadius: 10,
-                color: '#fff',
-                fontWeight: 700,
-                cursor: 'pointer',
-              }}
-            >
-              OK
-            </button>
-          </div>
+            OK
+          </button>
         </div>
-      )}
+      </div>
+    )}
 
-      {/* Cipher modal after awarding a fragment */}
-      {cipherFragId && (
+    {cipherFragId && (
       <CipherModal
-        key={cipherFragId}        // <— ДОБАВИЛИ ключ
+        key={cipherFragId}
         fragId={cipherFragId}
         onClose={() => setCipherFragId(null)}
         onCompleted={async () => {
-          try {
-            if (typeof refreshUser === 'function') {
-              await refreshUser({ force: true });
-            }
-          } catch { /* ignore */ }
+          try { if (typeof refreshUser === 'function') await refreshUser({ force: true }); } catch {}
           setCipherFragId(null);
           navigate('/gallery');
         }}
       />
-     )}
-    </div>
-  );
+    )}
+  </div>
+);
 }
