@@ -337,29 +337,45 @@ return (
     <div style={{ position: 'relative', width: 393, height: 800, margin: '0 auto' }}>
       {/* Заголовок */}
       <h1
-        style={{
-          position: 'absolute', left: 79, top: 45, width: 235, height: 48,
-          margin: 0,
-          fontFamily: 'Tajawal, sans-serif',
-          fontWeight: 700, fontSize: 40, lineHeight: '48px',
-          color: '#9E9191',
-          textAlign: 'center',
-        }}
-      >
-        Burn Yourself
-      </h1>
+      style={{
+        position: 'absolute',
+        top: 36,
+        left: '50%',
+        transform: 'translateX(-50%)',
+        margin: 0,
+        fontFamily: 'Tajawal, sans-serif',
+        fontWeight: 700,
+        fontSize: 32,           // было 40
+        lineHeight: '40px',
+        color: '#9E9191',
+        whiteSpace: 'nowrap',   // запрет переносов
+        textAlign: 'center',
+        zIndex: 2,
+      }}
+    >
+      Burn Yourself
+    </h1>
+
 
       {/* --- Блок редкостей как в макете --- */}
       {/* Подпись "Element rarity" */}
       <div
         style={{
-          position: 'absolute', left: 46, top: 115, width: 127, height: 24,
-          fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, lineHeight: '24px',
+          position: 'absolute',
+          left: 46,
+          top: 120,               // было 115
+          width: 127,
+          height: 24,
+          fontFamily: 'Tajawal, sans-serif',
+          fontWeight: 700,
+          fontSize: 20,
+          lineHeight: '24px',
           color: '#9E9191',
         }}
       >
         Element rarity
       </div>
+
       {/* Иконки редкостей (левая колонка) */}
       <img
         src="/images/icons/legendary.png"
@@ -420,7 +436,7 @@ return (
       {/* Строка 1 — Legendary / 5% */}
       <div style={{ position: 'absolute', left: 102, top: 149, width: 193, height: 58, border: '1px solid #979696', borderRadius: 16 }} />
       <div style={{ position: 'absolute', left: 306, top: 149, width: 58, height: 58, border: '1px solid #979696', borderRadius: 16 }} />
-      <div style={{ position: 'absolute', left: 151, top: 170, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, color: '#9E9191' }}>
+      <div style={{ position:'absolute', left:151, top:170, fontFamily:'Tajawal, sans-serif', fontWeight:700, fontSize:20, color:'#9E9191', whiteSpace:'nowrap' }}>
         Legendary
       </div>
       <div style={{ position: 'absolute', left: 322, top: 170, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, color: '#9E9191' }}>
@@ -430,7 +446,7 @@ return (
       {/* Строка 2 — Rare / 15% */}
       <div style={{ position: 'absolute', left: 102, top: 218, width: 193, height: 58, border: '1px solid #979696', borderRadius: 16 }} />
       <div style={{ position: 'absolute', left: 306, top: 218, width: 58, height: 58, border: '1px solid #979696', borderRadius: 16 }} />
-      <div style={{ position: 'absolute', left: 152, top: 239, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, color: '#9E9191' }}>
+      <div style={{ position:'absolute', left:152, top:239, fontFamily:'Tajawal, sans-serif', fontWeight:700, fontSize:20, color:'#9E9191', whiteSpace:'nowrap' }}>
         Rare
       </div>
       <div style={{ position: 'absolute', left: 318, top: 239, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, color: '#9E9191' }}>
@@ -440,7 +456,7 @@ return (
       {/* Строка 3 — Uncommon / 30% */}
       <div style={{ position: 'absolute', left: 102, top: 287, width: 193, height: 58, border: '1px solid #979696', borderRadius: 16 }} />
       <div style={{ position: 'absolute', left: 306, top: 287, width: 58, height: 58, border: '1px solid #979696', borderRadius: 16 }} />
-      <div style={{ position: 'absolute', left: 152, top: 305, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, color: '#9E9191' }}>
+      <div style={{ position:'absolute', left:152, top:305, fontFamily:'Tajawal, sans-serif', fontWeight:700, fontSize:20, color:'#9E9191', whiteSpace:'nowrap' }}>
         Uncommon
       </div>
       <div style={{ position: 'absolute', left: 316, top: 308, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, color: '#9E9191' }}>
@@ -450,7 +466,7 @@ return (
       {/* Строка 4 — Common / 50% */}
       <div style={{ position: 'absolute', left: 102, top: 356, width: 193, height: 58, border: '1px solid #979696', borderRadius: 16 }} />
       <div style={{ position: 'absolute', left: 306, top: 356, width: 58, height: 58, border: '1px solid #979696', borderRadius: 16 }} />
-      <div style={{ position: 'absolute', left: 151, top: 377, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, color: '#9E9191' }}>
+      <div style={{ position:'absolute', left:151, top:377, fontFamily:'Tajawal, sans-serif', fontWeight:700, fontSize:20, color:'#9E9191', whiteSpace:'nowrap' }}>
         Common
       </div>
       <div style={{ position: 'absolute', left: 316, top: 374, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, color: '#9E9191' }}>
