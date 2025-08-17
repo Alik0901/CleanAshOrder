@@ -1,7 +1,6 @@
 // src/screens/Referral.jsx
 import React, { useEffect, useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import BackButton from '../components/BackButton';
 import API from '../utils/apiClient';
 import { AuthContext } from '../context/AuthContext';
 
@@ -22,7 +21,6 @@ export default function Referral() {
       try {
         const res = await API.getReferral();
         if (!mounted) return;
-        // API возвращает именно { refCode, invitedCount, rewardIssued }
         setRefCode(res.refCode ?? res.ref_code ?? res.code ?? '');
         setInvitedCount(Number(res.invitedCount ?? res.invite_count ?? res.count ?? 0));
         setRewardIssued(Boolean(res.rewardIssued ?? res.reward_issued ?? false));
@@ -72,10 +70,28 @@ export default function Referral() {
       <div style={{ position:'absolute', inset:0, backgroundImage:"url('/images/bg-path.webp')", backgroundSize:'cover', backgroundPosition:'center' }} />
       <div style={{ position:'absolute', inset:0, background:'rgba(0,0,0,0.5)' }} />
 
-      <BackButton style={{ position:'absolute', top:16, left:16, zIndex:5, color:'#fff' }} />
+      {/* Title (centered) */}
+      <h1
+        style={{
+          position:'absolute',
+          top:25,
+          left:'50%',
+          transform:'translateX(-50%)',
+          fontFamily:'Tajawal, sans-serif',
+          fontWeight:700,
+          fontSize:36,
+          lineHeight:'44px',
+          color:'#D6CEBD',
+          zIndex:5,
+          whiteSpace:'nowrap',
+          margin:0,
+          textAlign:'center',
+        }}
+      >
+        Referrals
+      </h1>
 
-      <h1 style={{ position:'absolute', top:25, left:41, fontSize:36, fontWeight:700, color:'#D6CEBD', zIndex:5 }}>Referral</h1>
-
+      {/* Card */}
       <div style={{ position:'absolute', top:120, left:'50%', transform:'translateX(-50%)', width:320, background:'rgba(0,0,0,0.6)', border:'1px solid #9E9191', color:'#fff', borderRadius:16, padding:16, zIndex:5 }}>
         {error && <div style={{ color:'tomato', marginBottom:8 }}>{error}</div>}
 
@@ -102,6 +118,31 @@ export default function Referral() {
           {claiming ? 'Claiming…' : rewardIssued ? 'Already claimed' : 'Claim Fragment #2'}
         </button>
       </div>
+
+      {/* Home button (bottom) */}
+      <button
+        onClick={() => navigate('/')}
+        title="Home"
+        style={{
+          position:'absolute',
+          left:'50%',
+          transform:'translateX(-50%)',
+          bottom:24,
+          zIndex:6,
+          width:280,
+          height:50,
+          border:'none',
+          borderRadius:30,
+          background:'linear-gradient(90deg, #D81E3D 0%, #D81E5F 100%)',
+          color:'#fff',
+          fontWeight:700,
+          fontSize:18,
+          cursor:'pointer',
+          boxShadow:'0 6px 12px rgba(0,0,0,0.4)',
+        }}
+      >
+        Home
+      </button>
     </div>
   );
 }
