@@ -385,7 +385,7 @@ export default function Gallery() {
         {/* Title */}
         <h1
           style={{
-            margin: '20px 0 8px',
+            margin: '20px 0 24px',
             textAlign: 'center',
             whiteSpace: 'nowrap',            // не переносить в две строки
             fontSize: 'clamp(22px, 6.5vw, 30px)',
@@ -505,7 +505,7 @@ export default function Gallery() {
           </div>
 
           {/* Referral & Leaders — в строку, по центру (на ширину борда) */}
-          <div style={{ width: BOARD_W, display: 'flex', gap: 18 }}>
+          <div style={{ width: BOARD_W, display: 'flex', gap: 18, marginTop: 16 }}>
             <div
               onClick={() => navigate('/referral')}
               style={{
