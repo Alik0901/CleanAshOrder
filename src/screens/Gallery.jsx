@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useContext, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import BackButton from '../components/BackButton';
 import { AuthContext } from '../context/AuthContext';
 import API from '../utils/apiClient';
 import CipherModal from '../components/CipherModal';
@@ -374,34 +373,6 @@ export default function Gallery() {
           minHeight: '100vh',
         }}
       >
-        {/* Back + Home */}
-        <BackButton
-          style={{ position: 'absolute', top: 16, left: 16, zIndex: 5 }}
-        />
-
-        <button
-          onClick={() => navigate('/')}
-          title="Home"
-          style={{
-            position: 'absolute',
-            top: 16,
-            right: 16,
-            zIndex: 5,
-            height: 36,
-            padding: '0 14px',
-            border: 'none',
-            borderRadius: 18,
-            background: 'linear-gradient(90deg, #D81E3D 0%, #D81E5F 100%)',
-            color: '#fff',
-            fontWeight: 700,
-            fontSize: 14,
-            cursor: 'pointer',
-            boxShadow: '0 4px 10px rgba(0,0,0,0.35)',
-          }}
-        >
-          Home
-        </button>
-
         {/* Title */}
         <h1
           style={{
@@ -596,13 +567,37 @@ export default function Gallery() {
           </span>
         </div>
 
+        {/* Home (under Burn) */}
+        <button
+          onClick={() => navigate('/')}
+          title="Home"
+          style={{
+            position: 'absolute',
+            left: 64,
+            top: 524,              // 436 + 76 + 12
+            width: 265,
+            height: 38,            // половина от Burn
+            border: 'none',
+           borderRadius: 20,
+            background: 'linear-gradient(90deg, #D81E3D 0%, #D81E5F 100%)',
+            color: '#fff',
+            fontWeight: 700,
+            fontSize: 16,
+            cursor: 'pointer',
+            zIndex: 5,
+            boxShadow: '0 4px 10px rgba(0,0,0,0.35)',
+          }}
+        >
+          Home
+        </button>
+
         {/* About modal trigger */}
         <button
           onClick={() => setShowAbout(true)}
           style={{
             position: 'absolute',
             left: 22,
-            top: 542,
+            top: 582,
             width: 349,
             height: 44,
             borderRadius: 22,
