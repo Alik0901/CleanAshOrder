@@ -182,77 +182,63 @@ export default function Gallery() {
   //  2) apply optimistic "newFragmentNotice"
   //  3) fetch rune map + rune URLs (includeUrls=1)
   useEffect(() => {
-    if (!user?.tg_id) return;
+  if (!user?.tg_id) return;
 
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      setError('');
+  let cancelled = false;
+  (async () => {
+    setLoading(true);
+    setError('');
 
-      try {
-        const { fragments: frFromApi } = await API.getFragments(user.tg_id);
-        if (cancelled) return;
+    try {
+      const { fragments: frFromApi } = await API.getFragments(user.tg_id);
+      if (cancelled) return;
 
-        let next = norm([...(frFromApi || []), ...(user?.fragments || [])]);
+      // -> Берём только реальные фрагменты
+      const next = norm([...(frFromApi || []), ...(user?.fragments || [])]);
+      setFragments(next);
 
-        const pending = readPendingNotice();
-        if (pending && pending.id >= 1 && pending.id <= 8) {
-          const alreadyOwned = next.includes(Number(pending.id));
-          if (!alreadyOwned) {
-            next = norm([...next, Number(pending.id)]);
-            setAwardId(Number(pending.id));
-            setAwardRarity(pending.rarity || null);
-            setShowAward(true);
-          } else {
-            // ключ устарел — сразу удаляем, чтобы не всплывал снова
-            try { localStorage.removeItem('newFragmentNotice'); } catch {}
-          }
+      // Покажем баннер награды (без симуляции владения)
+      const pending = readPendingNotice();
+      if (pending && pending.id >= 1 && pending.id <= 8) {
+        setAwardId(pending.id);
+        setAwardRarity(pending.rarity || null);
+        setShowAward(true);
+
+        // Санити-чистка: если pending не совпал с реальностью — не мешаемся дальше
+        if (!next.includes(pending.id)) {
+          try { /* оставить notice до клика — ок */ } catch {}
         }
-        setFragments(next);
-
-        // Fetch rune status for owned fragments and (optionally) their URLs.
-        try {
-          const data = await API.getCipherAll(true); // -> { byFragment, urls }
-          if (data?.byFragment) setRunesByFrag(data.byFragment);
-          if (data?.urls) {
-            setRuneUrls((prev) => ({ ...prev, ...data.urls }));
-            lastRuneUrlsRefresh.current = Date.now();
-          }
-        } catch {}
-      } catch (e) {
-        const msg = String(e?.message || '').toLowerCase();
-        if (msg.includes('invalid token')) {
-          logout();
-          navigate('/login');
-        } else {
-          setError(e?.message || 'Failed to load');
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
       }
-    })();
 
-    return () => { cancelled = true; };
-  }, [user?.tg_id, user?.fragments, readPendingNotice, logout, navigate]);
+      // Rune map + signed URLs
+      try {
+        const data = await API.getCipherAll(true);
+        if (data?.byFragment) setRunesByFrag(data.byFragment);
+        if (data?.urls) {
+          setRuneUrls((prev) => ({ ...prev, ...data.urls }));
+          lastRuneUrlsRefresh.current = Date.now();
+        }
+      } catch {}
+    } catch (e) {
+      const msg = String(e?.message || '').toLowerCase();
+      if (msg.includes('invalid token')) { logout(); navigate('/login'); }
+      else setError(e?.message || 'Failed to load');
+    } finally {
+      if (!cancelled) setLoading(false);
+    }
+  })();
+
+  return () => { cancelled = true; };
+}, [user?.tg_id, user?.fragments, readPendingNotice, logout, navigate]);
 
   /* ---------------------- React to user.fragments ----------------------- */
 
   // Sync gallery when user.fragments changes + merge optimistic pending notice.
   useEffect(() => {
-  const next = (() => {
-    let arr = norm(user?.fragments || []);
-    const pending = readPendingNotice();
-    if (pending && pending.id >= 1 && pending.id <= 8 && !arr.includes(pending.id)) {
-      arr = norm([...arr, pending.id]);
-    }
-    return arr;
-  })();
-
-  if (!same(next, fragments)) {
-    setFragments(next);
-  }
+  const next = norm(user?.fragments || []);
+  if (!same(next, fragments)) setFragments(next);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.fragments, readPendingNotice]);
+  }, [user?.fragments]);
 
   /* -------------------- Refresh rune map when fragments ----------------- */
 
@@ -640,7 +626,7 @@ export default function Gallery() {
         </div>
       )}
 
-      {/* Award modal (shows rarity if provided) */}
+            {/* Award modal (shows rarity if provided) */}
       {showAward && awardId && (
         <div
           style={{
@@ -676,28 +662,38 @@ export default function Gallery() {
             <p style={{ margin: '0 0 12px' }}>A new piece joins your collection.</p>
 
             <button
-            onClick={() => {
-              setShowAward(false);
-              setAwardRarity(null);
-              if (awardId) autoOpened.current.add(awardId); // помечаем в сессии
-              if (awardId && !(runesByFrag[awardId]?.runeId)) {
-                setCipherFragId(awardId);
-              }
-              try { localStorage.removeItem('newFragmentNotice'); } catch {}
-            }}
-            style={{
-              width: '100%',
-              height: 44,
-              background: 'linear-gradient(90deg,#D81E3D 0%, #D81E5F 100%)',
-              border: 'none',
-              borderRadius: 10,
-              color: '#fff',
-              fontWeight: 700,
-              cursor: 'pointer',
-            }}
-          >
-            Continue
-          </button>
+              onClick={async () => {
+                setShowAward(false);
+                setAwardRarity(null);
+                try { localStorage.removeItem('newFragmentNotice'); } catch {}
+
+                // Проверяем реальное владение прежде чем открывать шифр
+                let canOpen = awardId ? fragments.includes(awardId) : false;
+                try {
+                  const { fragments: fresh } = await API.getFragments(user?.tg_id);
+                  if (Array.isArray(fresh)) {
+                    const owns = fresh.map(Number).includes(Number(awardId));
+                    if (owns) canOpen = true;
+                  }
+                } catch { /* ignore */ }
+
+                if (canOpen && awardId && !(runesByFrag[awardId]?.runeId)) {
+                  setCipherFragId(awardId);
+                }
+              }}
+              style={{
+                width: '100%',
+                height: 44,
+                background: 'linear-gradient(90deg,#D81E3D 0%, #D81E5F 100%)',
+                border: 'none',
+                borderRadius: 10,
+                color: '#fff',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              Continue
+            </button>
           </div>
         </div>
       )}
@@ -770,34 +766,35 @@ export default function Gallery() {
 
       {/* Cipher dialog for picking a rune (when user clicks a fragment without a rune yet) */}
       {cipherFragId && (
-      <CipherModal
-        key={cipherFragId}
-        fragId={cipherFragId}
-        onClose={async () => {
-          setCipherFragId(null);
-          try {
-            const data = await API.getCipherAll(true);
-            if (data?.byFragment) setRunesByFrag(data.byFragment);
-            if (data?.urls) {
-              setRuneUrls((prev) => ({ ...prev, ...data.urls }));
-              lastRuneUrlsRefresh.current = Date.now();
-            }
-          } catch {}
-        }}
-        onCompleted={async () => {
-        autoOpened.current.add(cipherFragId); // теперь у фрагмента есть руна
-        setCipherFragId(null);
-        try {
-          const data = await API.getCipherAll(true);
-          if (data?.byFragment) setRunesByFrag(data.byFragment);
-          if (data?.urls) {
-            setRuneUrls((prev) => ({ ...prev, ...data.urls }));
-            lastRuneUrlsRefresh.current = Date.now();
-          }
-        } catch {}
-      }}
-      />
-    )}
+        <CipherModal
+          key={cipherFragId}
+          fragId={cipherFragId}
+          onClose={async () => {
+            setCipherFragId(null);
+            try {
+              const data = await API.getCipherAll(true);
+              if (data?.byFragment) setRunesByFrag(data.byFragment);
+              if (data?.urls) {
+                setRuneUrls((prev) => ({ ...prev, ...data.urls }));
+                lastRuneUrlsRefresh.current = Date.now();
+              }
+            } catch {}
+          }}
+          onCompleted={async () => {
+            autoOpened.current.add(cipherFragId);
+            setCipherFragId(null);
+            try {
+              const data = await API.getCipherAll(true);
+              if (data?.byFragment) setRunesByFrag(data.byFragment);
+              if (data?.urls) {
+                setRuneUrls((prev) => ({ ...prev, ...data.urls }));
+                lastRuneUrlsRefresh.current = Date.now();
+              }
+            } catch {}
+          }}
+        />
+      )}
+
     </div>
   </div> 
   );
