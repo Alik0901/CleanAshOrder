@@ -385,7 +385,7 @@ export default function Gallery() {
         {/* Title */}
         <h1
           style={{
-            margin: '20px 0 24px',
+            margin: '20px 0 44px',
             textAlign: 'center',
             whiteSpace: 'nowrap',            // не переносить в две строки
             fontSize: 'clamp(22px, 6.5vw, 30px)',
