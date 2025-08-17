@@ -83,6 +83,10 @@ export default function Gallery() {
 
   // First-fragment welcome modal.
   const [showFirstFragmentNotice, setShowFirstFragmentNotice] = useState(false);
+  const [welcomeAck, setWelcomeAck] = useState(() => {
+    try { return localStorage.getItem('firstFragmentShown') === 'true'; }
+    catch { return false; }
+  });
 
   // Award modal state (new fragment after burn).
   const [awardId, setAwardId] = useState(null);
@@ -320,9 +324,8 @@ export default function Gallery() {
       return; // don't show welcome simultaneously
     }
 
-    if (fragments.includes(1) && localStorage.getItem('firstFragmentShown') !== 'true') {
+    if (fragments.includes(1) && !welcomeAck) {
       setShowFirstFragmentNotice(true);
-      try { localStorage.setItem('firstFragmentShown', 'true'); } catch {}
     }
   }, [loading, fragments, showAward, readPendingNotice]);
 
@@ -355,6 +358,7 @@ export default function Gallery() {
     cipherFragId,
     fragments,
     runesByFrag,
+    welcomeAck, 
   ]);
 
 
@@ -767,13 +771,16 @@ export default function Gallery() {
             
             <button
             onClick={() => {
+              // фиксируем явное подтверждение
+              try { localStorage.setItem('firstFragmentShown', 'true'); } catch {}
+              setWelcomeAck(true);
+
+              // закрываем приветствие и открываем шифр
               setShowFirstFragmentNotice(false);
-              // Открываем в следующий тик, чтобы первый оверлей точно размонтировался
-              setTimeout(() => {
-                if (!runesByFrag[1]?.runeId && fragments.includes(1)) {
-                  setCipherFragId(1);
-                }
-              }, 0);
+              autoOpened.current.add(1);
+              if (!runesByFrag[1]?.runeId && fragments.includes(1)) {
+                setCipherFragId(1);
+              }
             }}
             style={{
               display: 'block',
