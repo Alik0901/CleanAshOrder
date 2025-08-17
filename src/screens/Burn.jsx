@@ -334,151 +334,106 @@ return (
     <div aria-hidden="true" style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.56)' }} />
 
     {/* Канва под iPhone 14/15 Pro: 393×800, все элементы в абсолюте */}
-    <div style={{ position: 'relative', width: 393, height: 800, margin: '0 auto' }}>
+    <div style={{ position: 'relative', width: 393, height: 800, margin: '0 auto', overflow: 'hidden' }}>
       {/* Заголовок */}
       <h1
-      style={{
-        position: 'absolute',
-        top: 36,
-        left: '50%',
-        transform: 'translateX(-50%)',
-        margin: 0,
-        fontFamily: 'Tajawal, sans-serif',
-        fontWeight: 700,
-        fontSize: 32,           // было 40
-        lineHeight: '40px',
-        color: '#9E9191',
-        whiteSpace: 'nowrap',   // запрет переносов
-        textAlign: 'center',
-        zIndex: 2,
-      }}
-    >
-      Burn Yourself
-    </h1>
+        style={{
+          position: 'absolute',
+          top: 36,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          margin: 0,
+          fontFamily: 'Tajawal, sans-serif',
+          fontWeight: 700,
+          fontSize: 32,            // было 40
+          lineHeight: '40px',
+          color: '#9E9191',
+          whiteSpace: 'nowrap',
+          textAlign: 'center',
+          zIndex: 2,
+        }}
+      >
+        Burn Yourself
+      </h1>
 
-
-      {/* --- Блок редкостей как в макете --- */}
-      {/* Подпись "Element rarity" */}
+      {/* Подпись "Element rarity" — по центру и меньше, чтобы не наезжала на иконки */}
       <div
         style={{
           position: 'absolute',
-          left: 46,
-          top: 120,               // было 115
-          width: 127,
-          height: 24,
+          top: 112,                // было 115, немного выше
+          left: '50%',
+          transform: 'translateX(-50%)',
           fontFamily: 'Tajawal, sans-serif',
           fontWeight: 700,
-          fontSize: 20,
-          lineHeight: '24px',
+          fontSize: 16,            // было 20
+          lineHeight: '20px',
           color: '#9E9191',
+          whiteSpace: 'nowrap',
         }}
       >
         Element rarity
       </div>
 
       {/* Иконки редкостей (левая колонка) */}
-      <img
-        src="/images/icons/legendary.png"
-        alt="Legendary"
-        draggable={false}
-        style={{
-          position: 'absolute',
-          left: 34, top: 149,  // рядом со строкой Legendary
-          width: 44, height: 56,
-          objectFit: 'contain',
-          pointerEvents: 'none',
-          zIndex: 2,
-        }}
-      />
+      <img src="/images/icons/legendary.png" alt="Legendary" draggable={false}
+          style={{ position: 'absolute', left: 34, top: 149, width: 44, height: 56, objectFit: 'contain', pointerEvents: 'none', zIndex: 2 }} />
+      <img src="/images/icons/rare.png" alt="Rare" draggable={false}
+          style={{ position: 'absolute', left: 26, top: 215, width: 60, height: 60, objectFit: 'contain', pointerEvents: 'none', zIndex: 2 }} />
+      <img src="/images/icons/uncommon.png" alt="Uncommon" draggable={false}
+          style={{ position: 'absolute', left: 26, top: 285, width: 59, height: 59, objectFit: 'contain', pointerEvents: 'none', zIndex: 2 }} />
+      <img src="/images/icons/common.png" alt="Common" draggable={false}
+          style={{ position: 'absolute', left: 18, top: 353, width: 74, height: 74, objectFit: 'contain', pointerEvents: 'none', zIndex: 2 }} />
 
-      <img
-        src="/images/icons/rare.png"
-        alt="Rare"
-        draggable={false}
-        style={{
-          position: 'absolute',
-          left: 26, top: 215,  // рядом со строкой Rare
-          width: 60, height: 60,
-          objectFit: 'contain',
-          pointerEvents: 'none',
-          zIndex: 2,
-        }}
-      />
-
-      <img
-        src="/images/icons/uncommon.png"
-        alt="Uncommon"
-        draggable={false}
-        style={{
-          position: 'absolute',
-          left: 26, top: 285,  // рядом со строкой Uncommon
-          width: 59, height: 59,
-          objectFit: 'contain',
-          pointerEvents: 'none',
-          zIndex: 2,
-        }}
-      />
-
-      <img
-        src="/images/icons/common.png"
-        alt="Common"
-        draggable={false}
-        style={{
-          position: 'absolute',
-          left: 18, top: 353,  // рядом со строкой Common
-          width: 74, height: 74,
-          objectFit: 'contain',
-          pointerEvents: 'none',
-          zIndex: 2,
-        }}
-      />
-
-      {/* Строка 1 — Legendary / 5% */}
-      <div style={{ position: 'absolute', left: 102, top: 149, width: 193, height: 58, border: '1px solid #979696', borderRadius: 16 }} />
-      <div style={{ position: 'absolute', left: 306, top: 149, width: 58, height: 58, border: '1px solid #979696', borderRadius: 16 }} />
-      <div style={{ position:'absolute', left:151, top:170, fontFamily:'Tajawal, sans-serif', fontWeight:700, fontSize:20, color:'#9E9191', whiteSpace:'nowrap' }}>
+      {/* Строка 1 — Legendary / 5% (сжали высоту и поправили выравнивание текста) */}
+      <div style={{ position: 'absolute', left: 102, top: 149, width: 193, height: 54, border: '1px solid #979696', borderRadius: 16 }} />
+      <div style={{ position: 'absolute', left: 306, top: 149, width: 58, height: 54, border: '1px solid #979696', borderRadius: 16 }} />
+      <div style={{ position: 'absolute', left: 151, top: 164, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 18, color: '#9E9191', whiteSpace: 'nowrap' }}>
         Legendary
       </div>
-      <div style={{ position: 'absolute', left: 322, top: 170, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, color: '#9E9191' }}>
+      <div style={{ position: 'absolute', left: 322, top: 164, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 18, color: '#9E9191', whiteSpace: 'nowrap' }}>
         5%
       </div>
 
       {/* Строка 2 — Rare / 15% */}
-      <div style={{ position: 'absolute', left: 102, top: 218, width: 193, height: 58, border: '1px solid #979696', borderRadius: 16 }} />
-      <div style={{ position: 'absolute', left: 306, top: 218, width: 58, height: 58, border: '1px solid #979696', borderRadius: 16 }} />
-      <div style={{ position:'absolute', left:152, top:239, fontFamily:'Tajawal, sans-serif', fontWeight:700, fontSize:20, color:'#9E9191', whiteSpace:'nowrap' }}>
+      <div style={{ position: 'absolute', left: 102, top: 214, width: 193, height: 54, border: '1px solid #979696', borderRadius: 16 }} />
+      <div style={{ position: 'absolute', left: 306, top: 214, width: 58, height: 54, border: '1px solid #979696', borderRadius: 16 }} />
+      <div style={{ position: 'absolute', left: 152, top: 233, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 18, color: '#9E9191', whiteSpace: 'nowrap' }}>
         Rare
       </div>
-      <div style={{ position: 'absolute', left: 318, top: 239, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, color: '#9E9191' }}>
+      <div style={{ position: 'absolute', left: 318, top: 233, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 18, color: '#9E9191', whiteSpace: 'nowrap' }}>
         15%
       </div>
 
       {/* Строка 3 — Uncommon / 30% */}
-      <div style={{ position: 'absolute', left: 102, top: 287, width: 193, height: 58, border: '1px solid #979696', borderRadius: 16 }} />
-      <div style={{ position: 'absolute', left: 306, top: 287, width: 58, height: 58, border: '1px solid #979696', borderRadius: 16 }} />
-      <div style={{ position:'absolute', left:152, top:305, fontFamily:'Tajawal, sans-serif', fontWeight:700, fontSize:20, color:'#9E9191', whiteSpace:'nowrap' }}>
+      <div style={{ position: 'absolute', left: 102, top: 280, width: 193, height: 54, border: '1px solid #979696', borderRadius: 16 }} />
+      <div style={{ position: 'absolute', left: 306, top: 280, width: 58, height: 54, border: '1px solid #979696', borderRadius: 16 }} />
+      <div style={{ position: 'absolute', left: 152, top: 302, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 18, color: '#9E9191', whiteSpace: 'nowrap' }}>
         Uncommon
       </div>
-      <div style={{ position: 'absolute', left: 316, top: 308, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, color: '#9E9191' }}>
+      <div style={{ position: 'absolute', left: 316, top: 302, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 18, color: '#9E9191', whiteSpace: 'nowrap' }}>
         30%
       </div>
 
       {/* Строка 4 — Common / 50% */}
-      <div style={{ position: 'absolute', left: 102, top: 356, width: 193, height: 58, border: '1px solid #979696', borderRadius: 16 }} />
-      <div style={{ position: 'absolute', left: 306, top: 356, width: 58, height: 58, border: '1px solid #979696', borderRadius: 16 }} />
-      <div style={{ position:'absolute', left:151, top:377, fontFamily:'Tajawal, sans-serif', fontWeight:700, fontSize:20, color:'#9E9191', whiteSpace:'nowrap' }}>
+      <div style={{ position: 'absolute', left: 102, top: 346, width: 193, height: 54, border: '1px solid #979696', borderRadius: 16 }} />
+      <div style={{ position: 'absolute', left: 306, top: 346, width: 58, height: 54, border: '1px solid #979696', borderRadius: 16 }} />
+      <div style={{ position: 'absolute', left: 151, top: 371, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 18, color: '#9E9191', whiteSpace: 'nowrap' }}>
         Common
       </div>
-      <div style={{ position: 'absolute', left: 316, top: 374, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 20, color: '#9E9191' }}>
+      <div style={{ position: 'absolute', left: 316, top: 371, fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 18, color: '#9E9191', whiteSpace: 'nowrap' }}>
         50%
       </div>
 
-      {/* CTA: Burn */}
+      {/* CTA: Burn — чуть выше, чтобы убрать прокрутку */}
       <button
         onClick={startBurn}
         disabled={burnDisabled}
         style={{
-          position: 'absolute', left: 70, top: 480, width: 265, height: 76,
+          position: 'absolute',
+          left: 70,
+          top: 455,                 // было 480
+          width: 265,
+          height: 76,
           border: 'none',
           background: burnDisabled
             ? 'linear-gradient(90deg, #777, #555)'
@@ -486,53 +441,65 @@ return (
           boxShadow: '0px 6px 6px rgba(0,0,0,0.87)',
           borderRadius: 40,
           color: '#fff',
-          fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 24,
+          fontFamily: 'Tajawal, sans-serif',
+          fontWeight: 700,
+          fontSize: 24,
           cursor: burnDisabled ? 'default' : 'pointer',
           opacity: burnDisabled ? 0.7 : 1,
         }}
         title={
-          !hasTutorial
-            ? 'Collect fragments #1–#3 to unlock burns'
-            : isCursed
-            ? 'You are cursed right now'
-            : ''
+          !hasTutorial ? 'Collect fragments #1–#3 to unlock burns'
+          : isCursed ? 'You are cursed right now'
+          : ''
         }
       >
         {loading || stage === 'awaiting' ? 'Processing…' : 'BURN 0,5 TON'}
       </button>
 
-      {/* Secondary: To Gallery */}
+      {/* Secondary: To Gallery — ближе к кнопке */}
       <button
         onClick={() => navigate('/gallery')}
         style={{
-          position: 'absolute', left: 70, top: 572, width: 265, height: 37,
+          position: 'absolute',
+          left: 70,
+          top: 540,                 // было 572
+          width: 265,
+          height: 37,
           border: '1px solid #C2C2C2',
           borderRadius: 40,
           background: 'transparent',
           color: '#fff',
-          fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 14,
-          filter: 'drop-shadow(0px 6px 6px rgba(0, 0, 0, 0.87))',
+          fontFamily: 'Tajawal, sans-serif',
+          fontWeight: 700,
+          fontSize: 14,
+          filter: 'drop-shadow(0px 6px 6px rgba(0,0,0,0.87))',
           cursor: 'pointer',
         }}
       >
         To Gallery
       </button>
 
-      {/* Предупреждение */}
+      {/* Предупреждение — компактнее и выше */}
       <div
         style={{
-          position: 'absolute', left: 46, top: 682, width: 318, height: 53,
-          fontFamily: 'Tajawal, sans-serif', fontWeight: 700, fontSize: 15, lineHeight: '18px',
-          color: '#9E9191', textAlign: 'center',
+          position: 'absolute',
+          left: 46,
+          top: 632,                 // было 682
+          width: 318,
+          height: 48,
+          fontFamily: 'Tajawal, sans-serif',
+          fontWeight: 700,
+          fontSize: 14,             // было 15
+          lineHeight: '17px',
+          color: '#9E9191',
+          textAlign: 'center',
         }}
       >
         Please ensure you send exactly 0.5 TON when making your payment.
         Transactions for any other amount may be lost.
       </div>
-
-      {/* Можно подключить маленькие картинки-иконки в левой колонке (из макета),
-          если они у тебя лежат в /images — просто добавь <img> в нужные координаты. */}
     </div>
+
 
     {/* Оверлеи логики — как было в твоей версии */}
     {stage === 'awaiting' && (
