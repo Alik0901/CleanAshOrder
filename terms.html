@@ -1,0 +1,6 @@
+We use Content Posting API to automate publishing of prepared video content
+from our content pipeline to TikTok accounts. 
+The videos are pre-rendered with captions, subtitles, and audio, then scheduled 
+in our database. The app uploads the video via /video/upload and publishes 
+via /video/publish. Scope user.info.basic is used only to get the user ID 
+to post content. No other personal data is processed.
